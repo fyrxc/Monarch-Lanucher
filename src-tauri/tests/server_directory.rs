@@ -1,4 +1,4 @@
-use monarch_launcher::servers::parse_directory_json;
+use monarch_launcher::servers::{parse_directory, parse_directory_json};
 
 #[test]
 fn maps_dzsa_rows_and_preserves_required_workshop_ids() {
@@ -90,6 +90,73 @@ fn skips_malformed_rows_deduplicates_and_sorts_populated_servers_first() {
     assert_eq!(servers.len(), 2);
     assert_eq!(servers[0].name, "High");
     assert_eq!(servers[1].name, "Low");
+}
+
+#[test]
+fn applies_safe_defaults_and_deduplicates_workshop_ids() {
+    let json = r#"
+    {
+      "status": 0,
+      "result": [
+        {
+          "name": "Defaults",
+          "players": 0,
+          "maxPlayers": 60,
+          "map": "",
+          "mods": [
+            { "steamWorkshopId": "1559212036" },
+            { "steamWorkshopId": 1559212036 },
+            { "steamWorkshopId": 0 },
+            { "steamWorkshopId": "" }
+          ],
+          "endpoint": { "ip": "10.0.0.1" },
+          "gamePort": 2302
+        }
+      ]
+    }
+    "#;
+
+    let result = parse_directory(json).expect("parse directory");
+    let server = result.servers.first().expect("one server");
+
+    assert_eq!(server.map, "DayZ");
+    assert_eq!(server.query_port, 2303);
+    assert_eq!(server.id, "10.0.0.1:2302");
+    assert_eq!(server.required_workshop_ids, vec!["1559212036"]);
+    assert!(!result.is_partial);
+    assert!(result.warning.is_none());
+}
+
+#[test]
+fn malformed_individual_rows_are_skipped_and_reported_as_partial() {
+    let json = r#"
+    {
+      "status": 0,
+      "result": [
+        {
+          "name": "Bad players",
+          "players": "many",
+          "maxPlayers": 60,
+          "endpoint": { "ip": "10.0.0.2", "port": 2403 },
+          "gamePort": 2402
+        },
+        {
+          "name": "Good",
+          "players": 7,
+          "maxPlayers": 60,
+          "endpoint": { "ip": "10.0.0.3", "port": 2503 },
+          "gamePort": 2502
+        }
+      ]
+    }
+    "#;
+
+    let result = parse_directory(json).expect("parse directory");
+
+    assert_eq!(result.servers.len(), 1);
+    assert_eq!(result.servers[0].name, "Good");
+    assert!(result.is_partial);
+    assert!(result.warning.as_deref().unwrap_or_default().contains('1'));
 }
 
 #[test]

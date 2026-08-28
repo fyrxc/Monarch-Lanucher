@@ -4,7 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { LauncherApi } from "../lib/api";
 import { tauriApi } from "../lib/api";
 import { filterServers, type ServerFilters } from "../lib/filters";
-import type { DayzServer, LauncherSettings, SystemStatus } from "../lib/models";
+import type {
+  DayzServer,
+  InstalledMod,
+  LauncherSettings,
+  SystemStatus,
+} from "../lib/models";
 import { serverIdentity } from "../lib/server-id";
 import { Navigation, type LauncherView } from "./navigation";
 import { ServerFiltersPanel } from "./server-filters";
@@ -41,10 +46,12 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   const [servers, setServers] = useState<DayzServer[]>([]);
   const [favorites, setFavorites] = useState<DayzServer[]>([]);
   const [recent, setRecent] = useState<DayzServer[]>([]);
+  const [installedMods, setInstalledMods] = useState<InstalledMod[]>([]);
   const [filters, setFilters] = useState<ServerFilters>(emptyFilters);
   const [settings, setSettings] = useState<LauncherSettings>(emptySettings);
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [loadingServers, setLoadingServers] = useState(true);
+  const [loadingMods, setLoadingMods] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [joiningId, setJoiningId] = useState<string | null>(null);
@@ -82,6 +89,18 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     }
   }, [api]);
 
+  const loadInstalledMods = useCallback(async () => {
+    setLoadingMods(true);
+    setActionError(null);
+    try {
+      setInstalledMods(await api.getInstalledMods());
+    } catch (error) {
+      setActionError(errorMessage(error));
+    } finally {
+      setLoadingMods(false);
+    }
+  }, [api]);
+
   useEffect(() => {
     void loadServers();
     void loadFavorites();
@@ -92,6 +111,10 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
       void loadRecent();
     }
 
+    if (activeView === "Mods") {
+      void loadInstalledMods();
+    }
+
     if (activeView === "Settings") {
       void Promise.all([api.getSettings(), api.getSystemStatus()])
         .then(([nextSettings, status]) => {
@@ -100,7 +123,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
         })
         .catch((error) => setActionError(errorMessage(error)));
     }
-  }, [activeView, api, loadRecent]);
+  }, [activeView, api, loadInstalledMods, loadRecent]);
 
   const favoriteIds = useMemo(
     () => new Set(favorites.map((server) => serverIdentity(server))),
@@ -246,6 +269,45 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     );
   }
 
+  function renderMods() {
+    return (
+      <>
+        <div className="view-toolbar">
+          <div>
+            <h1>Mods</h1>
+            <p>Installed DayZ Workshop content detected from your Steam libraries.</p>
+          </div>
+          <button
+            className="ghost-button"
+            disabled={loadingMods}
+            onClick={() => void loadInstalledMods()}
+            type="button"
+          >
+            {loadingMods ? "Scanning..." : "Refresh"}
+          </button>
+        </div>
+
+        {loadingMods ? (
+          <div className="loading-state">Scanning Steam Workshop folders...</div>
+        ) : installedMods.length === 0 ? (
+          <div className="empty-state">No installed DayZ Workshop mods were detected.</div>
+        ) : (
+          <div className="mods-list" aria-label="Installed DayZ Workshop mods">
+            {installedMods.map((mod) => (
+              <article className="mod-card" key={mod.workshopId}>
+                <div className="mod-card-main">
+                  <strong>{mod.name}</strong>
+                  <span>Workshop ID {mod.workshopId}</span>
+                </div>
+                <code>{mod.path}</code>
+              </article>
+            ))}
+          </div>
+        )}
+      </>
+    );
+  }
+
   function renderSettings() {
     return (
       <>
@@ -325,7 +387,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
           <div className="brand-mark">M</div>
           <div>
             <strong>MONARCH</strong>
-            <span>DAYZ LANUCHER</span>
+            <span>DAYZ LAUNCHER</span>
           </div>
         </div>
         <Navigation active={activeView} onSelect={setActiveView} />
@@ -339,17 +401,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
         {activeView === "Servers" ? renderServers() : null}
         {activeView === "Favorites" ? renderCollection("Favorites", favorites) : null}
         {activeView === "Recent" ? renderCollection("Recent", recent) : null}
-        {activeView === "Mods" ? (
-          <>
-            <div className="view-toolbar">
-              <div>
-                <h1>Mods</h1>
-                <p>Installed Workshop content and server sync.</p>
-              </div>
-            </div>
-            <div className="empty-state">Workshop management is added in Phase 2.</div>
-          </>
-        ) : null}
+        {activeView === "Mods" ? renderMods() : null}
         {activeView === "Settings" ? renderSettings() : null}
       </main>
     </div>

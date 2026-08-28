@@ -1,4 +1,4 @@
-name: Build Monarch Lanucher Update
+name: Release Monarch Launcher
 
 on:
   push:
@@ -11,80 +11,143 @@ permissions:
 
 concurrency:
   group: monarch-launcher-release
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   release:
     runs-on: windows-latest
-    defaults:
-      run:
-        working-directory: MonarchLauncher
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup .NET 8
-        uses: actions/setup-dotnet@v4
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
         with:
-          dotnet-version: '8.0.x'
+          node-version: '22'
 
-      - name: Configure updater repository
+      - name: Install frontend dependencies
         shell: pwsh
         run: |
-          $parts = $env:GITHUB_REPOSITORY.Split('/')
-          $path = '.\src\MonarchLauncher.App\launcher-settings.json'
-          $config = Get-Content $path -Raw | ConvertFrom-Json
-          $config.githubOwner = $parts[0]
-          $config.githubRepository = $parts[1]
-          $config | ConvertTo-Json -Depth 4 | Set-Content $path -Encoding UTF8
+          if (Test-Path package-lock.json) {
+            npm ci
+          } else {
+            npm install
+          }
 
-      - name: Resolve automatic version
+      - name: Typecheck frontend
+        run: npm run typecheck
+
+      - name: Test frontend
+        run: npm test
+
+      - name: Build static frontend
+        run: npm run build:web
+
+      - name: Setup Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Rust format check
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+
+      - name: Rust clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+
+      - name: Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: Resolve release version
         shell: pwsh
         run: |
-          [xml]$project = Get-Content '.\src\MonarchLauncher.App\MonarchLauncher.App.csproj'
-          $baseVersion = [string]$project.Project.PropertyGroup.Version
-          if ([string]::IsNullOrWhiteSpace($baseVersion)) { $baseVersion = '0.3.0' }
-          $parts = $baseVersion.Split('.')
-          if ($parts.Length -lt 2) { throw "Project Version must contain at least major.minor." }
-          $version = "$($parts[0]).$($parts[1]).$env:GITHUB_RUN_NUMBER"
+          $version = node .\scripts\resolve-version.mjs $env:GITHUB_RUN_NUMBER
           "MONARCH_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
           "MONARCH_TAG=v$version" | Out-File -FilePath $env:GITHUB_ENV -Append
-          Write-Host "Publishing $version"
+          Write-Host "Publishing Monarch Launcher $version"
 
-      - name: Restore
-        run: dotnet restore .\MonarchLauncher.sln
-
-      - name: Test
-        run: dotnet test .\MonarchLauncher.sln -c Release --no-restore
-
-      - name: Publish launcher
+      - name: Configure release version and updater artifacts
         shell: pwsh
         run: |
-          dotnet publish .\src\MonarchLauncher.App\MonarchLauncher.App.csproj -c Release -r win-x64 --self-contained false -p:Version=$env:MONARCH_VERSION -o .\artifacts\MonarchLauncher-win-x64
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $path = '.\src-tauri\tauri.conf.json'
+          $config = Get-Content $path -Raw | ConvertFrom-Json
+          $config.version = $env:MONARCH_VERSION
+          $config.bundle | Add-Member -NotePropertyName createUpdaterArtifacts -NotePropertyValue $true -Force
+          $config | ConvertTo-Json -Depth 20 | Set-Content $path -Encoding UTF8
 
-      - name: Publish updater
+      - name: Validate updater signing configuration
+        shell: pwsh
+        env:
+          MONARCH_UPDATER_PUBLIC_KEY: ${{ vars.MONARCH_UPDATER_PUBLIC_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:MONARCH_UPDATER_PUBLIC_KEY)) {
+            throw 'Repository variable MONARCH_UPDATER_PUBLIC_KEY is required.'
+          }
+          if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY)) {
+            throw 'Repository secret TAURI_SIGNING_PRIVATE_KEY is required.'
+          }
+          if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD)) {
+            throw 'Repository secret TAURI_SIGNING_PRIVATE_KEY_PASSWORD is required.'
+          }
+
+      - name: Build signed NSIS installer and updater artifact
+        shell: pwsh
+        env:
+          MONARCH_UPDATER_PUBLIC_KEY: ${{ vars.MONARCH_UPDATER_PUBLIC_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npm run tauri build -- --bundles nsis
+
+      - name: Stage release files
         shell: pwsh
         run: |
-          dotnet publish .\src\MonarchLauncher.Updater\MonarchLauncher.Updater.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o .\artifacts\updater-temp
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          Copy-Item .\artifacts\updater-temp\MonarchLauncher.Updater.exe .\artifacts\MonarchLauncher-win-x64\MonarchLauncher.Updater.exe -Force
+          $installer = Get-ChildItem '.\src-tauri\target\release\bundle\nsis\*-setup.exe' | Select-Object -First 1
+          if (-not $installer) { throw 'NSIS setup executable was not produced.' }
 
-      - name: Package
+          $signaturePath = "$($installer.FullName).sig"
+          if (-not (Test-Path $signaturePath)) { throw 'Signed updater artifact was not produced.' }
+
+          New-Item -ItemType Directory -Force '.\release' | Out-Null
+          Copy-Item $installer.FullName '.\release\MonarchLauncher-Setup.exe' -Force
+          Copy-Item $signaturePath '.\release\MonarchLauncher-Setup.exe.sig' -Force
+
+          $signature = (Get-Content '.\release\MonarchLauncher-Setup.exe.sig' -Raw).Trim()
+          "MONARCH_SIGNATURE=$signature" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "MONARCH_RELEASE_URL=https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:MONARCH_TAG/MonarchLauncher-Setup.exe" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "MONARCH_NOTES=Monarch Launcher $env:MONARCH_VERSION" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Generate updater metadata
+        run: node .\scripts\make-latest-json.mjs
+
+      - name: Verify release contents
         shell: pwsh
         run: |
-          Compress-Archive -Path .\artifacts\MonarchLauncher-win-x64\* -DestinationPath .\artifacts\MonarchLanucher-win-x64.zip -CompressionLevel Optimal
+          $expected = @(
+            'MonarchLauncher-Setup.exe',
+            'MonarchLauncher-Setup.exe.sig',
+            'latest.json'
+          )
+          $actual = Get-ChildItem '.\release' -File | Select-Object -ExpandProperty Name | Sort-Object
+          $missing = $expected | Where-Object { $_ -notin $actual }
+          if ($missing) { throw "Missing release files: $($missing -join ', ')" }
+          Get-ChildItem '.\release' -File | Format-Table Name,Length
 
-      - name: Create GitHub Release
+      - name: Publish GitHub Release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view "$env:MONARCH_TAG" *> $null
-          if ($LASTEXITCODE -eq 0) {
-            gh release delete "$env:MONARCH_TAG" --yes --cleanup-tag
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          }
-          gh release create "$env:MONARCH_TAG" ".\artifacts\MonarchLanucher-win-x64.zip" --title "$env:MONARCH_TAG" --generate-notes
+          gh release create $env:MONARCH_TAG `
+            '.\release\MonarchLauncher-Setup.exe' `
+            '.\release\MonarchLauncher-Setup.exe.sig' `
+            '.\release\latest.json' `
+            --title $env:MONARCH_TAG `
+            --generate-notes `
+            --latest
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

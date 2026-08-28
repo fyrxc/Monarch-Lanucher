@@ -29,6 +29,16 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"]
+    "targets": ["nsis"],
+    "icon": ["icons/icon.ico"],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico",
+        "startMenuFolder": "Monarch Launcher",
+        "installerHooks": "./windows/hooks.nsh"
+      }
+    }
   }
 }

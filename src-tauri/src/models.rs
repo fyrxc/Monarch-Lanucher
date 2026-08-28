@@ -51,3 +51,11 @@ pub struct InstalledMod {
     pub name: String,
     pub path: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ModSyncPlan {
+    pub required: Vec<String>,
+    pub installed: Vec<InstalledMod>,
+    pub missing: Vec<String>,
+}

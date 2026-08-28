@@ -15,11 +15,11 @@ public sealed class SteamMasterServerDirectoryService : IServerDirectoryService
     private static readonly TimeSpan MasterTimeout = TimeSpan.FromSeconds(4);
     private static readonly TimeSpan QueryTimeout = TimeSpan.FromMilliseconds(1400);
 
-    public async Task<IReadOnlyList<DayZServer>> GetServersAsync(CancellationToken cancellationToken = default)
+    public async Task<ServerDirectoryResult> GetServersAsync(CancellationToken cancellationToken = default)
     {
         var endpoints = await QueryMasterAsync(cancellationToken);
         if (endpoints.Count == 0)
-            return Array.Empty<DayZServer>();
+            return new ServerDirectoryResult(Array.Empty<DayZServer>());
 
         using var semaphore = new SemaphoreSlim(36);
         var tasks = endpoints.Select(async endpoint =>
@@ -40,13 +40,15 @@ public sealed class SteamMasterServerDirectoryService : IServerDirectoryService
         }).ToArray();
 
         var rows = await Task.WhenAll(tasks);
-        return rows
+        var servers = rows
             .Where(server => server is not null)
             .Select(server => server!)
             .OrderByDescending(server => server.Players)
             .ThenBy(server => server.Ping)
             .Take(MaxResults)
             .ToArray();
+
+        return new ServerDirectoryResult(servers);
     }
 
     private static async Task<IReadOnlyList<IPEndPoint>> QueryMasterAsync(CancellationToken cancellationToken)

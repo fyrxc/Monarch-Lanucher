@@ -20,10 +20,10 @@ public partial class App : Application
         {
             Timeout = TimeSpan.FromSeconds(30)
         };
-        _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("MonarchLanucher", "0.3"));
+        _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("MonarchLanucher", "0.4"));
         _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-        var serverDirectoryService = new SteamMasterServerDirectoryService();
+        var serverDirectoryService = new DzsaServerDirectoryService(_httpClient);
         var launchService = new SteamDayZLaunchService();
         var updateService = new GitHubUpdateService(_httpClient, settings);
         var viewModel = new MainWindowViewModel(serverDirectoryService, launchService, updateService);

@@ -60,9 +60,7 @@ fn adds_verified_workshop_mod_paths_in_server_required_order() {
     let args = build_launch_args_with_mods(&target, &settings, &installed)
         .expect("build mod-aware launch args");
 
-    assert!(args
-        .iter()
-        .any(|arg| arg == r"-mod=C:\mods\20;C:\mods\10"));
+    assert!(args.iter().any(|arg| arg == r"-mod=C:\mods\20;C:\mods\10"));
 }
 
 #[test]

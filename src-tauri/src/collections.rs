@@ -50,8 +50,7 @@ impl CollectionsStore {
     pub fn record_recent(&self, server: &DayzServer) -> Result<(), String> {
         let mut data = self.load()?;
         let identity = server_identity(server);
-        data.recent
-            .retain(|item| server_identity(item) != identity);
+        data.recent.retain(|item| server_identity(item) != identity);
         data.recent.insert(0, server.clone());
         data.recent.truncate(RECENT_LIMIT);
         self.save(&data)
@@ -90,7 +89,11 @@ impl CollectionsStore {
 
 fn server_identity(server: &DayzServer) -> String {
     if server.id.trim().is_empty() {
-        format!("{}:{}", server.ip.trim().to_ascii_lowercase(), server.game_port)
+        format!(
+            "{}:{}",
+            server.ip.trim().to_ascii_lowercase(),
+            server.game_port
+        )
     } else {
         server.id.trim().to_string()
     }

@@ -58,10 +58,7 @@ async fn dzsa_provider_rejects_non_success_http_status() {
     let endpoint = serve_once("503 Service Unavailable", "service unavailable");
     let provider = DzsaServerDirectory::with_endpoint(endpoint).expect("provider");
 
-    let error = provider
-        .fetch_servers()
-        .await
-        .expect_err("503 should fail");
+    let error = provider.fetch_servers().await.expect_err("503 should fail");
 
     assert!(error.to_string().contains("503"));
 }

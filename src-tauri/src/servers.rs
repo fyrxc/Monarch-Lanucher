@@ -1,7 +1,68 @@
 use crate::models::{DayzServer, ServerDirectoryResult};
+use async_trait::async_trait;
+use reqwest::{Client, Url};
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashSet;
+use std::time::Duration;
+
+const DZSA_DIRECTORY_ENDPOINT: &str = "https://dayzsalauncher.com/api/v1/launcher/servers/dayz";
+
+#[async_trait]
+pub trait ServerDirectory: Send + Sync {
+    async fn fetch_servers(&self) -> Result<ServerDirectoryResult, String>;
+}
+
+#[derive(Clone, Debug)]
+pub struct DzsaServerDirectory {
+    client: Client,
+    endpoint: Url,
+}
+
+impl DzsaServerDirectory {
+    pub fn new() -> Result<Self, String> {
+        Self::with_endpoint(DZSA_DIRECTORY_ENDPOINT.to_string())
+    }
+
+    pub fn with_endpoint(endpoint: String) -> Result<Self, String> {
+        let endpoint = Url::parse(&endpoint)
+            .map_err(|error| format!("invalid server directory endpoint: {error}"))?;
+        let client = Client::builder()
+            .timeout(Duration::from_secs(45))
+            .user_agent("MonarchLanucher/0.4.0")
+            .build()
+            .map_err(|error| format!("failed to create server directory client: {error}"))?;
+
+        Ok(Self { client, endpoint })
+    }
+}
+
+#[async_trait]
+impl ServerDirectory for DzsaServerDirectory {
+    async fn fetch_servers(&self) -> Result<ServerDirectoryResult, String> {
+        let response = self
+            .client
+            .get(self.endpoint.clone())
+            .send()
+            .await
+            .map_err(|error| format!("server directory request failed: {error}"))?;
+
+        let status = response.status();
+        if !status.is_success() {
+            return Err(format!(
+                "server directory request failed with HTTP {}",
+                status.as_u16()
+            ));
+        }
+
+        let body = response
+            .text()
+            .await
+            .map_err(|error| format!("failed to read server directory response: {error}"))?;
+
+        parse_directory(&body)
+    }
+}
 
 #[derive(Debug, Deserialize)]
 struct DirectoryResponse {

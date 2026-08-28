@@ -4,13 +4,14 @@ on:
   push:
     branches:
       - main
+      - work/launcher-v04
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: monarch-launcher-release
+  group: monarch-launcher-release-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -30,6 +31,7 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: Configure updater repository
+        if: github.ref == 'refs/heads/main'
         shell: pwsh
         run: |
           $parts = $env:GITHUB_REPOSITORY.Split('/')
@@ -40,6 +42,7 @@ jobs:
           $config | ConvertTo-Json -Depth 4 | Set-Content $path -Encoding UTF8
 
       - name: Resolve automatic version
+        if: github.ref == 'refs/heads/main'
         shell: pwsh
         run: |
           [xml]$project = Get-Content '.\src\MonarchLauncher.App\MonarchLauncher.App.csproj'
@@ -59,12 +62,14 @@ jobs:
         run: dotnet test .\MonarchLauncher.sln -c Release --no-restore
 
       - name: Publish launcher
+        if: github.ref == 'refs/heads/main'
         shell: pwsh
         run: |
           dotnet publish .\src\MonarchLauncher.App\MonarchLauncher.App.csproj -c Release -r win-x64 --self-contained false -p:Version=$env:MONARCH_VERSION -o .\artifacts\MonarchLauncher-win-x64
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Publish updater
+        if: github.ref == 'refs/heads/main'
         shell: pwsh
         run: |
           dotnet publish .\src\MonarchLauncher.Updater\MonarchLauncher.Updater.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o .\artifacts\updater-temp
@@ -72,11 +77,13 @@ jobs:
           Copy-Item .\artifacts\updater-temp\MonarchLauncher.Updater.exe .\artifacts\MonarchLauncher-win-x64\MonarchLauncher.Updater.exe -Force
 
       - name: Package
+        if: github.ref == 'refs/heads/main'
         shell: pwsh
         run: |
           Compress-Archive -Path .\artifacts\MonarchLauncher-win-x64\* -DestinationPath .\artifacts\MonarchLanucher-win-x64.zip -CompressionLevel Optimal
 
       - name: Create GitHub Release
+        if: github.ref == 'refs/heads/main'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}

@@ -1,5 +1,5 @@
 use crate::collections::CollectionsStore;
-use crate::launcher::build_launch_args;
+use crate::launcher::build_launch_args_with_mods;
 use crate::models::{
     DayzServer, InstalledMod, LauncherSettings, ServerDirectoryResult, SystemStatus,
 };
@@ -7,6 +7,7 @@ use crate::servers::ServerDirectory;
 use crate::settings::SettingsStore;
 use crate::steam::discover_steam;
 use crate::workshop::discovery::discover_from_roots;
+use crate::workshop::sync::verify_required_mods;
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Arc;
@@ -121,8 +122,11 @@ pub fn launch_server(state: State<'_, LauncherState>, server: DayzServer) -> Res
         return Err("DayZ is not installed".to_string());
     }
 
+    let installed_mods = discover_from_roots(&steam.library_roots)?;
+    verify_required_mods(&server.required_workshop_ids, &installed_mods)?;
+
     let settings = state.settings().load()?;
-    let args = build_launch_args(&server, &settings)?;
+    let args = build_launch_args_with_mods(&server, &settings, &installed_mods)?;
 
     Command::new(&steam.steam_exe)
         .args(&args)

@@ -5,6 +5,7 @@ pub mod models;
 pub mod servers;
 pub mod settings;
 pub mod steam;
+pub mod workshop;
 
 use commands::{default_data_root, LauncherState};
 use servers::DzsaServerDirectory;

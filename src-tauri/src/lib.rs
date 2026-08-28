@@ -30,6 +30,7 @@ pub fn run() {
             commands::get_recent,
             commands::clear_recent,
             commands::get_system_status,
+            commands::get_installed_mods,
             commands::launch_server,
         ])
         .run(tauri::generate_context!())

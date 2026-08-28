@@ -16,6 +16,7 @@ public partial class App : Application
         base.OnStartup(e);
 
         var settings = LauncherSettingsService.Load();
+        var userSettingsService = new UserSettingsService();
         _httpClient = new HttpClient
         {
             Timeout = TimeSpan.FromSeconds(30)
@@ -24,7 +25,7 @@ public partial class App : Application
         _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
         var serverDirectoryService = new DzsaServerDirectoryService(_httpClient);
-        var launchService = new SteamDayZLaunchService();
+        var launchService = new SteamDayZLaunchService(userSettingsService.Load);
         var updateService = new GitHubUpdateService(_httpClient, settings);
         var viewModel = new MainWindowViewModel(serverDirectoryService, launchService, updateService);
         viewModel.ShutdownRequested += Shutdown;

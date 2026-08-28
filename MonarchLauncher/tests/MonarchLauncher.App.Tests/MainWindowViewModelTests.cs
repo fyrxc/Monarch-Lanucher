@@ -40,8 +40,8 @@ public sealed class MainWindowViewModelTests
 
     private sealed class EmptyServerService : IServerDirectoryService
     {
-        public Task<IReadOnlyList<DayZServer>> GetServersAsync(CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<DayZServer>>(Array.Empty<DayZServer>());
+        public Task<ServerDirectoryResult> GetServersAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(new ServerDirectoryResult(Array.Empty<DayZServer>()));
     }
 
     private sealed class FakeLaunchService : IDayZLaunchService

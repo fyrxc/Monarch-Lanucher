@@ -7,8 +7,8 @@ fn main() {
     let icon_path = Path::new("icons/icon.ico");
     if !icon_path.exists() {
         fs::create_dir_all("icons").expect("failed to create Tauri icon directory");
-        let encoded = fs::read_to_string("icons/icon.ico.b64")
-            .expect("failed to read embedded Monarch icon");
+        let encoded =
+            fs::read_to_string("icons/icon.ico.b64").expect("failed to read embedded Monarch icon");
         let bytes = STANDARD
             .decode(encoded.trim())
             .expect("failed to decode embedded Monarch icon");

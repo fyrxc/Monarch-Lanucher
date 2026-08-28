@@ -63,5 +63,21 @@ jobs:
       - name: Rust tests
         run: cargo test --manifest-path src-tauri/Cargo.toml
 
-      - name: Build Tauri executable
-        run: npm run tauri build -- --no-bundle
+      - name: Build Tauri Windows installer
+        run: npm run tauri build -- --bundles nsis
+
+      - name: Stage setup executable
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem '.\src-tauri\target\release\bundle\nsis\*-setup.exe' | Select-Object -First 1
+          if (-not $installer) { throw 'NSIS setup executable was not produced.' }
+          New-Item -ItemType Directory -Force '.\release' | Out-Null
+          Copy-Item $installer.FullName '.\release\MonarchLauncher-Setup.exe' -Force
+          Get-Item '.\release\MonarchLauncher-Setup.exe' | Format-List Name,Length,FullName
+
+      - name: Upload setup executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: MonarchLauncher-Setup
+          path: release/MonarchLauncher-Setup.exe
+          if-no-files-found: error

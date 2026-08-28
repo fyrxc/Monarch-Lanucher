@@ -18,11 +18,13 @@ public sealed class ServerCollectionsViewModelTests
             var server = CreateServer("1", "Monarch Test");
 
             vm.ToggleFavoriteCommand.Execute(server);
+            Assert.Contains("favorite", vm.StatusText, StringComparison.OrdinalIgnoreCase);
+
             vm.JoinCommand.Execute(server);
 
             Assert.Single(collections.GetFavorites());
             Assert.Single(collections.GetRecent());
-            Assert.Contains("favorite", vm.StatusText, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal("Started", vm.StatusText);
         }
         finally
         {

@@ -1,8 +1,17 @@
-use crate::models::{DayzServer, LauncherSettings};
+use crate::models::{DayzServer, InstalledMod, LauncherSettings};
+use std::collections::HashMap;
 
 pub fn build_launch_args(
     server: &DayzServer,
     settings: &LauncherSettings,
+) -> Result<Vec<String>, String> {
+    build_launch_args_with_mods(server, settings, &[])
+}
+
+pub fn build_launch_args_with_mods(
+    server: &DayzServer,
+    settings: &LauncherSettings,
+    installed_mods: &[InstalledMod],
 ) -> Result<Vec<String>, String> {
     let mut args = vec![
         "-applaunch".to_string(),
@@ -17,6 +26,27 @@ pub fn build_launch_args(
             return Err("invalid DayZ player name".to_string());
         }
         args.push(format!("-name={player_name}"));
+    }
+
+    if !server.required_workshop_ids.is_empty() {
+        let installed_by_id: HashMap<&str, &InstalledMod> = installed_mods
+            .iter()
+            .map(|item| (item.workshop_id.as_str(), item))
+            .collect();
+        let mut mod_paths = Vec::with_capacity(server.required_workshop_ids.len());
+
+        for workshop_id in &server.required_workshop_ids {
+            let item = installed_by_id
+                .get(workshop_id.as_str())
+                .ok_or_else(|| format!("required Workshop mod {workshop_id} is not installed"))?;
+            let path = item.path.trim();
+            if path.is_empty() || contains_control_characters(path) || path.contains(';') {
+                return Err(format!("invalid path for Workshop mod {workshop_id}"));
+            }
+            mod_paths.push(path);
+        }
+
+        args.push(format!("-mod={}", mod_paths.join(";")));
     }
 
     args.extend(parse_extra_parameters(&settings.extra_launch_parameters)?);

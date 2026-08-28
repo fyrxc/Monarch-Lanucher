@@ -15,6 +15,7 @@ import { Navigation, type LauncherView } from "./navigation";
 import { ServerFiltersPanel } from "./server-filters";
 import { ServerTable } from "./server-table";
 import { StatusBanner } from "./status-banner";
+import { UpdatePanel } from "./update-panel";
 
 const emptyFilters: ServerFilters = {
   search: "",
@@ -314,7 +315,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
         <div className="view-toolbar">
           <div>
             <h1>Settings</h1>
-            <p>DayZ identity, launch options, and install detection.</p>
+            <p>DayZ identity, launch options, install detection, and launcher updates.</p>
           </div>
         </div>
         <div className="settings-grid">
@@ -375,6 +376,8 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
               <div className="loading-state compact">Detecting Steam and DayZ...</div>
             )}
           </section>
+
+          <UpdatePanel api={api} />
         </div>
       </>
     );

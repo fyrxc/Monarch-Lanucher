@@ -43,6 +43,13 @@ function createApi() {
       dayzFound: true,
       dayzPath: "D:\\SteamLibrary\\steamapps\\common\\DayZ\\DayZ_x64.exe",
     }),
+    getInstalledMods: vi.fn().mockResolvedValue([
+      {
+        workshopId: "1559212036",
+        name: "Community Framework",
+        path: "D:\\SteamLibrary\\steamapps\\workshop\\content\\221100\\1559212036",
+      },
+    ]),
     launchServer: vi.fn().mockResolvedValue(undefined),
   };
 }
@@ -78,4 +85,15 @@ it("shows a real server-directory error and retries", async () => {
 
   await waitFor(() => expect(api.getServers).toHaveBeenCalledTimes(2));
   expect(await screen.findByText("Monarch Test Server")).toBeInTheDocument();
+});
+
+it("loads installed Workshop mods on the Mods page", async () => {
+  const api = createApi();
+  render(<AppShell api={api} />);
+
+  fireEvent.click(screen.getByRole("button", { name: "Mods" }));
+
+  expect(await screen.findByText("Community Framework")).toBeInTheDocument();
+  expect(screen.getByText("1559212036")).toBeInTheDocument();
+  expect(api.getInstalledMods).toHaveBeenCalledTimes(1);
 });

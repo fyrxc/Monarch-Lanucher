@@ -7,6 +7,12 @@ namespace MonarchLauncher.App.Services;
 public sealed class SteamDayZLaunchService : IDayZLaunchService
 {
     private const int DayZAppId = 221100;
+    private readonly Func<UserSettings> _loadUserSettings;
+
+    public SteamDayZLaunchService(Func<UserSettings>? loadUserSettings = null)
+    {
+        _loadUserSettings = loadUserSettings ?? (() => new UserSettings());
+    }
 
     public LaunchResult Launch(DayZServer server)
     {
@@ -16,7 +22,8 @@ public sealed class SteamDayZLaunchService : IDayZLaunchService
             if (steamExe is null)
                 return new LaunchResult(false, "Steam was not found on this PC.");
 
-            var arguments = $"-applaunch {DayZAppId} -connect={server.Ip} -port={server.Port}";
+            var settings = _loadUserSettings();
+            var arguments = BuildArguments(server, settings.DayZName);
             Process.Start(new ProcessStartInfo
             {
                 FileName = steamExe,
@@ -30,6 +37,18 @@ public sealed class SteamDayZLaunchService : IDayZLaunchService
         {
             return new LaunchResult(false, $"Could not launch DayZ: {ex.Message}");
         }
+    }
+
+    private static string BuildArguments(DayZServer server, string dayZName)
+    {
+        var arguments = $"-applaunch {DayZAppId} -connect={server.Ip} -port={server.Port}";
+        var trimmedName = dayZName?.Trim() ?? string.Empty;
+        if (trimmedName.Length == 0)
+            return arguments;
+
+        var escapedName = trimmedName.Replace("\\", "\\\\", StringComparison.Ordinal)
+                                     .Replace("\"", "\\\"", StringComparison.Ordinal);
+        return $"{arguments} -name=\"{escapedName}\"";
     }
 
     private static string? FindSteamExecutable()

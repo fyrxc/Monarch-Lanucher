@@ -31,11 +31,11 @@ Rust backend
 
 The frontend is a static Next.js application embedded into the Tauri desktop bundle. It owns presentation, navigation, filter state, loading states, toasts, dialogs, and user interactions. It must not directly access Windows registry, Steam files, local Workshop directories, or start DayZ processes.
 
-Recommended frontend stack:
+Frontend stack:
 - Next.js with App Router
 - TypeScript
 - React
-- Tailwind CSS or CSS modules for styling
+- Tailwind CSS
 - Tauri JavaScript API for invoking Rust commands and listening to backend progress events
 
 The frontend will be exported as static assets for Tauri rather than running a production Node.js web server inside the desktop application.
@@ -134,7 +134,7 @@ No fake/sample production servers are allowed. If discovery fails, the UI shows 
 
 ### Server source strategy
 
-The implementation should prefer a reliable public DayZ directory/API that can return many servers automatically. The server provider is hidden behind a Rust trait/interface so the source can be replaced later without rewriting the UI.
+The first implementation uses a public DayZ directory provider that can return the global public server list automatically. The provider sits behind a Rust trait so it can be replaced without changing the Next.js UI. The initial provider will use the DZSA public DayZ server-directory endpoint already proven in the earlier prototype, with provider-specific parsing isolated in the Rust `servers` module.
 
 The directory implementation must:
 - fetch the public list automatically
@@ -142,6 +142,8 @@ The directory implementation must:
 - deduplicate servers
 - support cancellation/timeouts
 - return partial data with a warning when possible rather than throwing away all valid rows
+
+If the primary public directory is unavailable or stops exposing complete data, replacing the provider is a backend-only change.
 
 ## Server Filters
 
@@ -177,7 +179,7 @@ Recent:
 - successful joins are added automatically
 - newest first
 - duplicate server entries collapse to the newest occurrence
-- bounded history size
+- maximum of 20 recent servers
 - clear history action
 - join directly
 
@@ -238,9 +240,9 @@ Flow:
 7. Re-scan/verify required Workshop directories before launching.
 8. Launch DayZ only after required mods are confirmed present, unless the user explicitly cancels.
 
-The launcher should use Steam-supported mechanisms rather than implementing its own Workshop file downloader.
+The launcher uses Steam-supported Workshop mechanisms rather than implementing its own Workshop file downloader.
 
-If a provider cannot supply exact Workshop IDs for a server, the launcher must clearly state that automatic mod synchronization is unavailable for that server rather than pretending sync completed.
+If a provider cannot supply exact Workshop IDs for a server, the launcher clearly states that automatic mod synchronization is unavailable for that server rather than pretending sync completed.
 
 ## DayZ Launch
 
@@ -324,20 +326,23 @@ MonarchLanucher-Setup.exe
 
 The app installs per-user under a LocalAppData Programs location, creates Start Menu/Desktop shortcuts as configured, and has a normal uninstall entry.
 
-Tauri's Windows bundling path will be used as the baseline. The exact installer target (NSIS or WiX/MSI) will be selected during implementation based on the best fit for a single `.exe` setup file; preference is NSIS if it meets all updater requirements.
+The Windows installer target is **Tauri NSIS**, producing a single setup `.exe`.
 
 ## Updates
 
 GitHub Releases remains the release source.
 
-The new update path must be compatible with the installed Tauri application rather than the old custom C# ZIP replacement updater.
+The new update path uses the Tauri v2 updater flow rather than the old custom C# ZIP-replacement updater.
 
 Target behavior:
-1. app checks the latest signed/approved release metadata
+1. app checks GitHub-hosted Tauri updater metadata
 2. UI shows update availability
 3. user starts update
-4. update downloads and installs
-5. app restarts into the new version
+4. updater verifies the Tauri signature
+5. update downloads and installs
+6. app restarts into the new version
+
+Release CI signs updater artifacts using the Tauri updater private key stored as a GitHub Actions secret. The private key is never committed to the repository.
 
 GitHub Actions creates release artifacts automatically from `main` after verification.
 
@@ -353,9 +358,9 @@ The rewritten workflow runs on Windows and performs at minimum:
 - Rust tests
 - Next.js static build/export
 - Tauri Windows build
-- installer artifact creation
+- NSIS installer artifact creation
 
-Branch pushes run verification only. Releases are created only from the release/main path, avoiding accidental releases while feature work is still being developed.
+Branch pushes run verification only. Releases are created only from `main`, avoiding accidental releases while feature work is still being developed.
 
 ## Testing Strategy
 
@@ -385,7 +390,7 @@ Frontend tests cover key state behavior rather than duplicating browser implemen
 
 ### CI gate
 
-A branch is not considered ready for merge until frontend tests, Rust tests, and the Tauri Windows build pass in GitHub Actions.
+A branch is not considered ready for merge until frontend tests, Rust tests, clippy, and the Tauri Windows build pass in GitHub Actions.
 
 ## Implementation Phases
 
@@ -416,9 +421,9 @@ Deliver:
 
 Deliver:
 - final Monarch icons
-- single Windows setup EXE
+- single Windows NSIS setup EXE
 - installed app shortcuts/uninstall flow
-- GitHub release/update integration
+- GitHub/Tauri updater integration
 - release workflow hardening
 
 ## Explicit Non-Goals for the Initial Rewrite

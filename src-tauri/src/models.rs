@@ -20,6 +20,14 @@ pub struct DayzServer {
     pub required_workshop_ids: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ServerDirectoryResult {
+    pub servers: Vec<DayzServer>,
+    pub is_partial: bool,
+    pub warning: Option<String>,
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct LauncherSettings {

@@ -1,4 +1,4 @@
-use crate::models::DayzServer;
+use crate::models::{DayzServer, ServerDirectoryResult};
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashSet;
@@ -7,7 +7,7 @@ use std::collections::HashSet;
 struct DirectoryResponse {
     status: i64,
     #[serde(default)]
-    result: Vec<RawServer>,
+    result: Vec<Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -35,7 +35,7 @@ struct RawServer {
 #[derive(Debug, Deserialize)]
 struct RawEndpoint {
     ip: String,
-    port: u16,
+    port: Option<u16>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -44,7 +44,7 @@ struct RawMod {
     steam_workshop_id: Option<Value>,
 }
 
-pub fn parse_directory_json(json: &str) -> Result<Vec<DayzServer>, String> {
+pub fn parse_directory(json: &str) -> Result<ServerDirectoryResult, String> {
     let response: DirectoryResponse = serde_json::from_str(json)
         .map_err(|error| format!("invalid server directory response: {error}"))?;
 
@@ -57,9 +57,19 @@ pub fn parse_directory_json(json: &str) -> Result<Vec<DayzServer>, String> {
 
     let mut seen = HashSet::new();
     let mut servers = Vec::new();
+    let mut skipped_rows = 0usize;
 
-    for raw in response.result {
+    for value in response.result {
+        let raw = match serde_json::from_value::<RawServer>(value) {
+            Ok(raw) => raw,
+            Err(_) => {
+                skipped_rows += 1;
+                continue;
+            }
+        };
+
         let Some(server) = map_server(raw) else {
+            skipped_rows += 1;
             continue;
         };
 
@@ -75,7 +85,23 @@ pub fn parse_directory_json(json: &str) -> Result<Vec<DayzServer>, String> {
             .then_with(|| left.name.to_lowercase().cmp(&right.name.to_lowercase()))
     });
 
-    Ok(servers)
+    let warning = if skipped_rows == 0 {
+        None
+    } else if skipped_rows == 1 {
+        Some("1 malformed server row was skipped.".to_string())
+    } else {
+        Some(format!("{skipped_rows} malformed server rows were skipped."))
+    };
+
+    Ok(ServerDirectoryResult {
+        servers,
+        is_partial: skipped_rows > 0,
+        warning,
+    })
+}
+
+pub fn parse_directory_json(json: &str) -> Result<Vec<DayzServer>, String> {
+    parse_directory(json).map(|result| result.servers)
 }
 
 fn map_server(raw: RawServer) -> Option<DayzServer> {
@@ -86,7 +112,7 @@ fn map_server(raw: RawServer) -> Option<DayzServer> {
 
     let endpoint = raw.endpoint?;
     let ip = endpoint.ip.trim().to_string();
-    if ip.is_empty() || endpoint.port == 0 {
+    if ip.is_empty() {
         return None;
     }
 
@@ -95,29 +121,33 @@ fn map_server(raw: RawServer) -> Option<DayzServer> {
         return None;
     }
 
-    let id = value_to_string(raw.id.as_ref())
-        .unwrap_or_else(|| format!("{ip}:{game_port}:{}", endpoint.port));
+    let query_port = endpoint
+        .port
+        .filter(|port| *port > 0)
+        .unwrap_or_else(|| game_port.checked_add(1).unwrap_or(game_port));
 
-    let required_workshop_ids = raw
-        .mods
-        .iter()
-        .filter_map(|item| value_to_string(item.steam_workshop_id.as_ref()))
-        .collect();
+    let id = value_to_id(raw.id.as_ref()).unwrap_or_else(|| format!("{ip}:{game_port}"));
+    let required_workshop_ids = collect_workshop_ids(&raw.mods);
 
     Some(DayzServer {
         id,
         name,
         map: raw
             .map
-            .filter(|map| !map.trim().is_empty())
-            .unwrap_or_else(|| "Unknown".to_string()),
+            .map(|map| map.trim().to_string())
+            .filter(|map| !map.is_empty())
+            .unwrap_or_else(|| "DayZ".to_string()),
         players: raw.players.unwrap_or(0),
         capacity: raw.max_players.unwrap_or(0),
         ping: raw.ping,
         ip,
         game_port,
-        query_port: endpoint.port,
-        status: raw.status.unwrap_or_else(|| "online".to_string()),
+        query_port,
+        status: raw
+            .status
+            .map(|status| status.trim().to_string())
+            .filter(|status| !status.is_empty())
+            .unwrap_or_else(|| "online".to_string()),
         is_passworded: raw.password.unwrap_or(false),
         is_official: raw.official.unwrap_or(false),
         first_person_only: raw.first_person_only.unwrap_or(false),
@@ -126,10 +156,37 @@ fn map_server(raw: RawServer) -> Option<DayzServer> {
     })
 }
 
-fn value_to_string(value: Option<&Value>) -> Option<String> {
+fn collect_workshop_ids(mods: &[RawMod]) -> Vec<String> {
+    let mut seen = HashSet::new();
+    let mut ids = Vec::new();
+
+    for item in mods {
+        let Some(id) = value_to_workshop_id(item.steam_workshop_id.as_ref()) else {
+            continue;
+        };
+
+        if seen.insert(id.clone()) {
+            ids.push(id);
+        }
+    }
+
+    ids
+}
+
+fn value_to_id(value: Option<&Value>) -> Option<String> {
     match value? {
-        Value::String(value) if !value.trim().is_empty() => Some(value.clone()),
+        Value::String(value) if !value.trim().is_empty() => Some(value.trim().to_string()),
         Value::Number(value) => value.as_u64().map(|number| number.to_string()),
         _ => None,
     }
+}
+
+fn value_to_workshop_id(value: Option<&Value>) -> Option<String> {
+    let number = match value? {
+        Value::String(value) => value.trim().parse::<u64>().ok()?,
+        Value::Number(value) => value.as_u64()?,
+        _ => return None,
+    };
+
+    (number > 0).then(|| number.to_string())
 }

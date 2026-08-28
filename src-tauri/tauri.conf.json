@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Monarch Lanucher",
+  "productName": "Monarch Launcher",
   "version": "0.4.0",
   "identifier": "com.monarch.launcher",
   "build": {
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Monarch Lanucher",
+        "title": "Monarch Launcher",
         "width": 1360,
         "height": 820,
         "minWidth": 1040,

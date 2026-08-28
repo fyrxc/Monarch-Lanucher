@@ -27,7 +27,7 @@ public partial class App : Application
         var serverDirectoryService = new DzsaServerDirectoryService(_httpClient);
         var launchService = new SteamDayZLaunchService(userSettingsService.Load);
         var updateService = new GitHubUpdateService(_httpClient, settings);
-        var viewModel = new MainWindowViewModel(serverDirectoryService, launchService, updateService);
+        var viewModel = new MainWindowViewModel(serverDirectoryService, launchService, updateService, userSettingsService);
         viewModel.ShutdownRequested += Shutdown;
 
         var window = new MainWindow

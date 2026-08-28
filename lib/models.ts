@@ -39,3 +39,10 @@ export interface SystemStatus {
   dayzFound: boolean;
   dayzPath: string | null;
 }
+
+export interface UpdateInfo {
+  available: boolean;
+  currentVersion: string;
+  latestVersion: string | null;
+  notes: string | null;
+}

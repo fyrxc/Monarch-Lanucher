@@ -20,9 +20,7 @@ pub async fn get_servers_from(
 }
 
 #[tauri::command]
-pub async fn get_servers(
-    state: State<'_, LauncherState>,
-) -> Result<ServerDirectoryResult, String> {
+pub async fn get_servers(state: State<'_, LauncherState>) -> Result<ServerDirectoryResult, String> {
     let directory = Arc::clone(&state.server_directory);
     get_servers_from(directory.as_ref()).await
 }

@@ -90,7 +90,9 @@ pub fn parse_directory(json: &str) -> Result<ServerDirectoryResult, String> {
     } else if skipped_rows == 1 {
         Some("1 malformed server row was skipped.".to_string())
     } else {
-        Some(format!("{skipped_rows} malformed server rows were skipped."))
+        Some(format!(
+            "{skipped_rows} malformed server rows were skipped."
+        ))
     };
 
     Ok(ServerDirectoryResult {

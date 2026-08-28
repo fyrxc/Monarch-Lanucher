@@ -43,3 +43,11 @@ pub struct SystemStatus {
     pub dayz_found: bool,
     pub dayz_path: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct InstalledMod {
+    pub workshop_id: String,
+    pub name: String,
+    pub path: String,
+}

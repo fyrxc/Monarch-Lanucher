@@ -1,9 +1,12 @@
 use crate::collections::CollectionsStore;
 use crate::launcher::build_launch_args;
-use crate::models::{DayzServer, LauncherSettings, ServerDirectoryResult, SystemStatus};
+use crate::models::{
+    DayzServer, InstalledMod, LauncherSettings, ServerDirectoryResult, SystemStatus,
+};
 use crate::servers::ServerDirectory;
 use crate::settings::SettingsStore;
 use crate::steam::discover_steam;
+use crate::workshop::discovery::discover_from_roots;
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Arc;
@@ -42,6 +45,10 @@ pub async fn get_servers_from(
     directory: &(dyn ServerDirectory + Send + Sync),
 ) -> Result<ServerDirectoryResult, String> {
     directory.fetch_servers().await
+}
+
+pub fn get_installed_mods_from(roots: &[PathBuf]) -> Result<Vec<InstalledMod>, String> {
+    discover_from_roots(roots)
 }
 
 #[tauri::command]
@@ -99,6 +106,12 @@ pub fn get_system_status() -> SystemStatus {
         },
         Err(_) => SystemStatus::default(),
     }
+}
+
+#[tauri::command]
+pub fn get_installed_mods() -> Result<Vec<InstalledMod>, String> {
+    let steam = discover_steam()?;
+    get_installed_mods_from(&steam.library_roots)
 }
 
 #[tauri::command]

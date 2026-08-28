@@ -1,5 +1,6 @@
 use crate::models::{InstalledMod, ModSyncPlan};
 use std::collections::HashMap;
+use std::path::Path;
 
 pub fn build_sync_plan(required_ids: &[String], installed: &[InstalledMod]) -> ModSyncPlan {
     let installed_by_id: HashMap<&str, &InstalledMod> = installed
@@ -23,4 +24,28 @@ pub fn build_sync_plan(required_ids: &[String], installed: &[InstalledMod]) -> M
         installed: available,
         missing,
     }
+}
+
+pub fn verify_required_mods(
+    required_ids: &[String],
+    installed: &[InstalledMod],
+) -> Result<(), String> {
+    let installed_by_id: HashMap<&str, &InstalledMod> = installed
+        .iter()
+        .map(|item| (item.workshop_id.as_str(), item))
+        .collect();
+
+    for workshop_id in required_ids {
+        let item = installed_by_id
+            .get(workshop_id.as_str())
+            .ok_or_else(|| format!("required Workshop mod {workshop_id} is not installed"))?;
+
+        if !Path::new(&item.path).is_dir() {
+            return Err(format!(
+                "required Workshop mod {workshop_id} is missing from disk"
+            ));
+        }
+    }
+
+    Ok(())
 }

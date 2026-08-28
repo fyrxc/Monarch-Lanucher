@@ -45,8 +45,8 @@ struct RawMod {
 }
 
 pub fn parse_directory_json(json: &str) -> Result<Vec<DayzServer>, String> {
-    let response: DirectoryResponse =
-        serde_json::from_str(json).map_err(|error| format!("invalid server directory response: {error}"))?;
+    let response: DirectoryResponse = serde_json::from_str(json)
+        .map_err(|error| format!("invalid server directory response: {error}"))?;
 
     if response.status != 0 {
         return Err(format!(

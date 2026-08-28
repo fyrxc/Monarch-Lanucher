@@ -4,5 +4,5 @@ namespace MonarchLauncher.App.Services;
 
 public interface IServerDirectoryService
 {
-    Task<IReadOnlyList<DayZServer>> GetServersAsync(CancellationToken cancellationToken = default);
+    Task<ServerDirectoryResult> GetServersAsync(CancellationToken cancellationToken = default);
 }

@@ -102,10 +102,7 @@ pub fn get_system_status() -> SystemStatus {
 }
 
 #[tauri::command]
-pub fn launch_server(
-    state: State<'_, LauncherState>,
-    server: DayzServer,
-) -> Result<(), String> {
+pub fn launch_server(state: State<'_, LauncherState>, server: DayzServer) -> Result<(), String> {
     let steam = discover_steam()?;
     if steam.dayz_exe.is_none() {
         return Err("DayZ is not installed".to_string());

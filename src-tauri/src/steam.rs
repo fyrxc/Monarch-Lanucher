@@ -93,12 +93,7 @@ fn dedupe_paths(paths: &mut Vec<PathBuf>) {
 #[cfg(windows)]
 fn registry_value(name: &str) -> Option<String> {
     let output = Command::new("reg")
-        .args([
-            "query",
-            r"HKCU\Software\Valve\Steam",
-            "/v",
-            name,
-        ])
+        .args(["query", r"HKCU\Software\Valve\Steam", "/v", name])
         .output()
         .ok()?;
     if !output.status.success() {

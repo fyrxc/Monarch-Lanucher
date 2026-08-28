@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { LauncherApi } from "../lib/api";
 import type { UpdateInfo } from "../lib/models";
+import styles from "./update-panel.module.css";
 
 type UpdateApi = Pick<LauncherApi, "checkForUpdate" | "installUpdate">;
 type UpdateState = "idle" | "checking" | "up-to-date" | "available" | "installing" | "error";
@@ -43,8 +44,8 @@ export function UpdatePanel({ api }: { api: UpdateApi }) {
   }
 
   return (
-    <section className="settings-card update-card">
-      <div className="update-card-heading">
+    <section className={`settings-card ${styles.card}`}>
+      <div className={styles.heading}>
         <div>
           <h2>Launcher Updates</h2>
           <p>Checks GitHub Releases and only installs updates that pass Tauri signature verification.</p>
@@ -60,12 +61,12 @@ export function UpdatePanel({ api }: { api: UpdateApi }) {
       </div>
 
       {info ? (
-        <div className="update-version-grid">
-          <div>
+        <div className={styles.versions}>
+          <div className={styles.version}>
             <span>Current</span>
             <strong>{info.currentVersion}</strong>
           </div>
-          <div>
+          <div className={styles.version}>
             <span>Latest</span>
             <strong>{info.latestVersion ?? info.currentVersion}</strong>
           </div>
@@ -73,13 +74,13 @@ export function UpdatePanel({ api }: { api: UpdateApi }) {
       ) : null}
 
       {state === "up-to-date" && info ? (
-        <p className="update-status">Monarch Launcher is up to date.</p>
+        <p className={styles.status}>Monarch Launcher is up to date.</p>
       ) : null}
 
       {state === "available" && info ? (
-        <div className="update-available">
-          <p className="update-status">A signed update is ready to install.</p>
-          {info.notes ? <p className="update-notes">{info.notes}</p> : null}
+        <div className={styles.available}>
+          <p className={styles.status}>A signed update is ready to install.</p>
+          {info.notes ? <p className={styles.notes}>{info.notes}</p> : null}
           <button className="join-button" onClick={() => void installUpdate()} type="button">
             Install Update
           </button>
@@ -87,10 +88,10 @@ export function UpdatePanel({ api }: { api: UpdateApi }) {
       ) : null}
 
       {state === "installing" ? (
-        <p className="update-status">Downloading and verifying update...</p>
+        <p className={styles.status}>Downloading and verifying update...</p>
       ) : null}
 
-      {error ? <p className="update-error">{error}</p> : null}
+      {error ? <p className={styles.error}>{error}</p> : null}
     </section>
   );
 }

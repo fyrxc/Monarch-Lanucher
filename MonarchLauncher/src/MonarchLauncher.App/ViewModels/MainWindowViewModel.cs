@@ -63,10 +63,12 @@ public sealed class MainWindowViewModel : ViewModelBase
     public MainWindowViewModel(
         IServerDirectoryService serverDirectoryService,
         IDayZLaunchService launchService,
-        IUpdateService updateService)
+        IUpdateService updateService,
+        UserSettingsService? userSettingsService = null)
     {
         _updateService = updateService;
         LauncherVersion = GetDisplayVersion();
+        userSettingsService ??= new UserSettingsService();
 
         NavigationItems = new ObservableCollection<NavigationItem>
         {
@@ -83,7 +85,7 @@ public sealed class MainWindowViewModel : ViewModelBase
             ["favorites"] = new FavoritesViewModel(),
             ["recent"] = new RecentViewModel(),
             ["mods"] = new ModsViewModel(),
-            ["settings"] = new SettingsViewModel()
+            ["settings"] = new SettingsViewModel(userSettingsService)
         };
 
         _selectedNavigationItem = NavigationItems[0];

@@ -38,8 +38,7 @@ pub fn discover_from_roots(roots: &[PathBuf]) -> Result<Vec<InstalledMod>, Strin
             }
 
             let path = entry.path();
-            let name = read_mod_name(&path)
-                .unwrap_or_else(|| format!("Workshop {workshop_id}"));
+            let name = read_mod_name(&path).unwrap_or_else(|| format!("Workshop {workshop_id}"));
 
             installed.push(InstalledMod {
                 workshop_id,

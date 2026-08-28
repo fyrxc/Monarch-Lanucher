@@ -5,6 +5,7 @@ import type {
   LauncherSettings,
   ServerDirectoryResult,
   SystemStatus,
+  UpdateInfo,
 } from "./models";
 
 export interface LauncherApi {
@@ -17,6 +18,8 @@ export interface LauncherApi {
   saveSettings(settings: LauncherSettings): Promise<void>;
   getSystemStatus(): Promise<SystemStatus>;
   getInstalledMods(): Promise<InstalledMod[]>;
+  checkForUpdate(): Promise<UpdateInfo>;
+  installUpdate(): Promise<void>;
   launchServer(server: DayzServer): Promise<void>;
 }
 
@@ -30,5 +33,7 @@ export const tauriApi: LauncherApi = {
   saveSettings: (settings) => invoke<void>("save_settings", { settings }),
   getSystemStatus: () => invoke<SystemStatus>("get_system_status"),
   getInstalledMods: () => invoke<InstalledMod[]>("get_installed_mods"),
+  checkForUpdate: () => invoke<UpdateInfo>("check_for_update"),
+  installUpdate: () => invoke<void>("install_update"),
   launchServer: (server) => invoke<void>("launch_server", { server }),
 };

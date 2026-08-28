@@ -52,14 +52,18 @@ public void Matches_applies_map_and_modded_filters()
 }
 ```
 
+The test file includes a local `TestServer` helper that constructs the full `DayZServer` record with explicit defaults.
+
 - [ ] **Step 2: Run the new test file and verify RED**
 
 Run: `dotnet test .\tests\MonarchLauncher.App.Tests\MonarchLauncher.App.Tests.csproj --filter ServerFilterStateTests`
 Expected: FAIL because `ServerFilterState` and the new `DayZServer` fields do not exist.
 
-- [ ] **Step 3: Add the richer model and minimal matcher**
+- [ ] **Step 3: Add the richer model and matcher**
 
-Use this shape for the new fields and tri-state filters:
+Extend `DayZServer` with five fields after `Status`: `bool IsModded`, `bool IsPassworded`, `bool IsOfficial`, `bool AllowsThirdPerson`, `string Country`.
+
+Create `ServerFilterState` with this exact matcher:
 
 ```csharp
 public sealed class ServerFilterState
@@ -77,21 +81,45 @@ public sealed class ServerFilterState
     public bool? Official { get; set; }
     public bool? ThirdPerson { get; set; }
 
-    public bool Matches(DayZServer server) { /* explicit checks only */ }
+    public bool Matches(DayZServer server)
+    {
+        if (!string.IsNullOrWhiteSpace(SearchText))
+        {
+            var q = SearchText.Trim();
+            if (!server.Name.Contains(q, StringComparison.OrdinalIgnoreCase) &&
+                !server.Map.Contains(q, StringComparison.OrdinalIgnoreCase) &&
+                !server.Address.Contains(q, StringComparison.OrdinalIgnoreCase))
+                return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(Map) &&
+            !string.Equals(server.Map, Map, StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (MinPlayers is int min && server.Players < min) return false;
+        if (MaxPlayers is int max && server.Players > max) return false;
+        if (MaxPing is int ping && server.Ping > 0 && server.Ping > ping) return false;
+        if (HideEmpty && server.Players == 0) return false;
+        if (HideFull && server.Capacity > 0 && server.Players >= server.Capacity) return false;
+        if (Modded is bool modded && server.IsModded != modded) return false;
+        if (Passworded is bool passworded && server.IsPassworded != passworded) return false;
+        if (Official is bool official && server.IsOfficial != official) return false;
+        if (ThirdPerson is bool thirdPerson && server.AllowsThirdPerson != thirdPerson) return false;
+        return true;
+    }
 }
 ```
 
-Extend `DayZServer` rather than creating a second UI model.
+`FavoritesOnly` remains present for the later favorites-store subsystem; it does not exclude rows until favorite persistence is wired.
 
-- [ ] **Step 4: Re-run filter tests and the existing server tests**
+- [ ] **Step 4: Re-run filter tests and existing server tests**
 
 Run: `dotnet test .\tests\MonarchLauncher.App.Tests\MonarchLauncher.App.Tests.csproj --filter "ServerFilterStateTests|ServersViewModelTests"`
-Expected: PASS.
+Expected: PASS after updating existing `DayZServer` test constructors with the new fields.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/MonarchLauncher.App/Models tests/MonarchLauncher.App.Tests/ServerFilterStateTests.cs
+git add src/MonarchLauncher.App/Models tests/MonarchLauncher.App.Tests
 git commit -m "feat: add server browser filter model"
 ```
 
@@ -100,6 +128,8 @@ git commit -m "feat: add server browser filter model"
 ### Task 2: Add a paged public DayZ directory provider
 
 **Files:**
+- Create: `src/MonarchLauncher.App/Models/ServerDirectoryResult.cs`
+- Create: `src/MonarchLauncher.App/Services/ServerDirectoryException.cs`
 - Create: `src/MonarchLauncher.App/Services/BattleMetricsServerDirectoryService.cs`
 - Create: `src/MonarchLauncher.App/Services/BattleMetricsServerMapper.cs`
 - Modify: `src/MonarchLauncher.App/Services/IServerDirectoryService.cs`
@@ -107,47 +137,68 @@ git commit -m "feat: add server browser filter model"
 - Test: `tests/MonarchLauncher.App.Tests/BattleMetricsServerMapperTests.cs`
 
 **Interfaces:**
-- Consumes: `HttpClient` and BattleMetrics JSON from `https://api.battlemetrics.com/servers?page[size]=100&filter[game]=dayz&filter[status]=online`.
-- Produces: `Task<IReadOnlyList<DayZServer>> GetServersAsync(CancellationToken)` returning every successfully paged server row.
+- Consumes: `HttpClient` and JSON:API responses from `https://api.battlemetrics.com/servers?page[size]=100&filter[game]=dayz&filter[status]=online`.
+- Produces: `Task<ServerDirectoryResult> GetServersAsync(CancellationToken cancellationToken = default)`.
 
-- [ ] **Step 1: Write a failing mapper test with captured JSON**
+- [ ] **Step 1: Write a failing mapper test using an explicit JSON payload**
 
-Use a minimal JSON:API payload containing `name`, `players`, `maxPlayers`, `status`, `ip`, `port`, and `details.map`; assert the mapper returns the expected `DayZServer` fields and defaults unavailable booleans conservatively.
+```csharp
+const string json = """
+{
+  "data": [{
+    "type": "server",
+    "id": "123",
+    "attributes": {
+      "name": "Monarch Test",
+      "players": 42,
+      "maxPlayers": 100,
+      "status": "online",
+      "ip": "1.2.3.4",
+      "port": 2302,
+      "details": {
+        "map": "chernarusplus",
+        "modded": true,
+        "password": false,
+        "official": false,
+        "thirdPerson": true,
+        "country": "US"
+      }
+    }
+  }]
+}
+""";
+
+using var doc = JsonDocument.Parse(json);
+var mapped = BattleMetricsServerMapper.MapPage(doc.RootElement);
+var server = Assert.Single(mapped);
+Assert.Equal("Monarch Test", server.Name);
+Assert.Equal("chernarusplus", server.Map);
+Assert.Equal(42, server.Players);
+Assert.True(server.IsModded);
+Assert.True(server.AllowsThirdPerson);
+```
 
 - [ ] **Step 2: Run mapper test and verify RED**
 
 Run: `dotnet test .\tests\MonarchLauncher.App.Tests\MonarchLauncher.App.Tests.csproj --filter BattleMetricsServerMapperTests`
 Expected: FAIL because `BattleMetricsServerMapper` does not exist.
 
-- [ ] **Step 3: Implement the mapper using `JsonElement` helpers**
+- [ ] **Step 3: Implement mapper behavior**
 
-Required behavior:
-- missing map => `"DayZ"`
-- missing ping => `0`
-- online status is preserved
-- `details` flags are read only when present
-- malformed rows are skipped rather than throwing the whole page
+`BattleMetricsServerMapper.MapPage(JsonElement root)` returns `IReadOnlyList<DayZServer>` and follows these rules: missing map => `"DayZ"`; missing ping => `0`; missing boolean detail => `false`; missing country => empty string; malformed individual rows are skipped; page-level invalid JSON throws.
 
 - [ ] **Step 4: Write a failing pagination test with a fake HTTP handler**
 
-The fake handler returns page 1 with a `links.next`, then page 2 without `links.next`. Assert both rows are returned and both URLs are requested exactly once.
+The fake handler returns page 1 containing one server and `"links":{"next":"https://example.test/page2"}`, then page 2 containing one server and `"links":{}`. Assert `GetServersAsync()` returns two rows and the handler recorded exactly two requests in order.
 
 - [ ] **Step 5: Run pagination test and verify RED**
 
 Run: `dotnet test .\tests\MonarchLauncher.App.Tests\MonarchLauncher.App.Tests.csproj --filter BattleMetricsServerDirectoryServiceTests`
-Expected: FAIL because the directory service does not exist.
+Expected: FAIL because the directory service/result type do not exist.
 
 - [ ] **Step 6: Implement pagination and partial-page failure behavior**
 
-Implementation rules:
-- start with the DayZ online URL above
-- follow only provider-supplied absolute `links.next`
-- cap at 100 pages per refresh to prevent loops
-- de-duplicate by `DayZServer.Id`
-- if page 1 fails, throw `ServerDirectoryException`
-- if a later page fails, return rows already loaded and surface a partial-load message through a result object
-
-Introduce:
+Create:
 
 ```csharp
 public sealed record ServerDirectoryResult(
@@ -156,11 +207,13 @@ public sealed record ServerDirectoryResult(
     string? Warning);
 ```
 
-and change `IServerDirectoryService` to:
+Change `IServerDirectoryService` to:
 
 ```csharp
 Task<ServerDirectoryResult> GetServersAsync(CancellationToken cancellationToken = default);
 ```
+
+Implementation rules: start with the DayZ online URL; follow only absolute HTTPS `links.next`; cap at 100 pages; de-duplicate by `DayZServer.Id`; a first-page failure throws `ServerDirectoryException("Server directory is unavailable.", inner)`; a later-page failure returns prior rows with `IsPartial=true` and warning `"Some server pages could not be loaded."`.
 
 - [ ] **Step 7: Run provider tests**
 
@@ -170,7 +223,7 @@ Expected: PASS.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/MonarchLauncher.App/Services tests/MonarchLauncher.App.Tests/BattleMetricsServer*.cs
+git add src/MonarchLauncher.App/Models/ServerDirectoryResult.cs src/MonarchLauncher.App/Services tests/MonarchLauncher.App.Tests/BattleMetricsServer*.cs
 git commit -m "feat: load public DayZ server directory"
 ```
 
@@ -184,20 +237,20 @@ git commit -m "feat: load public DayZ server directory"
 
 **Interfaces:**
 - Consumes: `ServerDirectoryResult`, `ServerFilterState`.
-- Produces: filter-bound properties (`SelectedMap`, `MinPlayers`, `MaxPlayers`, `MaxPing`, `HideEmpty`, `HideFull`, `ModdedFilter`, `PasswordFilter`, `OfficialFilter`, `PerspectiveFilter`) and `FilteredServers`.
+- Produces: `SelectedMap`, `MinPlayers`, `MaxPlayers`, `MaxPing`, `HideEmpty`, `HideFull`, `ModdedFilter`, `PasswordFilter`, `OfficialFilter`, `PerspectiveFilter`, `AvailableMaps`, `ClearFiltersCommand`, and `FilteredServers`.
 
-- [ ] **Step 1: Add failing tests for automatic result application and filtering**
+- [ ] **Step 1: Add failing tests for partial results and local filtering**
 
-Test that a partial result keeps rows visible and sets `StatusText` to the provider warning. Test that setting `HideEmpty = true` immediately removes a zero-player row from `FilteredServers` without calling the directory service again.
+Add a fake `IServerDirectoryService` that counts calls. Test that a partial result keeps returned rows and copies the warning into `StatusText`. Test that after one refresh, changing `HideEmpty` filters the rows while the fake service call count remains `1`.
 
 - [ ] **Step 2: Run the view-model tests and verify RED**
 
 Run: `dotnet test .\tests\MonarchLauncher.App.Tests\MonarchLauncher.App.Tests.csproj --filter ServersViewModelTests`
-Expected: FAIL on the new filter properties/result handling.
+Expected: FAIL on the new result/filter properties.
 
-- [ ] **Step 3: Implement filter properties and a single `RefreshFilteredServers()` path**
+- [ ] **Step 3: Implement a single local filter path**
 
-Avoid network access from property setters. Property setters only update `ServerFilterState` and raise `FilteredServers`, `ResultCountText`, and `AvailableMaps` notifications.
+Keep one `ServerFilterState` field. `FilteredServers` returns `Servers.Where(_filters.Matches)`. Each filter property updates `_filters`, raises its own property notification, then raises `FilteredServers` and `ResultCountText`. `AvailableMaps` is `Servers.Select(s => s.Map).Where(non-empty).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(...)` with an initial `"All maps"` option represented by empty `SelectedMap`. `ClearFiltersCommand` restores all defaults without making a network call.
 
 - [ ] **Step 4: Re-run view-model tests**
 
@@ -213,7 +266,7 @@ git commit -m "feat: add DZSA style server filtering"
 
 ---
 
-### Task 4: Switch startup composition to the HTTP directory provider
+### Task 4: Switch startup composition to the indexed HTTP provider
 
 **Files:**
 - Modify: `src/MonarchLauncher.App/App.xaml.cs`
@@ -223,18 +276,18 @@ git commit -m "feat: add DZSA style server filtering"
 - Consumes: shared app `HttpClient`.
 - Produces: `BattleMetricsServerDirectoryService` injected into `MainWindowViewModel`.
 
-- [ ] **Step 1: Add/adjust composition tests so the view model no longer depends on the Steam master provider type**
+- [ ] **Step 1: Update test fakes to the new `ServerDirectoryResult` signature**
 
-Keep tests at the interface boundary; no live HTTP calls.
+Replace every test fake implementation returning `IReadOnlyList<DayZServer>` with `Task.FromResult(new ServerDirectoryResult(rows, false, null))`.
 
-- [ ] **Step 2: Run tests and verify RED where applicable**
+- [ ] **Step 2: Run the solution and verify RED**
 
 Run: `dotnet test .\MonarchLauncher.sln -c Release`
-Expected: FAIL until new signatures are wired everywhere.
+Expected: FAIL until production composition and all interface implementations use the new signature.
 
-- [ ] **Step 3: Replace `new SteamMasterServerDirectoryService()` with `new BattleMetricsServerDirectoryService(_httpClient)`**
+- [ ] **Step 3: Replace discovery composition**
 
-Keep the old Steam/A2S files in the project for future selected-row querying, but remove them from discovery composition.
+In `App.OnStartup`, replace `new SteamMasterServerDirectoryService()` with `new BattleMetricsServerDirectoryService(_httpClient)`. Keep Steam/A2S parser files compiled but unused by discovery.
 
 - [ ] **Step 4: Run the entire solution tests**
 
@@ -250,7 +303,7 @@ git commit -m "feat: use indexed DayZ directory at startup"
 
 ---
 
-### Task 5: Build the filter bar in WPF
+### Task 5: Build the DZSA-style filter bar in WPF
 
 **Files:**
 - Modify: `src/MonarchLauncher.App/Views/Pages/ServersView.xaml`
@@ -262,19 +315,11 @@ git commit -m "feat: use indexed DayZ directory at startup"
 
 - [ ] **Step 1: Add the filter panel controls**
 
-Required controls:
-- map ComboBox bound to `AvailableMaps` / `SelectedMap`
-- min/max players text or numeric fields
-- max ping field
-- `Hide empty` and `Hide full` checkboxes
-- tri-state selectors for modded, password, official/community, first/third person
-- `Clear filters` command/button
+Use a `ToggleButton` labeled `Filters` that shows/hides a bordered panel. Add: map ComboBox; min/max players TextBoxes; max ping TextBox; `Hide empty` and `Hide full` CheckBoxes; ComboBoxes with `Either/Yes/No` mapped to nullable booleans for modded/password; `Either/Official/Community`; `Either/First person/Third person`; and a `Clear` button bound to `ClearFiltersCommand`.
 
-Use existing gray/white resources and keep the server table as the dominant surface.
+- [ ] **Step 2: Add reusable compact styles**
 
-- [ ] **Step 2: Add reusable compact ComboBox/CheckBox styles rather than inline styling each control**
-
-Keep corner radius at `5` for filter controls in this plan; window-level corner work belongs to the UI-polish plan.
+Create `Style.CompactComboBox`, `Style.CompactCheckBox`, and `Style.FilterToggleButton` in `Controls.xaml`. Use corner radius `5`, existing brushes, 12 px UI font, and no new color palette.
 
 - [ ] **Step 3: Build on Windows**
 

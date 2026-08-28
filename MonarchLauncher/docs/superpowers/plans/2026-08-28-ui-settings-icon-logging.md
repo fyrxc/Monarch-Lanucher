@@ -25,33 +25,49 @@
 **Files:**
 - Modify: `src/MonarchLauncher.App/Models/LauncherSettings.cs`
 - Create: `src/MonarchLauncher.App/Models/UserSettings.cs`
-- Modify: `src/MonarchLauncher.App/Services/LauncherSettingsService.cs`
 - Create: `src/MonarchLauncher.App/Services/UserSettingsService.cs`
 - Test: `tests/MonarchLauncher.App.Tests/UserSettingsServiceTests.cs`
 
 **Interfaces:**
-- Consumes: `%LOCALAPPDATA%` through an injectable base path for tests.
-- Produces: `UserSettingsService.Load()` and `UserSettingsService.Save(UserSettings)` plus `UserSettings.DayZName`.
+- Consumes: `%LOCALAPPDATA%` through an optional constructor directory used by tests.
+- Produces: `UserSettingsService.Load()`, `UserSettingsService.Save(UserSettings)`, and `UserSettings.DayZName`.
 
 - [ ] **Step 1: Write failing persistence tests**
+
+Use `Path.Combine(Path.GetTempPath(), "MonarchLanucherTests", Guid.NewGuid().ToString("N"))` in each test and delete the directory in `finally`.
 
 ```csharp
 [Fact]
 public void Save_then_load_round_trips_dayz_name()
 {
-    using var temp = new TempDirectory();
-    var service = new UserSettingsService(temp.Path);
-    service.Save(new UserSettings { DayZName = "MonarchPlayer" });
-    Assert.Equal("MonarchPlayer", service.Load().DayZName);
+    var root = Path.Combine(Path.GetTempPath(), "MonarchLanucherTests", Guid.NewGuid().ToString("N"));
+    try
+    {
+        var service = new UserSettingsService(root);
+        service.Save(new UserSettings { DayZName = "MonarchPlayer" });
+        Assert.Equal("MonarchPlayer", service.Load().DayZName);
+    }
+    finally
+    {
+        if (Directory.Exists(root)) Directory.Delete(root, true);
+    }
 }
 
 [Fact]
 public void Load_returns_defaults_when_file_is_invalid()
 {
-    using var temp = new TempDirectory();
-    File.WriteAllText(Path.Combine(temp.Path, "settings.json"), "not json");
-    var service = new UserSettingsService(temp.Path);
-    Assert.Equal(string.Empty, service.Load().DayZName);
+    var root = Path.Combine(Path.GetTempPath(), "MonarchLanucherTests", Guid.NewGuid().ToString("N"));
+    try
+    {
+        Directory.CreateDirectory(root);
+        File.WriteAllText(Path.Combine(root, "settings.json"), "not json");
+        var service = new UserSettingsService(root);
+        Assert.Equal(string.Empty, service.Load().DayZName);
+    }
+    finally
+    {
+        if (Directory.Exists(root)) Directory.Delete(root, true);
+    }
 }
 ```
 
@@ -62,7 +78,16 @@ Expected: FAIL because the new types do not exist.
 
 - [ ] **Step 3: Implement per-user storage**
 
-Default directory:
+Create:
+
+```csharp
+public sealed class UserSettings
+{
+    public string DayZName { get; set; } = string.Empty;
+}
+```
+
+`UserSettingsService()` defaults its directory to:
 
 ```csharp
 Path.Combine(
@@ -70,7 +95,7 @@ Path.Combine(
     "Monarch Lanucher")
 ```
 
-Default file: `settings.json`. Create the directory on save. Use indented `System.Text.Json` output. Keep GitHub owner/repository/update-asset properties in `LauncherSettings` loaded from the shipped `launcher-settings.json`.
+`UserSettingsService(string baseDirectory)` is the testable constructor. Store `settings.json`, create the directory on save, use indented `System.Text.Json`, and return defaults on missing/invalid JSON. Keep GitHub owner/repository/update-asset properties in the shipped `LauncherSettings` model.
 
 - [ ] **Step 4: Re-run tests**
 
@@ -80,7 +105,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/MonarchLauncher.App/Models src/MonarchLauncher.App/Services tests/MonarchLauncher.App.Tests/UserSettingsServiceTests.cs
+git add src/MonarchLauncher.App/Models src/MonarchLauncher.App/Services/UserSettingsService.cs tests/MonarchLauncher.App.Tests/UserSettingsServiceTests.cs
 git commit -m "feat: persist per-user launcher settings"
 ```
 
@@ -89,46 +114,54 @@ git commit -m "feat: persist per-user launcher settings"
 ### Task 2: Apply the saved DayZ name when launching
 
 **Files:**
-- Modify: `src/MonarchLauncher.App/Services/IDayZLaunchService.cs`
 - Modify: `src/MonarchLauncher.App/Services/SteamDayZLaunchService.cs`
+- Modify: `src/MonarchLauncher.App/App.xaml.cs`
 - Test: `tests/MonarchLauncher.App.Tests/SteamDayZLaunchServiceTests.cs`
 
 **Interfaces:**
-- Consumes: `DayZServer` and saved `DayZName`.
-- Produces: deterministic launch argument generation including `-name=<quoted name>` when non-empty.
+- Consumes: `DayZServer` and `UserSettingsService`.
+- Produces: `internal static string BuildArguments(DayZServer server, string dayZName)` and name-aware `Launch(DayZServer)`.
 
 - [ ] **Step 1: Write a failing argument-generation test**
 
-Expose an internal pure helper:
-
 ```csharp
-internal static string BuildArguments(DayZServer server, string dayZName)
-```
-
-Assert a name containing spaces produces:
-
-```text
--applaunch 221100 -connect=1.2.3.4 -port=2302 -name="Monarch Player"
+[Fact]
+public void BuildArguments_quotes_saved_dayz_name()
+{
+    var server = TestServer(ip: "1.2.3.4", port: 2302);
+    var args = SteamDayZLaunchService.BuildArguments(server, "Monarch Player");
+    Assert.Equal("-applaunch 221100 -connect=1.2.3.4 -port=2302 -name=\"Monarch Player\"", args);
+}
 ```
 
 - [ ] **Step 2: Run test and verify RED**
 
 Run: `dotnet test .\tests\MonarchLauncher.App.Tests\MonarchLauncher.App.Tests.csproj --filter SteamDayZLaunchServiceTests`
-Expected: FAIL because `BuildArguments` and name-aware launch do not exist.
+Expected: FAIL because `BuildArguments` is absent.
 
-- [ ] **Step 3: Implement name-aware arguments and injection**
+- [ ] **Step 3: Implement name-aware launch arguments**
 
-Change launch service construction to accept `Func<UserSettings>` or `UserSettingsService`; read the latest saved name at launch time so Settings changes do not require restarting the launcher.
+Change `SteamDayZLaunchService` constructor to:
 
-- [ ] **Step 4: Re-run launch tests**
+```csharp
+public SteamDayZLaunchService(UserSettingsService userSettingsService)
+```
+
+`Launch` calls `userSettingsService.Load().DayZName` immediately before building arguments. `BuildArguments` trims the name, escapes embedded `"` as `\"`, omits `-name` when the result is empty, and otherwise appends `-name="..."`.
+
+- [ ] **Step 4: Wire the service in `App.OnStartup`**
+
+Create one `UserSettingsService` instance and pass it to `SteamDayZLaunchService`; the same instance is later passed to `SettingsViewModel` through `MainWindowViewModel`.
+
+- [ ] **Step 5: Re-run launch tests**
 
 Run: `dotnet test .\tests\MonarchLauncher.App.Tests\MonarchLauncher.App.Tests.csproj --filter SteamDayZLaunchServiceTests`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add src/MonarchLauncher.App/Services tests/MonarchLauncher.App.Tests/SteamDayZLaunchServiceTests.cs
+git add src/MonarchLauncher.App/Services/SteamDayZLaunchService.cs src/MonarchLauncher.App/App.xaml.cs tests/MonarchLauncher.App.Tests/SteamDayZLaunchServiceTests.cs
 git commit -m "feat: apply saved DayZ player name"
 ```
 
@@ -140,7 +173,6 @@ git commit -m "feat: apply saved DayZ player name"
 - Modify: `src/MonarchLauncher.App/ViewModels/SettingsViewModel.cs`
 - Modify: `src/MonarchLauncher.App/ViewModels/MainWindowViewModel.cs`
 - Modify: `src/MonarchLauncher.App/Views/Pages/SettingsView.xaml`
-- Modify: `src/MonarchLauncher.App/App.xaml.cs`
 - Test: `tests/MonarchLauncher.App.Tests/SettingsViewModelTests.cs`
 
 **Interfaces:**
@@ -149,7 +181,7 @@ git commit -m "feat: apply saved DayZ player name"
 
 - [ ] **Step 1: Write failing view-model tests**
 
-Test initial load from persisted settings and test that executing Save writes the new name and sets `StatusText` to `"Saved"`.
+Create a temporary `UserSettingsService` as in Task 1. Pre-save `OldName`, construct `SettingsViewModel`, assert `DayZName == "OldName"`; set `DayZName = "New Name"`, execute `SaveCommand`, then assert the service reloads `New Name` and `StatusText == "Saved"`.
 
 - [ ] **Step 2: Run tests and verify RED**
 
@@ -158,16 +190,11 @@ Expected: FAIL because settings editing does not exist.
 
 - [ ] **Step 3: Implement view model and composition**
 
-Keep validation minimal: trim whitespace; empty name is allowed and means DayZ/Steam default behavior.
+`SettingsViewModel(UserSettingsService service)` loads the current settings in its constructor. `SaveCommand` writes `new UserSettings { DayZName = DayZName.Trim() }` and updates `StatusText`. Change `MainWindowViewModel` constructor to accept `UserSettingsService` and instantiate `SettingsViewModel(userSettingsService)` in `_pages`.
 
-- [ ] **Step 4: Replace the placeholder settings card with one compact editable row**
+- [ ] **Step 4: Replace the placeholder settings card with a compact editable row**
 
-Layout:
-- label `DayZ Name`
-- TextBox bound two-way to `DayZName`
-- `Save` button
-- metadata text explaining it is applied when joining a server
-- existing updater information below
+Use a two-column grid: label `DayZ Name`; TextBox bound two-way to `DayZName`; Save button aligned right; metadata below reading `Used when Monarch launches DayZ. Leave blank to use the game default.`; `StatusText` beside the Save button. Keep updater information in a second card.
 
 - [ ] **Step 5: Run tests and build**
 
@@ -179,7 +206,7 @@ Expected: PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/MonarchLauncher.App/ViewModels src/MonarchLauncher.App/Views/Pages/SettingsView.xaml src/MonarchLauncher.App/App.xaml.cs tests/MonarchLauncher.App.Tests/SettingsViewModelTests.cs
+git add src/MonarchLauncher.App/ViewModels src/MonarchLauncher.App/Views/Pages/SettingsView.xaml tests/MonarchLauncher.App.Tests/SettingsViewModelTests.cs
 git commit -m "feat: add DayZ name setting"
 ```
 
@@ -193,30 +220,24 @@ git commit -m "feat: add DayZ name setting"
 - Test: `tests/MonarchLauncher.App.Tests/LauncherLogTests.cs`
 
 **Interfaces:**
-- Produces: `LauncherLog.Write(string message, Exception? exception = null)` and `LauncherLog.LogPath`.
+- Produces: `LauncherLog(string? logDirectory = null)`, `Write(string message, Exception? exception = null)`, and `LogPath`.
 
-- [ ] **Step 1: Write a failing log-file test using an injectable directory**
+- [ ] **Step 1: Write a failing log-file test**
 
-Assert one call creates `launcher.log` and contains both the supplied message and exception type.
+Create a temporary directory, instantiate `new LauncherLog(root)`, call `Write("startup failed", new InvalidOperationException("boom"))`, then assert `File.ReadAllText(log.LogPath)` contains `startup failed`, `InvalidOperationException`, and `boom`.
 
 - [ ] **Step 2: Run and verify RED**
 
 Run: `dotnet test .\tests\MonarchLauncher.App.Tests\MonarchLauncher.App.Tests.csproj --filter LauncherLogTests`
-Expected: FAIL because the logger does not exist.
+Expected: FAIL because `LauncherLog` does not exist.
 
 - [ ] **Step 3: Implement append-only local logging**
 
-Default path:
-
-```text
-%LOCALAPPDATA%\Monarch Lanucher\Logs\launcher.log
-```
-
-Each line starts with an ISO-8601 timestamp. Swallow logging failures so logging can never crash startup.
+Default directory is `%LOCALAPPDATA%\Monarch Lanucher\Logs`; file is `launcher.log`. Each entry begins with `DateTimeOffset.Now.ToString("O")`. Append exception `ToString()` on the next line. Wrap directory/file operations in `try/catch` and swallow only errors thrown by logging itself.
 
 - [ ] **Step 4: Wire startup guards**
 
-In `App.OnStartup`, wrap composition/window creation in `try/catch`, write the exception, show a short MessageBox containing the log path, then call `Shutdown(1)`. Also subscribe to `DispatcherUnhandledException` and `AppDomain.CurrentDomain.UnhandledException` for diagnostics.
+At the top of `App.OnStartup`, create the logger and subscribe to `DispatcherUnhandledException` and `AppDomain.CurrentDomain.UnhandledException`. Wrap service composition/window creation in `try/catch`; on failure write `Launcher startup failed`, show `Monarch Lanucher could not start. Error details were written to: <LogPath>`, then `Shutdown(1)`.
 
 - [ ] **Step 5: Run tests**
 
@@ -236,32 +257,26 @@ git commit -m "feat: log launcher startup failures"
 
 **Files:**
 - Modify: `src/MonarchLauncher.App/Views/MainWindow.xaml`
+- Modify: `src/MonarchLauncher.App/Views/MainWindow.xaml.cs`
 - Modify: `src/MonarchLauncher.App/Styles/Controls.xaml`
 - Modify: `src/MonarchLauncher.App/Styles/Colors.xaml`
 - Modify: `src/MonarchLauncher.App/Views/Pages/ServersView.xaml`
 
 **Interfaces:**
 - Consumes: existing navigation/view models.
-- Produces: visual-only WPF changes with no behavior changes.
+- Produces: visual-only WPF changes with no navigation behavior changes.
 
 - [ ] **Step 1: Consolidate the top-left brand**
 
-Use the full Monarch wordmark only once in the sidebar header. In the title bar use only the crown/app icon at 16–18 px next to `Monarch Lanucher`; remove the second clipped full wordmark.
+Use the full Monarch wordmark only once in the sidebar header. In the title bar reserve an 18x18 crown icon area next to `Monarch Lanucher`; remove the clipped full wordmark currently occupying the title bar left column.
 
 - [ ] **Step 2: Add a rounded outer window surface without breaking resize**
 
-Keep `WindowStyle="None"` and `WindowChrome`. Set the actual Window background transparent and place the full UI inside an outer `Border` with `CornerRadius="8"`, dark background, and `ClipToBounds="True"`. When maximized, set corner radius to `0` from code-behind so edges meet the monitor bounds.
+Keep `WindowStyle="None"` and `WindowChrome`. Set Window `Background="Transparent"` and place the complete existing root grid inside `<Border x:Name="WindowSurface" CornerRadius="8" Background="{DynamicResource Brush.Window}" ClipToBounds="True">`. In `UpdateMaximizeGlyph()`, also set `WindowSurface.CornerRadius = WindowState == WindowState.Maximized ? new CornerRadius(0) : new CornerRadius(8);`.
 
 - [ ] **Step 3: Normalize component radii and density**
 
-Use:
-- outer window: 8 normal / 0 maximized
-- primary panels: 6
-- search/filter controls: 5
-- buttons/navigation items: 5
-- server rows: no separate card radius; keep dense table behavior
-
-Reduce sidebar width from 200 to approximately 186 unless text clipping occurs. Reduce vertical dead space around headers.
+Set exact radii: outer window 8 normal/0 maximized; primary cards 6; search/filter controls 5; buttons/navigation items 5. Keep server rows square/continuous as a table. Set both sidebar column definitions from 200 to `186`; reduce sidebar header margin to `12,12,12,8` and Servers page root margin to `16`.
 
 - [ ] **Step 4: Windows build check**
 
@@ -285,27 +300,33 @@ git commit -m "style: polish Monarch launcher shell"
 - Modify: `src/MonarchLauncher.App/Views/MainWindow.xaml`
 
 **Interfaces:**
-- Consumes: user-supplied crown-only PNG from the approved design conversation.
+- Consumes: the user-supplied crown-only PNG from the approved design conversation.
 - Produces: one `.ico` containing 16, 24, 32, 48, 64, 128, and 256 pixel images.
 
 - [ ] **Step 1: Generate the multi-size `.ico` from the crown PNG**
 
-Preserve transparency; do not alter the white crown shape beyond proportional padding required for square icon bounds.
+Preserve the transparent background and white crown shape. Center the crown in a square transparent canvas with 8% padding on each side, then encode the listed sizes into one ICO.
 
 - [ ] **Step 2: Wire project and window icon**
 
-Add:
+Add to the main property group:
 
 ```xml
 <ApplicationIcon>Assets\monarch-app.ico</ApplicationIcon>
 ```
 
-and set `Icon="/Assets/monarch-app.ico"` on `MainWindow` if WPF resource resolution requires it.
+Add the icon as a WPF resource:
+
+```xml
+<Resource Include="Assets\monarch-app.ico" />
+```
+
+Set `Icon="/Assets/monarch-app.ico"` on `MainWindow` and use the same resource in the 18x18 title-bar crown image.
 
 - [ ] **Step 3: Publish and inspect output metadata on Windows**
 
 Run: `dotnet publish .\src\MonarchLauncher.App\MonarchLauncher.App.csproj -c Release -r win-x64 --self-contained false -o .\artifacts\icon-check`
-Expected: PASS and `MonarchLauncher.App.exe` displays the Monarch crown in Explorer/taskbar.
+Expected: PASS; Explorer and the running taskbar button display the crown icon.
 
 - [ ] **Step 4: Commit**
 

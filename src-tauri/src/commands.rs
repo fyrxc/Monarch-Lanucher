@@ -90,9 +90,9 @@ pub fn clear_recent(state: State<'_, LauncherState>) -> Result<(), String> {
 pub fn get_system_status() -> SystemStatus {
     match discover_steam() {
         Ok(paths) => SystemStatus {
-            steam_detected: true,
-            dayz_installed: paths.dayz_exe.is_some(),
+            steam_found: true,
             steam_path: Some(paths.steam_exe.to_string_lossy().into_owned()),
+            dayz_found: paths.dayz_exe.is_some(),
             dayz_path: paths
                 .dayz_exe
                 .map(|path| path.to_string_lossy().into_owned()),

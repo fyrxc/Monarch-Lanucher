@@ -1,7 +1,5 @@
+import { AppShell } from "../components/app-shell";
+
 export default function Page() {
-  return (
-    <main style={{ padding: 24 }}>
-      <h1>Servers</h1>
-    </main>
-  );
+  return <AppShell />;
 }

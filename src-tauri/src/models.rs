@@ -34,3 +34,12 @@ pub struct LauncherSettings {
     pub dayz_name: String,
     pub extra_launch_parameters: String,
 }
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SystemStatus {
+    pub steam_detected: bool,
+    pub dayz_installed: bool,
+    pub steam_path: Option<String>,
+    pub dayz_path: Option<String>,
+}

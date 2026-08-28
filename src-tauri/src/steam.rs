@@ -1,5 +1,14 @@
 use std::collections::HashSet;
-use std::path::PathBuf;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SteamPaths {
+    pub steam_exe: PathBuf,
+    pub library_roots: Vec<PathBuf>,
+    pub dayz_exe: Option<PathBuf>,
+}
 
 pub fn parse_libraryfolders(body: &str) -> Result<Vec<PathBuf>, String> {
     let mut roots = Vec::new();
@@ -32,4 +41,82 @@ pub fn parse_libraryfolders(body: &str) -> Result<Vec<PathBuf>, String> {
     }
 
     Ok(roots)
+}
+
+pub fn discover_steam() -> Result<SteamPaths, String> {
+    let registry_exe = registry_value("SteamExe").map(PathBuf::from);
+    let registry_root = registry_value("SteamPath").map(PathBuf::from);
+    let fallback_exe = std::env::var_os("ProgramFiles(x86)")
+        .map(PathBuf::from)
+        .map(|root| root.join("Steam").join("steam.exe"));
+
+    let steam_exe = registry_exe
+        .filter(|path| path.exists())
+        .or_else(|| fallback_exe.filter(|path| path.exists()))
+        .ok_or_else(|| "Steam is not installed".to_string())?;
+
+    let steam_root = registry_root
+        .filter(|path| path.exists())
+        .or_else(|| steam_exe.parent().map(Path::to_path_buf))
+        .ok_or_else(|| "Unable to determine the Steam install folder".to_string())?;
+
+    let mut roots = vec![steam_root.clone()];
+    let library_file = steam_root.join("steamapps").join("libraryfolders.vdf");
+    if let Ok(body) = fs::read_to_string(library_file) {
+        if let Ok(additional) = parse_libraryfolders(&body) {
+            roots.extend(additional);
+        }
+    }
+    dedupe_paths(&mut roots);
+
+    let dayz_exe = roots.iter().find_map(|root| {
+        let candidate = root
+            .join("steamapps")
+            .join("common")
+            .join("DayZ")
+            .join("DayZ_x64.exe");
+        candidate.exists().then_some(candidate)
+    });
+
+    Ok(SteamPaths {
+        steam_exe,
+        library_roots: roots,
+        dayz_exe,
+    })
+}
+
+fn dedupe_paths(paths: &mut Vec<PathBuf>) {
+    let mut seen = HashSet::new();
+    paths.retain(|path| seen.insert(path.to_string_lossy().to_ascii_lowercase()));
+}
+
+#[cfg(windows)]
+fn registry_value(name: &str) -> Option<String> {
+    let output = Command::new("reg")
+        .args([
+            "query",
+            r"HKCU\Software\Valve\Steam",
+            "/v",
+            name,
+        ])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    stdout.lines().find_map(|line| {
+        if !line.contains(name) || !line.contains("REG_SZ") {
+            return None;
+        }
+        line.split_once("REG_SZ")
+            .map(|(_, value)| value.trim().trim_matches('"').to_string())
+            .filter(|value| !value.is_empty())
+    })
+}
+
+#[cfg(not(windows))]
+fn registry_value(_name: &str) -> Option<String> {
+    None
 }

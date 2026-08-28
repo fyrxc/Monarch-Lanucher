@@ -2,25 +2,25 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the first working Monarch Lanucher rewrite with a Next.js frontend, Rust backend, Tauri 2 desktop shell, automatic public DayZ servers, filters, favorites/recent, settings, Steam/DayZ discovery, direct join, and local logging.
+**Goal:** Build the first working Monarch Lanucher rewrite with a Next.js frontend, Rust backend, Tauri 2 desktop shell, automatic public DayZ servers, DZSA-style filters, favorites/recent, settings, Steam/DayZ discovery, direct join, and local logging.
 
-**Architecture:** Next.js is a static UI only. Every Windows-native operation lives in Rust behind thin Tauri commands. Rust modules own server discovery, persistence, Steam/DayZ discovery, launch argument construction, and logging; shared serializable models form the frontend/backend contract.
+**Architecture:** Next.js is a static UI only. Rust owns server/network/native/persistence/process work behind thin Tauri commands. Shared serde/TypeScript models define the contract between them.
 
-**Tech Stack:** Next.js App Router, TypeScript, React, Tailwind CSS, Tauri 2, Rust stable, serde, reqwest, tokio, tracing, tracing-appender, dirs, url, Vitest, Testing Library.
+**Tech Stack:** Next.js App Router, TypeScript, React, Tailwind CSS, Tauri 2, Rust stable, serde, reqwest, tokio, tracing, dirs, Vitest, Testing Library.
 
 **Spec:** `docs/superpowers/specs/2026-08-28-nextjs-rust-rewrite-design.md`
 
 ## Global Constraints
 
 - Frontend is Next.js; backend/native code is Rust.
-- Tauri 2 is the desktop shell and command/event bridge.
-- Windows is the only initial packaging target.
-- Next.js must export static assets; no production Node.js server ships with the desktop app.
-- The old C#/WPF implementation is not copied into the new app architecture.
-- The app opens directly to Servers and contains no dashboard/home page.
-- No fake/sample server rows may appear in production.
-- Native filesystem, registry, process, Steam, DayZ, and persistence work must stay out of React components.
-- Branch pushes verify only; releases are not created from feature branches.
+- Tauri 2 is the desktop shell and bridge.
+- Windows is the initial target.
+- Next.js exports static assets; no production Node server ships.
+- Old C#/WPF code is not copied into the new app.
+- App opens directly to Servers; no Home/dashboard page.
+- No fake production server rows.
+- Native filesystem/registry/process/Steam/DayZ logic stays out of React.
+- Feature-branch CI verifies only and never publishes a release.
 
 ---
 
@@ -45,8 +45,6 @@ lib/
   api.ts
   filters.ts
   models.ts
-  navigation.ts
-  stores.ts
 src-tauri/
   Cargo.toml
   tauri.conf.json
@@ -62,41 +60,30 @@ src-tauri/
     settings/mod.rs
     collections/mod.rs
     logging/mod.rs
-  tests/fixtures/
+  tests/fixtures/dayz-servers.json
 tests/
+  setup.ts
   filters.test.ts
   app-shell.test.tsx
-.github/workflows/
-  verify.yml
+.github/workflows/verify.yml
 package.json
+package-lock.json
 next.config.ts
 tsconfig.json
 vitest.config.ts
 ```
 
-### Task 1: Scaffold the static Next.js + Tauri 2 application and branch CI
+### Task 1: Scaffold static Next.js + Tauri 2 and verification CI
 
 **Files:**
-- Create: `package.json`
-- Create: `next.config.ts`
-- Create: `tsconfig.json`
-- Create: `vitest.config.ts`
-- Create: `app/layout.tsx`
-- Create: `app/page.tsx`
-- Create: `app/globals.css`
-- Create: `src-tauri/Cargo.toml`
-- Create: `src-tauri/tauri.conf.json`
-- Create: `src-tauri/src/main.rs`
-- Create: `src-tauri/src/lib.rs`
-- Create: `.github/workflows/verify.yml`
+- Create all root/frontend/Tauri scaffold files listed above except feature modules implemented in later tasks.
 
 **Interfaces:**
-- Consumes: none.
-- Produces: a static-export Next.js app, a Tauri 2 Rust crate named `monarch_launcher`, and a Windows verification workflow used by every later task.
+- Produces static-export Next.js app.
+- Produces Rust crate `monarch_launcher`.
+- Produces Windows feature-branch verification workflow.
 
-- [ ] **Step 1: Create the frontend package manifest**
-
-Use scripts that separate frontend verification from Tauri verification:
+- [ ] **Step 1: Create `package.json`**
 
 ```json
 {
@@ -107,7 +94,6 @@ Use scripts that separate frontend verification from Tauri verification:
     "build:web": "next build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest",
     "tauri": "tauri"
   },
   "dependencies": {
@@ -130,7 +116,19 @@ Use scripts that separate frontend verification from Tauri verification:
 }
 ```
 
-- [ ] **Step 2: Configure static export**
+- [ ] **Step 2: Generate and commit the npm lockfile**
+
+Run:
+
+```bash
+npm install
+```
+
+Expected: `package-lock.json` exists and records exact resolved versions.
+
+- [ ] **Step 3: Configure static export**
+
+`next.config.ts`:
 
 ```ts
 import type { NextConfig } from "next";
@@ -143,26 +141,17 @@ const nextConfig: NextConfig = {
 export default nextConfig;
 ```
 
-- [ ] **Step 3: Create the smallest frontend smoke test**
+- [ ] **Step 4: Create minimal App Router files**
 
-`tests/app-shell.test.tsx`:
+`app/layout.tsx`:
 
 ```tsx
-import { render, screen } from "@testing-library/react";
-import Page from "../app/page";
+import "./globals.css";
 
-it("opens on the Servers experience", () => {
-  render(<Page />);
-  expect(screen.getByText("Servers")).toBeInTheDocument();
-});
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  return <html lang="en"><body>{children}</body></html>;
+}
 ```
-
-- [ ] **Step 4: Run the frontend test and confirm the first red state**
-
-Run: `npm test -- tests/app-shell.test.tsx`
-Expected: FAIL until `app/page.tsx` renders a Servers heading.
-
-- [ ] **Step 5: Add the minimal Next.js page and Vitest setup**
 
 `app/page.tsx`:
 
@@ -172,16 +161,15 @@ export default function Page() {
 }
 ```
 
+- [ ] **Step 5: Configure Vitest and write the first smoke test**
+
 `vitest.config.ts`:
 
 ```ts
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  test: {
-    environment: "jsdom",
-    setupFiles: ["./tests/setup.ts"]
-  }
+  test: { environment: "jsdom", setupFiles: ["./tests/setup.ts"] }
 });
 ```
 
@@ -191,7 +179,21 @@ export default defineConfig({
 import "@testing-library/jest-dom/vitest";
 ```
 
-- [ ] **Step 6: Add the minimal Tauri 2 crate**
+`tests/app-shell.test.tsx`:
+
+```tsx
+import { render, screen } from "@testing-library/react";
+import Page from "../app/page";
+
+it("starts on Servers", () => {
+  render(<Page />);
+  expect(screen.getByRole("heading", { name: "Servers" })).toBeInTheDocument();
+});
+```
+
+- [ ] **Step 6: Create the Tauri crate**
+
+`src-tauri/Cargo.toml` must define package `monarch_launcher`, edition `2021`, library crate types `staticlib`, `cdylib`, `rlib`, and dependencies `tauri = { version = "2", features = [] }` plus build dependency `tauri-build = "2"`.
 
 `src-tauri/src/main.rs`:
 
@@ -212,36 +214,22 @@ pub fn run() {
 }
 ```
 
-- [ ] **Step 7: Configure Tauri to use the static export**
+- [ ] **Step 7: Configure Tauri static frontend**
 
-Set `frontendDist` to `../out`, `beforeBuildCommand` to `npm run build:web`, product name to `Monarch Lanucher`, identifier to `com.monarch.launcher`, and Windows bundle targets to `nsis` only for local development packaging.
+Set `build.frontendDist` to `../out`, `build.beforeBuildCommand` to `npm run build:web`, product name `Monarch Lanucher`, identifier `com.monarch.launcher`, and bundle target `nsis`.
 
-- [ ] **Step 8: Add branch verification workflow**
+- [ ] **Step 8: Add `.github/workflows/verify.yml`**
 
-Workflow steps on `windows-latest`:
+On pushes/PRs, run Node 22 + `npm ci`, `npm run typecheck`, `npm test`, `npm run build:web`, Rust stable + rustfmt/clippy, `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`, and `npm run tauri build -- --no-bundle` on `windows-latest`.
 
-```yaml
-- uses: actions/checkout@v4
-- uses: actions/setup-node@v4
-  with:
-    node-version: '22'
-    cache: npm
-- run: npm ci
-- run: npm run typecheck
-- run: npm test
-- run: npm run build:web
-- uses: dtolnay/rust-toolchain@stable
-  with:
-    components: rustfmt, clippy
-- run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
-- run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
-- run: cargo test --manifest-path src-tauri/Cargo.toml
-- run: npm run tauri build -- --no-bundle
+- [ ] **Step 9: Run frontend verification**
+
+```bash
+npm run typecheck
+npm test
+npm run build:web
 ```
 
-- [ ] **Step 9: Run local/static checks where available and push for Windows CI**
-
-Run: `npm ci && npm run typecheck && npm test && npm run build:web`
 Expected: PASS.
 
 - [ ] **Step 10: Commit**
@@ -251,7 +239,7 @@ git add package.json package-lock.json next.config.ts tsconfig.json vitest.confi
 git commit -m "feat: scaffold Next.js Tauri Rust launcher"
 ```
 
-### Task 2: Define the Rust/TypeScript contract and server filtering model
+### Task 2: Define shared models and client-side server filters
 
 **Files:**
 - Create: `src-tauri/src/models.rs`
@@ -262,90 +250,45 @@ git commit -m "feat: scaffold Next.js Tauri Rust launcher"
 - Modify: `src-tauri/src/lib.rs`
 
 **Interfaces:**
-- Produces Rust `DayzServer`, `LauncherSettings`, `InstalledMod`, `SystemStatus`, `ServerDirectoryResult`, and `LauncherError`.
-- Produces TypeScript mirrors `DayzServer`, `LauncherSettings`, `InstalledMod`, `SystemStatus`, and `ServerFilters`.
-- Produces `filterServers(servers: DayzServer[], filters: ServerFilters): DayzServer[]`.
+- Rust models: `DayzServer`, `ServerDirectoryResult`, `LauncherSettings`, `InstalledMod`, `SystemStatus`.
+- TypeScript mirrors use camelCase.
+- `filterServers(servers, filters)` handles all DZSA-style local filters.
 
-- [ ] **Step 1: Write failing TypeScript filter tests**
+- [ ] **Step 1: Write failing filter tests**
 
-```ts
-import { filterServers } from "../lib/filters";
-import type { DayzServer } from "../lib/models";
+Use a `DayzServer` fixture with name `Monarch EU`, map `chernarusplus`, 42/100 players, ping 45, modded true, first-person true. Assert search/map/min/max players/max ping/modded/official/first-person filters retain it, and `hideEmpty` removes a zero-player copy.
 
-const base: DayzServer = {
-  id: "1",
-  name: "Monarch EU",
-  map: "chernarusplus",
-  players: 42,
-  maxPlayers: 100,
-  ping: 45,
-  ip: "1.2.3.4",
-  gamePort: 2302,
-  queryPort: 2303,
-  status: "online",
-  passworded: false,
-  official: false,
-  firstPersonOnly: true,
-  modded: true,
-  country: "DE",
-  requiredWorkshopIds: ["1559212036"]
-};
-
-it("filters by search, player count, ping and mode", () => {
-  const result = filterServers([base], {
-    search: "monarch",
-    map: "chernarusplus",
-    minPlayers: 20,
-    maxPlayers: 80,
-    maxPing: 60,
-    hideEmpty: true,
-    hideFull: true,
-    modded: true,
-    passworded: null,
-    official: false,
-    firstPersonOnly: true,
-    favoritesOnly: false
-  });
-  expect(result).toHaveLength(1);
-});
-```
-
-- [ ] **Step 2: Run the filter test and verify it fails**
+- [ ] **Step 2: Verify red state**
 
 Run: `npm test -- tests/filters.test.ts`
-Expected: FAIL because `lib/filters.ts` and models do not exist.
+Expected: FAIL because models/filter helper do not exist.
 
-- [ ] **Step 3: Implement the shared models and filter predicate**
+- [ ] **Step 3: Implement TypeScript models and pure filter helper**
 
-`lib/filters.ts` must compare text case-insensitively against name/map/`ip:gamePort`, treat `null` tri-state values as “either”, and never exclude a server on ping when ping is `null`.
+Tri-state filters use `boolean | null`, where `null` means either. A missing ping (`null`) is not excluded by max-ping filtering. Search matches server name, map, and `ip:gamePort` case-insensitively.
 
-- [ ] **Step 4: Add Rust serialization tests**
+- [ ] **Step 4: Implement Rust models with serde camelCase**
 
-In `src-tauri/src/models.rs`:
+Use `#[serde(rename_all = "camelCase")]` on every frontend-facing structure. `DayzServer.required_workshop_ids` is `Vec<String>`.
 
-```rust
-#[test]
-fn dayz_server_serializes_frontend_field_names() {
-    let server = DayzServer::fixture();
-    let value = serde_json::to_value(server).unwrap();
-    assert_eq!(value["gamePort"], 2302);
-    assert!(value["requiredWorkshopIds"].is_array());
-}
+- [ ] **Step 5: Add Rust serialization test**
+
+Assert serialized `DayzServer` contains keys `gamePort` and `requiredWorkshopIds`.
+
+- [ ] **Step 6: Run tests**
+
+```bash
+npm test -- tests/filters.test.ts
+cargo test --manifest-path src-tauri/Cargo.toml models
 ```
 
-Use `#[serde(rename_all = "camelCase")]` on frontend-facing structures.
-
-- [ ] **Step 5: Run both frontend and Rust tests**
-
-Run: `npm test -- tests/filters.test.ts`
-Run: `cargo test --manifest-path src-tauri/Cargo.toml models`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add lib src-tauri/src/models.rs src-tauri/src/error.rs src-tauri/src/lib.rs tests/filters.test.ts
-git commit -m "feat: define launcher data contract and filters"
+git commit -m "feat: define launcher contract and server filters"
 ```
 
 ### Task 3: Implement automatic public DayZ server discovery in Rust
@@ -358,47 +301,50 @@ git commit -m "feat: define launcher data contract and filters"
 - Modify: `src-tauri/Cargo.toml`
 
 **Interfaces:**
-- Produces trait `ServerDirectory` with async `fetch_servers(&self) -> Result<ServerDirectoryResult, LauncherError>`.
-- Produces `DzsaServerDirectory` backed by `reqwest::Client`.
-- Produces Tauri command `get_servers() -> Result<ServerDirectoryResult, String>`.
+- `ServerDirectory` trait exposes async `fetch_servers`.
+- `DzsaServerDirectory` uses `reqwest::Client`.
+- Tauri command `get_servers` returns normalized `ServerDirectoryResult`.
 
-- [ ] **Step 1: Add a fixture containing valid, malformed, duplicate, vanilla, and modded rows**
+- [ ] **Step 1: Add provider fixture**
 
-Use the provider response shape with `name`, `players`, `maxPlayers`, `map`, `password`, `firstPersonOnly`, `mods`, `endpoint.ip`, `endpoint.port`, and `gamePort`.
+Fixture contains two valid servers, one malformed row, one duplicate, one modded server with ordered Workshop IDs `1559212036`, `1828439124`.
 
-- [ ] **Step 2: Write failing Rust mapping tests**
+- [ ] **Step 2: Write failing parser test**
 
 ```rust
-#[tokio::test]
-async fn maps_valid_rows_skips_bad_rows_and_deduplicates() {
-    let body = include_str!("../tests/fixtures/dayz-servers.json");
-    let result = servers::parse_directory(body).unwrap();
+#[test]
+fn maps_skips_and_deduplicates_directory_rows() {
+    let body = include_str!("../../tests/fixtures/dayz-servers.json");
+    let result = parse_directory(body).unwrap();
     assert_eq!(result.servers.len(), 2);
-    assert_eq!(result.servers[0].required_workshop_ids, vec!["1559212036"]);
+    assert_eq!(result.servers[0].required_workshop_ids, vec!["1559212036", "1828439124"]);
 }
 ```
 
-- [ ] **Step 3: Run the server tests and verify the red state**
+- [ ] **Step 3: Verify red state**
 
 Run: `cargo test --manifest-path src-tauri/Cargo.toml servers`
-Expected: FAIL because `servers::parse_directory` does not exist.
+Expected: FAIL because parser/provider do not exist.
 
-- [ ] **Step 4: Implement provider parsing and normalization**
+- [ ] **Step 4: Implement parser**
 
-Normalize missing map to `"DayZ"`, query port to `gamePort + 1` when absent, status to `"online"` when absent, and Workshop IDs to decimal strings. Skip rows without a name, IP, or valid game port. Deduplicate by provider ID when present, otherwise by `ip:gamePort`.
+Skip rows without name/IP/positive game port. Default map to `DayZ`, query port to game port + 1 when absent, status to `online`, dedupe by provider ID else `ip:gamePort`, and preserve first-seen Workshop ID order while removing invalid/duplicate IDs.
 
-- [ ] **Step 5: Implement network fetch with bounded timeout**
+- [ ] **Step 5: Implement network provider**
 
-Construct a `reqwest::Client` with a 10-second request timeout. Convert non-success HTTP statuses to `LauncherError::ServerDirectory`. Return parsed valid rows even when malformed rows were skipped; set `warning` when rows were skipped.
+Use a `reqwest::Client` with 10-second timeout against the public DayZ directory endpoint. Non-2xx becomes `LauncherError::ServerDirectory`. Malformed individual rows produce a warning while valid rows remain usable.
 
-- [ ] **Step 6: Register `get_servers` as a Tauri command**
+- [ ] **Step 6: Register `get_servers`**
 
-Keep `commands::get_servers` as a thin wrapper around shared state containing `Arc<dyn ServerDirectory + Send + Sync>`.
+Store an `Arc<dyn ServerDirectory + Send + Sync>` in Tauri state and keep the command wrapper free of parsing logic.
 
-- [ ] **Step 7: Run Rust tests and clippy**
+- [ ] **Step 7: Verify Rust checks**
 
-Run: `cargo test --manifest-path src-tauri/Cargo.toml servers`
-Run: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings`
+```bash
+cargo test --manifest-path src-tauri/Cargo.toml servers
+cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+```
+
 Expected: PASS.
 
 - [ ] **Step 8: Commit**
@@ -408,7 +354,7 @@ git add src-tauri
 git commit -m "feat: add automatic DayZ server directory"
 ```
 
-### Task 4: Add settings, favorites, recent servers, and local logging
+### Task 4: Add settings, favorites/recent, and local logging
 
 **Files:**
 - Create: `src-tauri/src/settings/mod.rs`
@@ -418,212 +364,171 @@ git commit -m "feat: add automatic DayZ server directory"
 - Modify: `src-tauri/src/lib.rs`
 
 **Interfaces:**
-- Produces `SettingsStore::load/save` using JSON in the Tauri local app-data directory.
-- Produces `CollectionsStore::favorites/toggle_favorite/recent/add_recent/clear_recent`.
-- Produces Tauri commands `get_settings`, `save_settings`, `get_favorites`, `toggle_favorite`, `get_recent`, `clear_recent`, `open_logs_folder`.
+- Tauri commands: `get_settings`, `save_settings`, `get_favorites`, `toggle_favorite`, `get_recent`, `clear_recent`, `open_logs_folder`.
+- Recent history limit: 20.
 
-- [ ] **Step 1: Write failing settings and collections tests using temporary directories**
+- [ ] **Step 1: Write failing temporary-directory persistence tests**
 
-```rust
-#[test]
-fn settings_round_trip_dayz_name() {
-    let dir = tempfile::tempdir().unwrap();
-    let store = SettingsStore::new(dir.path().to_path_buf());
-    store.save(&LauncherSettings { dayz_name: "Crashout".into(), extra_launch_parameters: String::new() }).unwrap();
-    assert_eq!(store.load().unwrap().dayz_name, "Crashout");
-}
+Assert DayZ name round-trips; favorite toggle adds then removes; recent list is unique/newest-first and capped at 20.
 
-#[test]
-fn recent_is_unique_newest_first_and_bounded() {
-    let dir = tempfile::tempdir().unwrap();
-    let store = CollectionsStore::new(dir.path().to_path_buf());
-    store.add_recent(server("1")).unwrap();
-    store.add_recent(server("2")).unwrap();
-    store.add_recent(server("1")).unwrap();
-    assert_eq!(store.recent().unwrap()[0].id, "1");
-}
+- [ ] **Step 2: Verify red state**
+
+Run: `cargo test --manifest-path src-tauri/Cargo.toml settings`
+Run: `cargo test --manifest-path src-tauri/Cargo.toml collections`
+Expected: FAIL before stores exist.
+
+- [ ] **Step 3: Implement JSON stores**
+
+Store files under Tauri local app-data directory. Write through `<name>.tmp` then replace target. Missing files return defaults; corrupt files return a persistence error and are logged.
+
+- [ ] **Step 4: Implement server identity rules**
+
+Use non-empty provider ID first, otherwise `ip:gamePort`. Recent reinsertion moves a server to index 0.
+
+- [ ] **Step 5: Initialize tracing before native work**
+
+Write daily log files under `<local-app-data>/Monarch Lanucher/logs`. Technical causes go to logs; frontend gets concise user-safe errors.
+
+- [ ] **Step 6: Register commands and verify tests**
+
+```bash
+cargo test --manifest-path src-tauri/Cargo.toml settings
+cargo test --manifest-path src-tauri/Cargo.toml collections
+cargo test --manifest-path src-tauri/Cargo.toml logging
 ```
 
-- [ ] **Step 2: Run targeted Rust tests and verify they fail**
-
-Run: `cargo test --manifest-path src-tauri/Cargo.toml settings collections`
-Expected: FAIL because stores do not exist.
-
-- [ ] **Step 3: Implement atomic-ish JSON persistence**
-
-Write to `<file>.tmp`, flush, then replace the target file. Missing files return defaults. Corrupt files return a structured persistence error and are not silently overwritten.
-
-- [ ] **Step 4: Implement favorite/recent identity rules**
-
-Identity is provider ID when non-empty, otherwise `ip:gamePort`. Recent limit is 20. `toggle_favorite` returns the resulting favorite state.
-
-- [ ] **Step 5: Initialize tracing before window/native work**
-
-Write rolling daily logs under `<local_app_data>/Monarch Lanucher/logs`. Log technical causes in Rust; return user-safe strings through Tauri commands.
-
-- [ ] **Step 6: Run persistence tests**
-
-Run: `cargo test --manifest-path src-tauri/Cargo.toml settings collections logging`
 Expected: PASS.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src-tauri/src/settings src-tauri/src/collections src-tauri/src/logging src-tauri/src/commands src-tauri/src/lib.rs
-git commit -m "feat: persist launcher settings and server collections"
+git add src-tauri
+git commit -m "feat: persist settings favorites recent and logs"
 ```
 
-### Task 5: Add Steam/DayZ discovery and safe direct server launch
+### Task 5: Add Steam/DayZ discovery and safe direct launch
 
 **Files:**
 - Create: `src-tauri/src/steam/mod.rs`
 - Create: `src-tauri/src/launcher/mod.rs`
 - Modify: `src-tauri/src/commands/mod.rs`
 - Modify: `src-tauri/src/lib.rs`
-- Modify: `src-tauri/Cargo.toml`
 
 **Interfaces:**
-- Produces `SteamPaths { steam_exe, library_roots, dayz_install }`.
-- Produces `discover_steam() -> Result<SteamPaths, LauncherError>`.
-- Produces `build_launch_args(server, settings, mod_paths) -> Vec<String>`.
-- Produces `launch_server(server) -> Result<(), LauncherError>` Tauri command; a successful process start records Recent.
+- `SteamPaths { steam_exe, library_roots, dayz_install }`.
+- `discover_steam()` reads Windows registry then fallbacks.
+- `build_launch_args()` returns separate process arguments.
+- `launch_server` records Recent after successful process spawn.
 
-- [ ] **Step 1: Write failing VDF parsing tests**
+- [ ] **Step 1: Write failing Steam-library parser test**
 
-Create a sample `libraryfolders.vdf` string containing `C:\\Program Files (x86)\\Steam` and `D:\\SteamLibrary`, then assert both roots are returned once.
+Feed `libraryfolders.vdf` containing default Steam root plus `D:\SteamLibrary`; assert both unique roots are returned.
 
-- [ ] **Step 2: Write failing launch argument tests**
+- [ ] **Step 2: Write failing launch-argument test**
 
-```rust
-#[test]
-fn launch_args_include_server_and_escaped_profile_name() {
-    let args = build_launch_args(&server("1.2.3.4", 2302), &settings("Crash Out"), &[]);
-    assert!(args.contains(&"-connect=1.2.3.4".to_string()));
-    assert!(args.contains(&"-port=2302".to_string()));
-    assert!(args.contains(&"-name=Crash Out".to_string()));
-}
+Assert separate args include `-applaunch`, `221100`, `-connect=1.2.3.4`, `-port=2302`, and `-name=Crash Out`.
+
+- [ ] **Step 3: Verify red states**
+
+Run: `cargo test --manifest-path src-tauri/Cargo.toml steam`
+Run: `cargo test --manifest-path src-tauri/Cargo.toml launcher`
+Expected: FAIL before implementation.
+
+- [ ] **Step 4: Implement Steam discovery**
+
+On Windows read `HKCU\Software\Valve\Steam` values `SteamExe` and `SteamPath`; fall back to `%ProgramFiles(x86)%\Steam\steam.exe`; parse `steamapps/libraryfolders.vdf` for additional roots.
+
+- [ ] **Step 5: Detect DayZ**
+
+Check every library for `steamapps/common/DayZ/DayZ_x64.exe`; return readable `DayZ is not installed` error when absent.
+
+- [ ] **Step 6: Implement process-safe launch**
+
+Use `std::process::Command` with one `.arg(...)` per argument. Reject NUL/CR/LF in user extra parameters. Launch through Steam app ID 221100, then record Recent only if `spawn()` succeeds.
+
+- [ ] **Step 7: Verify tests/clippy**
+
+```bash
+cargo test --manifest-path src-tauri/Cargo.toml steam
+cargo test --manifest-path src-tauri/Cargo.toml launcher
+cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 ```
 
-Use `std::process::Command::arg` for each argument so Windows quoting is delegated to the standard library instead of manually concatenating an untrusted command string.
-
-- [ ] **Step 3: Run tests and confirm the red state**
-
-Run: `cargo test --manifest-path src-tauri/Cargo.toml steam launcher`
-Expected: FAIL because discovery/launch helpers do not exist.
-
-- [ ] **Step 4: Implement registry and fallback Steam discovery**
-
-On Windows, read `HKCU\\Software\\Valve\\Steam` values `SteamExe` and `SteamPath`. Fall back to `%ProgramFiles(x86)%\\Steam\\steam.exe`. Parse `steamapps/libraryfolders.vdf` for additional roots.
-
-- [ ] **Step 5: Detect DayZ installation**
-
-Check each library for `steamapps/common/DayZ/DayZ_x64.exe`. Report `DayZ not installed` if no executable exists.
-
-- [ ] **Step 6: Implement direct launch through Steam**
-
-Start `steam.exe` with separate args: `-applaunch`, `221100`, `-connect=<ip>`, `-port=<port>`, optional `-name=<saved name>`, optional validated extra parameters. Reject CR/LF/NUL in user-provided extra parameters.
-
-- [ ] **Step 7: Record Recent only after process start succeeds**
-
-Call `CollectionsStore::add_recent` after `Command::spawn()` returns `Ok`.
-
-- [ ] **Step 8: Run Rust tests and clippy**
-
-Run: `cargo test --manifest-path src-tauri/Cargo.toml steam launcher`
-Run: `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings`
 Expected: PASS.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add src-tauri
-git commit -m "feat: discover Steam and launch DayZ servers"
+git commit -m "feat: discover Steam and launch DayZ"
 ```
 
-### Task 6: Build the polished server-first Next.js UI and wire Tauri commands
+### Task 6: Build and wire the server-first Next.js UI
 
 **Files:**
 - Create: `lib/api.ts`
-- Create: `lib/navigation.ts`
-- Create: `lib/stores.ts`
 - Create: `components/app-shell.tsx`
 - Create: `components/navigation.tsx`
 - Create: `components/server-filters.tsx`
 - Create: `components/server-table.tsx`
 - Create: `components/status-banner.tsx`
-- Create: `components/pages/favorites-page.tsx`
-- Create: `components/pages/recent-page.tsx`
-- Create: `components/pages/mods-page.tsx`
-- Create: `components/pages/settings-page.tsx`
+- Create page components for Favorites, Recent, Mods, Settings
 - Modify: `app/page.tsx`
 - Modify: `app/globals.css`
 - Modify: `tests/app-shell.test.tsx`
 
 **Interfaces:**
-- `lib/api.ts` is the only frontend file that calls Tauri `invoke`.
-- `AppShell` owns selected navigation key and page-level loading/error state.
-- `ServerTable` receives rows and callback props only; it does not invoke Rust directly.
+- `lib/api.ts` is the only frontend module that directly calls Tauri `invoke`.
+- Presentation components receive data/callback props and remain native-API free.
 
-- [ ] **Step 1: Expand the frontend test to cover the required navigation**
+- [ ] **Step 1: Write failing navigation/UI-state tests**
 
-```tsx
-it("renders the five launcher sections without a Home dashboard", () => {
-  render(<AppShell api={fakeApi} />);
-  for (const label of ["Servers", "Favorites", "Recent", "Mods", "Settings"])
-    expect(screen.getByText(label)).toBeInTheDocument();
-  expect(screen.queryByText("Home")).not.toBeInTheDocument();
-});
-```
+Assert visible nav contains Servers/Favorites/Recent/Mods/Settings and no Home. Fake API tests must cover loading, real error + Retry, empty filtered results, favorite action, and settings save.
 
-- [ ] **Step 2: Run the UI test and verify it fails**
+- [ ] **Step 2: Verify red state**
 
 Run: `npm test -- tests/app-shell.test.tsx`
-Expected: FAIL because `AppShell` does not exist.
+Expected: FAIL because the new shell/components do not exist.
 
-- [ ] **Step 3: Implement typed Tauri API wrappers**
+- [ ] **Step 3: Implement typed API wrappers**
 
-Export functions exactly matching the Rust commands: `getServers`, `getFavorites`, `toggleFavorite`, `getRecent`, `clearRecent`, `getSettings`, `saveSettings`, `getSystemStatus`, and `launchServer`.
+Expose `getServers`, `getFavorites`, `toggleFavorite`, `getRecent`, `clearRecent`, `getSettings`, `saveSettings`, `getSystemStatus`, `launchServer`.
 
-- [ ] **Step 4: Implement compact launcher shell styling**
+- [ ] **Step 4: Implement compact Monarch shell**
 
-Use a dark charcoal background, 188–204px sidebar, one compact Monarch brand treatment at top-left, rounded 8–12px panels/buttons/inputs, thin neutral borders, and no large dashboard hero region.
+Dark charcoal theme, 188–204px sidebar, one compact top-left Monarch brand treatment, rounded 8–12px cards/buttons/inputs, thin neutral borders, no dashboard hero.
 
 - [ ] **Step 5: Implement Servers page**
 
-Load automatically on first mount, show real loading/error/retry states, display search + DZSA-style filters, compute filtered rows locally via `filterServers`, and expose star/join row actions.
+Load automatically on mount, use pure `filterServers` locally, show search/map/player/ping/hide-empty/hide-full/modded/password/official/1PP filters, star action, JOIN action, result count, loading/error/retry states.
 
-- [ ] **Step 6: Implement Favorites, Recent, Mods placeholder, and Settings pages**
+- [ ] **Step 6: Implement Favorites/Recent/Settings and Phase-1 Mods page**
 
-Favorites and Recent use real backend data. Mods in Phase 1 shows an intentionally functional shell reading no fake data and copy `Workshop management is installed in Phase 2`. Settings edits DayZ name and extra launch parameters and displays detected Steam/DayZ status.
+Favorites and Recent use real Rust persistence. Settings edits DayZ name and extra parameters and displays detected Steam/DayZ status. Mods page shows only the message `Workshop management is added in Phase 2`; it contains no fake mod rows.
 
-- [ ] **Step 7: Test empty/error/loading states**
+- [ ] **Step 7: Run frontend verification**
 
-Use a fake API object to assert `Loading DayZ servers…`, `No servers match these filters`, and a real error string plus Retry button.
+```bash
+npm run typecheck
+npm test
+npm run build:web
+```
 
-- [ ] **Step 8: Run frontend verification**
-
-Run: `npm run typecheck`
-Run: `npm test`
-Run: `npm run build:web`
 Expected: PASS.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add app components lib tests
-git commit -m "feat: build Monarch server-first Next.js interface"
+git commit -m "feat: build Monarch server-first interface"
 ```
 
-### Task 7: Run the full Phase 1 verification gate
+### Task 7: Full Phase 1 verification gate
 
 **Files:**
-- Modify only files required by failures found by verification.
+- Modify only files required by observed verification failures.
 
-**Interfaces:**
-- Consumes the entire Phase 1 application.
-- Produces a branch state that passes frontend, Rust, and Tauri Windows verification without creating a release.
-
-- [ ] **Step 1: Run all frontend checks**
+- [ ] **Step 1: Run frontend checks**
 
 ```bash
 npm ci
@@ -632,9 +537,9 @@ npm test
 npm run build:web
 ```
 
-Expected: all commands exit 0.
+Expected: all exit 0.
 
-- [ ] **Step 2: Run all Rust checks**
+- [ ] **Step 2: Run Rust checks**
 
 ```bash
 cargo fmt --manifest-path src-tauri/Cargo.toml --check
@@ -642,22 +547,20 @@ cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
-Expected: all commands exit 0 and Rust tests report zero failures.
+Expected: zero failures.
 
-- [ ] **Step 3: Run a Windows Tauri no-bundle build**
+- [ ] **Step 3: Run Windows Tauri build**
 
 Run: `npm run tauri build -- --no-bundle`
-Expected: the Windows executable build completes successfully.
+Expected: executable build exits 0.
 
-- [ ] **Step 4: Push and verify `.github/workflows/verify.yml` on `rewrite/nextjs-rust`**
+- [ ] **Step 4: Push `rewrite/nextjs-rust` and inspect Actions**
 
-Expected: every CI step is green and no GitHub Release is created.
+Expected: `.github/workflows/verify.yml` completes successfully and no GitHub Release is created.
 
-- [ ] **Step 5: Commit any verification-only corrections**
+- [ ] **Step 5: Commit verification corrections only when needed**
 
 ```bash
 git add -A
 git commit -m "fix: complete core launcher verification"
 ```
-
-Do not create this commit when no corrections were required.

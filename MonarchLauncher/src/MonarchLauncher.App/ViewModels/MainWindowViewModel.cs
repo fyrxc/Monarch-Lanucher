@@ -64,11 +64,13 @@ public sealed class MainWindowViewModel : ViewModelBase
         IServerDirectoryService serverDirectoryService,
         IDayZLaunchService launchService,
         IUpdateService updateService,
-        UserSettingsService? userSettingsService = null)
+        UserSettingsService? userSettingsService = null,
+        ServerCollectionService? serverCollectionService = null)
     {
         _updateService = updateService;
         LauncherVersion = GetDisplayVersion();
         userSettingsService ??= new UserSettingsService();
+        serverCollectionService ??= new ServerCollectionService();
 
         NavigationItems = new ObservableCollection<NavigationItem>
         {
@@ -81,9 +83,9 @@ public sealed class MainWindowViewModel : ViewModelBase
 
         _pages = new Dictionary<string, ViewModelBase>(StringComparer.OrdinalIgnoreCase)
         {
-            ["servers"] = new ServersViewModel(serverDirectoryService, launchService),
-            ["favorites"] = new FavoritesViewModel(),
-            ["recent"] = new RecentViewModel(),
+            ["servers"] = new ServersViewModel(serverDirectoryService, launchService, serverCollectionService),
+            ["favorites"] = new FavoritesViewModel(serverCollectionService, launchService),
+            ["recent"] = new RecentViewModel(serverCollectionService, launchService),
             ["mods"] = new ModsViewModel(),
             ["settings"] = new SettingsViewModel(userSettingsService)
         };

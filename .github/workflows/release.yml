@@ -1,0 +1,90 @@
+name: Build Monarch Lanucher Update
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: monarch-launcher-release
+  cancel-in-progress: true
+
+jobs:
+  release:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: MonarchLauncher
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Configure updater repository
+        shell: pwsh
+        run: |
+          $parts = $env:GITHUB_REPOSITORY.Split('/')
+          $path = '.\src\MonarchLauncher.App\launcher-settings.json'
+          $config = Get-Content $path -Raw | ConvertFrom-Json
+          $config.githubOwner = $parts[0]
+          $config.githubRepository = $parts[1]
+          $config | ConvertTo-Json -Depth 4 | Set-Content $path -Encoding UTF8
+
+      - name: Resolve automatic version
+        shell: pwsh
+        run: |
+          [xml]$project = Get-Content '.\src\MonarchLauncher.App\MonarchLauncher.App.csproj'
+          $baseVersion = [string]$project.Project.PropertyGroup.Version
+          if ([string]::IsNullOrWhiteSpace($baseVersion)) { $baseVersion = '0.3.0' }
+          $parts = $baseVersion.Split('.')
+          if ($parts.Length -lt 2) { throw "Project Version must contain at least major.minor." }
+          $version = "$($parts[0]).$($parts[1]).$env:GITHUB_RUN_NUMBER"
+          "MONARCH_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "MONARCH_TAG=v$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+          Write-Host "Publishing $version"
+
+      - name: Restore
+        run: dotnet restore .\MonarchLauncher.sln
+
+      - name: Test
+        run: dotnet test .\MonarchLauncher.sln -c Release --no-restore
+
+      - name: Publish launcher
+        shell: pwsh
+        run: |
+          dotnet publish .\src\MonarchLauncher.App\MonarchLauncher.App.csproj -c Release -r win-x64 --self-contained false -p:Version=$env:MONARCH_VERSION -o .\artifacts\MonarchLauncher-win-x64
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Publish updater
+        shell: pwsh
+        run: |
+          dotnet publish .\src\MonarchLauncher.Updater\MonarchLauncher.Updater.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o .\artifacts\updater-temp
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Copy-Item .\artifacts\updater-temp\MonarchLauncher.Updater.exe .\artifacts\MonarchLauncher-win-x64\MonarchLauncher.Updater.exe -Force
+
+      - name: Package
+        shell: pwsh
+        run: |
+          Compress-Archive -Path .\artifacts\MonarchLauncher-win-x64\* -DestinationPath .\artifacts\MonarchLanucher-win-x64.zip -CompressionLevel Optimal
+
+      - name: Create GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$env:MONARCH_TAG" *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release delete "$env:MONARCH_TAG" --yes --cleanup-tag
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          gh release create "$env:MONARCH_TAG" ".\artifacts\MonarchLanucher-win-x64.zip" --title "$env:MONARCH_TAG" --generate-notes
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

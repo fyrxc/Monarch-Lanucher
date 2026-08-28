@@ -10,6 +10,7 @@ public sealed class ServersViewModel : ViewModelBase
 {
     private readonly IServerDirectoryService _serverDirectoryService;
     private readonly IDayZLaunchService _launchService;
+    private readonly ServerCollectionService? _serverCollectionService;
     private readonly ServerFilterState _filters = new();
     private string _statusText = "Ready";
     private bool _isLoading;
@@ -19,6 +20,7 @@ public sealed class ServersViewModel : ViewModelBase
     public ObservableCollection<DayZServer> Servers { get; } = new();
     public ICommand RefreshCommand { get; }
     public ICommand JoinCommand { get; }
+    public ICommand ToggleFavoriteCommand { get; }
     public ICommand ClearFiltersCommand { get; }
 
     public IEnumerable<DayZServer> FilteredServers => Servers.Where(_filters.Matches);
@@ -139,12 +141,17 @@ public sealed class ServersViewModel : ViewModelBase
         set => SetProperty(ref _selectedServer, value);
     }
 
-    public ServersViewModel(IServerDirectoryService serverDirectoryService, IDayZLaunchService launchService)
+    public ServersViewModel(
+        IServerDirectoryService serverDirectoryService,
+        IDayZLaunchService launchService,
+        ServerCollectionService? serverCollectionService = null)
     {
         _serverDirectoryService = serverDirectoryService;
         _launchService = launchService;
+        _serverCollectionService = serverCollectionService;
         RefreshCommand = new AsyncRelayCommand(RefreshAsync, () => !IsLoading);
         JoinCommand = new RelayCommand(JoinServer);
+        ToggleFavoriteCommand = new RelayCommand(ToggleFavorite);
         ClearFiltersCommand = new RelayCommand(_ => ClearFilters());
     }
 
@@ -192,7 +199,26 @@ public sealed class ServersViewModel : ViewModelBase
 
         SelectedServer = server;
         var result = _launchService.Launch(server);
+        if (result.Success)
+            _serverCollectionService?.AddRecent(server);
         StatusText = result.Message;
+    }
+
+    private void ToggleFavorite(object? parameter)
+    {
+        if (parameter is not DayZServer server)
+            return;
+
+        if (_serverCollectionService is null)
+        {
+            StatusText = "Favorites are unavailable.";
+            return;
+        }
+
+        var added = _serverCollectionService.ToggleFavorite(server);
+        StatusText = added
+            ? $"Added {server.Name} to favorites."
+            : $"Removed {server.Name} from favorites.";
     }
 
     private void ClearFilters()

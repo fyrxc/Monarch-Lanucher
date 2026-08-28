@@ -39,8 +39,7 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
     let temp = path.with_extension("json.tmp");
     fs::write(&temp, bytes).map_err(|error| format!("failed to write settings: {error}"))?;
     if path.exists() {
-        fs::remove_file(path)
-            .map_err(|error| format!("failed to replace settings: {error}"))?;
+        fs::remove_file(path).map_err(|error| format!("failed to replace settings: {error}"))?;
     }
     fs::rename(&temp, path).map_err(|error| format!("failed to finalize settings: {error}"))
 }

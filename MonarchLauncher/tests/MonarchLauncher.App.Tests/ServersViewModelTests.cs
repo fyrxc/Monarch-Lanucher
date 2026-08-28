@@ -39,6 +39,38 @@ public sealed class ServersViewModelTests
     }
 
     [Fact]
+    public async Task HideEmptyFiltersLocallyWithoutAnotherDirectoryRequest()
+    {
+        var service = new FakeServerDirectoryService(
+            new DayZServer("1", "Empty", "enoch", 0, 60, 0, "1.1.1.1", 2302, 2303, "online"),
+            new DayZServer("2", "Busy", "enoch", 22, 60, 0, "2.2.2.2", 2302, 2303, "online"));
+        var vm = new ServersViewModel(service, new FakeDayZLaunchService());
+        await vm.RefreshAsync();
+
+        vm.HideEmpty = true;
+
+        var row = Assert.Single(vm.FilteredServers);
+        Assert.Equal("Busy", row.Name);
+        Assert.Equal(1, service.CallCount);
+    }
+
+    [Fact]
+    public async Task PartialResultKeepsRowsAndShowsWarning()
+    {
+        var service = new FakeServerDirectoryService(
+            new ServerDirectoryResult(
+                new[] { new DayZServer("1", "Loaded", "sakhal", 10, 60, 0, "3.3.3.3", 2302, 2303, "online") },
+                true,
+                "Some servers could not be loaded."));
+        var vm = new ServersViewModel(service, new FakeDayZLaunchService());
+
+        await vm.RefreshAsync();
+
+        Assert.Single(vm.Servers);
+        Assert.Equal("Some servers could not be loaded.", vm.StatusText);
+    }
+
+    [Fact]
     public async Task FailedRefreshShowsErrorWithoutFakeServers()
     {
         var vm = new ServersViewModel(new ThrowingServerDirectoryService(), new FakeDayZLaunchService());
@@ -51,20 +83,29 @@ public sealed class ServersViewModelTests
 
     private sealed class FakeServerDirectoryService : IServerDirectoryService
     {
-        private readonly IReadOnlyList<DayZServer> _servers;
+        private readonly ServerDirectoryResult _result;
+        public int CallCount { get; private set; }
 
         public FakeServerDirectoryService(params DayZServer[] servers)
+            : this(new ServerDirectoryResult(servers))
         {
-            _servers = servers;
         }
 
-        public Task<IReadOnlyList<DayZServer>> GetServersAsync(CancellationToken cancellationToken = default)
-            => Task.FromResult(_servers);
+        public FakeServerDirectoryService(ServerDirectoryResult result)
+        {
+            _result = result;
+        }
+
+        public Task<ServerDirectoryResult> GetServersAsync(CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            return Task.FromResult(_result);
+        }
     }
 
     private sealed class ThrowingServerDirectoryService : IServerDirectoryService
     {
-        public Task<IReadOnlyList<DayZServer>> GetServersAsync(CancellationToken cancellationToken = default)
+        public Task<ServerDirectoryResult> GetServersAsync(CancellationToken cancellationToken = default)
             => throw new InvalidOperationException("offline");
     }
 

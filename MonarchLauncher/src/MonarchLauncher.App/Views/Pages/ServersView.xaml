@@ -160,7 +160,7 @@
                             <ColumnDefinition Width="0.85*" />
                             <ColumnDefinition Width="0.65*" />
                             <ColumnDefinition Width="0.7*" />
-                            <ColumnDefinition Width="78" />
+                            <ColumnDefinition Width="124" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="SERVER" Style="{StaticResource Text.SectionLabel}" VerticalAlignment="Center" />
                         <TextBlock Grid.Column="1" Text="MAP" Style="{StaticResource Text.SectionLabel}" VerticalAlignment="Center" />
@@ -186,7 +186,7 @@
                                     <ColumnDefinition Width="0.85*" />
                                     <ColumnDefinition Width="0.65*" />
                                     <ColumnDefinition Width="0.7*" />
-                                    <ColumnDefinition Width="78" />
+                                    <ColumnDefinition Width="124" />
                                 </Grid.ColumnDefinitions>
 
                                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
@@ -198,14 +198,21 @@
                                 <TextBlock Grid.Column="3" Text="{Binding ModDisplay}" Style="{StaticResource Text.Metadata}" VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="4" Text="{Binding PerspectiveDisplay}" Style="{StaticResource Text.Metadata}" VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="5" Text="{Binding PingDisplay}" Style="{StaticResource Text.Body}" VerticalAlignment="Center" />
-                                <Button Grid.Column="6"
-                                        Content="JOIN"
-                                        Style="{StaticResource Style.SecondaryButton}"
-                                        Padding="9,5"
-                                        HorizontalAlignment="Right"
-                                        VerticalAlignment="Center"
-                                        Command="{Binding DataContext.JoinCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
-                                        CommandParameter="{Binding}" />
+
+                                <StackPanel Grid.Column="6" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <Button Content="☆"
+                                            ToolTip="Add or remove favorite"
+                                            Style="{StaticResource Style.SecondaryButton}"
+                                            Padding="9,5"
+                                            Margin="0,0,6,0"
+                                            Command="{Binding DataContext.ToggleFavoriteCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
+                                            CommandParameter="{Binding}" />
+                                    <Button Content="JOIN"
+                                            Style="{StaticResource Style.SecondaryButton}"
+                                            Padding="9,5"
+                                            Command="{Binding DataContext.JoinCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}"
+                                            CommandParameter="{Binding}" />
+                                </StackPanel>
                             </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>

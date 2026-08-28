@@ -1,6 +1,8 @@
+pub mod collections;
 pub mod commands;
 pub mod models;
 pub mod servers;
+pub mod settings;
 
 use commands::LauncherState;
 use servers::DzsaServerDirectory;

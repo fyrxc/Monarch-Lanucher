@@ -50,6 +50,13 @@ function createApi() {
         path: "D:\\SteamLibrary\\steamapps\\workshop\\content\\221100\\1559212036",
       },
     ]),
+    checkForUpdate: vi.fn().mockResolvedValue({
+      available: false,
+      currentVersion: "0.4.0",
+      latestVersion: null,
+      notes: null,
+    }),
+    installUpdate: vi.fn().mockResolvedValue(undefined),
     launchServer: vi.fn().mockResolvedValue(undefined),
   };
 }

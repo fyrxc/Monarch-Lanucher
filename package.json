@@ -2,6 +2,7 @@
   "name": "monarch-lanucher",
   "private": true,
   "version": "0.4.0",
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build:web": "next build",
@@ -22,6 +23,7 @@
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "latest",
     "jsdom": "latest",
     "typescript": "latest",
     "vitest": "latest"

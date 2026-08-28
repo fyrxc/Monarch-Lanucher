@@ -37,8 +37,8 @@ fn signing_public_key() -> Result<&'static str, String> {
 }
 
 fn configured_updater(app: &AppHandle) -> Result<Updater, String> {
-    let endpoint = Url::parse(UPDATE_ENDPOINT)
-        .map_err(|error| format!("invalid update endpoint: {error}"))?;
+    let endpoint =
+        Url::parse(UPDATE_ENDPOINT).map_err(|error| format!("invalid update endpoint: {error}"))?;
 
     app.updater_builder()
         .pubkey(signing_public_key()?.to_string())

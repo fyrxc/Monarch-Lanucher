@@ -59,3 +59,12 @@ pub struct ModSyncPlan {
     pub installed: Vec<InstalledMod>,
     pub missing: Vec<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateInfo {
+    pub available: bool,
+    pub current_version: String,
+    pub latest_version: Option<String>,
+    pub notes: Option<String>,
+}

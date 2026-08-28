@@ -17,6 +17,9 @@ public sealed class ServerCollectionService
         _statePath = Path.Combine(_rootDirectory, "servers.json");
     }
 
+    public event Action? FavoritesChanged;
+    public event Action? RecentChanged;
+
     public IReadOnlyList<DayZServer> GetFavorites() => Load().Favorites;
 
     public IReadOnlyList<DayZServer> GetRecent() => Load().Recent;
@@ -31,12 +34,26 @@ public sealed class ServerCollectionService
         {
             state.Favorites.RemoveAt(index);
             Save(state);
+            FavoritesChanged?.Invoke();
             return false;
         }
 
         state.Favorites.Add(server);
         Save(state);
+        FavoritesChanged?.Invoke();
         return true;
+    }
+
+    public void RemoveFavorite(DayZServer server)
+    {
+        ArgumentNullException.ThrowIfNull(server);
+        var state = Load();
+        var removed = state.Favorites.RemoveAll(existing => SameServer(existing, server)) > 0;
+        if (!removed)
+            return;
+
+        Save(state);
+        FavoritesChanged?.Invoke();
     }
 
     public void AddRecent(DayZServer server)
@@ -50,6 +67,18 @@ public sealed class ServerCollectionService
             state.Recent.RemoveRange(MaxRecentServers, state.Recent.Count - MaxRecentServers);
 
         Save(state);
+        RecentChanged?.Invoke();
+    }
+
+    public void ClearRecent()
+    {
+        var state = Load();
+        if (state.Recent.Count == 0)
+            return;
+
+        state.Recent.Clear();
+        Save(state);
+        RecentChanged?.Invoke();
     }
 
     private ServerCollectionState Load()

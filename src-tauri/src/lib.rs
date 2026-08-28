@@ -5,6 +5,7 @@ pub mod models;
 pub mod servers;
 pub mod settings;
 pub mod steam;
+pub mod updates;
 pub mod workshop;
 
 use commands::{default_data_root, LauncherState};
@@ -17,6 +18,7 @@ pub fn run() {
         DzsaServerDirectory::new().expect("failed to initialize server directory");
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(LauncherState::new(
             Arc::new(server_directory),
             default_data_root(),
@@ -32,7 +34,9 @@ pub fn run() {
             commands::get_system_status,
             commands::get_installed_mods,
             commands::launch_server,
+            updates::check_for_update,
+            updates::install_update,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running Monarch Lanucher");
+        .expect("error while running Monarch Launcher");
 }

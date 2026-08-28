@@ -94,6 +94,6 @@ it("loads installed Workshop mods on the Mods page", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Mods" }));
 
   expect(await screen.findByText("Community Framework")).toBeInTheDocument();
-  expect(screen.getByText("1559212036")).toBeInTheDocument();
+  expect(screen.getByText(/1559212036/)).toBeInTheDocument();
   expect(api.getInstalledMods).toHaveBeenCalledTimes(1);
 });

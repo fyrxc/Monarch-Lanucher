@@ -10,6 +10,7 @@ name = "monarch_launcher"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
+base64 = "0.22"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]

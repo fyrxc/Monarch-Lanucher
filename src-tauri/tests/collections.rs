@@ -45,7 +45,10 @@ fn favorite_toggle_adds_then_removes_server() {
 
     let added = store.toggle_favorite(&target).expect("add favorite");
     assert!(added);
-    assert_eq!(store.favorites().expect("load favorites"), vec![target.clone()]);
+    assert_eq!(
+        store.favorites().expect("load favorites"),
+        vec![target.clone()]
+    );
 
     let added = store.toggle_favorite(&target).expect("remove favorite");
     assert!(!added);
@@ -61,12 +64,17 @@ fn recent_is_unique_newest_first_and_capped_at_twenty() {
     for index in 1..=21 {
         store.record_recent(&server(index)).expect("record recent");
     }
-    store.record_recent(&server(10)).expect("move existing recent");
+    store
+        .record_recent(&server(10))
+        .expect("move existing recent");
 
     let recent = store.recent().expect("load recent");
     assert_eq!(recent.len(), 20);
     assert_eq!(recent[0].id, "server-10");
-    assert_eq!(recent.iter().filter(|item| item.id == "server-10").count(), 1);
+    assert_eq!(
+        recent.iter().filter(|item| item.id == "server-10").count(),
+        1
+    );
     assert!(!recent.iter().any(|item| item.id == "server-1"));
     let _ = fs::remove_dir_all(root);
 }
@@ -84,7 +92,9 @@ fn empty_provider_id_falls_back_to_address_identity() {
     updated.name = "Renamed Server".to_string();
 
     store.toggle_favorite(&first).expect("add favorite");
-    let added = store.toggle_favorite(&updated).expect("remove same identity");
+    let added = store
+        .toggle_favorite(&updated)
+        .expect("remove same identity");
 
     assert!(!added);
     assert!(store.favorites().expect("load favorites").is_empty());

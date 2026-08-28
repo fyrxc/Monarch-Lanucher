@@ -76,7 +76,10 @@ fn acquisition_only_succeeds_after_downloaded_folder_exists() {
 
     assert_eq!(item.workshop_id, workshop_id);
     assert_eq!(item.name, "CF");
-    assert_eq!(PathBuf::from(item.path), managed_mod_path(&root, workshop_id));
+    assert_eq!(
+        PathBuf::from(item.path),
+        managed_mod_path(&root, workshop_id)
+    );
     let _ = fs::remove_dir_all(root);
 }
 

@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./server-pagination.css";
 
 export const metadata: Metadata = {
-  title: "Monarch Lanucher",
+  title: "Monarch Launcher",
   description: "Monarch DayZ launcher"
 };
 

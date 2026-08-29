@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { LauncherApi } from "../lib/api";
 import type { InstalledMod, LauncherSettings, SystemStatus } from "../lib/models";
 import { ConfirmDialog } from "./confirm-dialog";
+import { MonarchBrand } from "./monarch-brand";
 import styles from "./settings-content.module.css";
 
 type SettingsApi = Pick<
@@ -103,38 +104,37 @@ export function SettingsContent({
 
   return (
     <div className={styles.content}>
-      <div className={styles.brandLine}>
-        <strong>MONARCH</strong>
-        <span>Launcher Settings</span>
+      <MonarchBrand className={styles.brand} />
+
+      <div className={styles.section}>
+        <label className={styles.fieldLabel}>
+          <span>DayZ Path</span>
+          <input
+            aria-label="DayZ Path"
+            className={styles.input}
+            onChange={(event) => onChange({ ...settings, dayzPath: detectedDayzDirectory(event.target.value) })}
+            placeholder="Auto-detected DayZ path"
+            value={dayzPathValue}
+          />
+        </label>
+
+        <label className={styles.fieldLabel}>
+          <span>Ingame Name</span>
+          <input
+            aria-label="Ingame Name"
+            className={styles.input}
+            onChange={(event) => onChange({ ...settings, dayzName: event.target.value })}
+            placeholder="Steam public name"
+            value={settings.dayzName}
+          />
+        </label>
       </div>
-
-      <label className={styles.fieldLabel}>
-        <span>DayZ Path</span>
-        <input
-          aria-label="DayZ Path"
-          className="field"
-          onChange={(event) => onChange({ ...settings, dayzPath: detectedDayzDirectory(event.target.value) })}
-          placeholder="Auto-detected DayZ path"
-          value={dayzPathValue}
-        />
-      </label>
-
-      <label className={styles.fieldLabel}>
-        <span>Ingame Name</span>
-        <input
-          aria-label="Ingame Name"
-          className="field"
-          onChange={(event) => onChange({ ...settings, dayzName: event.target.value })}
-          placeholder="Steam public name"
-          value={settings.dayzName}
-        />
-      </label>
 
       <div className={styles.toggles}>
         <label className={styles.toggleRow}>
           <div>
             <strong>Skip BattlEye</strong>
-            <span>Launch DayZ_x64.exe directly. Protected servers can reject this.</span>
+            <span>Launch without BattlEye protection.</span>
           </div>
           <input
             aria-label="Skip BattlEye"
@@ -146,7 +146,7 @@ export function SettingsContent({
         <label className={styles.toggleRow}>
           <div>
             <strong>Discord Presence</strong>
-            <span>Show Monarch / current server in Discord while enabled.</span>
+            <span>Show Monarch Launcher and your current server in Discord.</span>
           </div>
           <input
             aria-label="Discord Presence"
@@ -161,7 +161,7 @@ export function SettingsContent({
         <span>Extra Launch Parameters</span>
         <input
           aria-label="Extra Launch Parameters"
-          className="field"
+          className={styles.input}
           onChange={(event) =>
             onChange({ ...settings, extraLaunchParameters: event.target.value })
           }
@@ -193,7 +193,7 @@ export function SettingsContent({
       </div>
 
       <button
-        className="join-button save-button"
+        className={styles.save}
         disabled={saving}
         onClick={onSave}
         type="button"
@@ -203,8 +203,12 @@ export function SettingsContent({
 
       {systemStatus ? (
         <div className={styles.systemLine}>
-          <span>{systemStatus.steamFound ? "Steam detected" : "Steam not detected"}</span>
-          <span>{systemStatus.dayzFound ? "DayZ detected" : "DayZ not detected"}</span>
+          <span className={systemStatus.steamFound ? styles.ok : styles.bad}>
+            {systemStatus.steamFound ? "Steam detected" : "Steam not detected"}
+          </span>
+          <span className={systemStatus.dayzFound ? styles.ok : styles.bad}>
+            {systemStatus.dayzFound ? "DayZ detected" : "DayZ not detected"}
+          </span>
         </div>
       ) : null}
 

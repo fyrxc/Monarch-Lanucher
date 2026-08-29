@@ -50,7 +50,8 @@ impl SteamWorkshopService {
     pub fn download_status(&self, workshop_id: &str) -> Result<WorkshopDownloadStatus, String> {
         let id = parse_workshop_id(workshop_id)?;
         let state = self.client.ugc().item_state(id);
-        let (downloaded_bytes, total_bytes) = self.client.ugc().item_download_info(id).unwrap_or((0, 0));
+        let (downloaded_bytes, total_bytes) =
+            self.client.ugc().item_download_info(id).unwrap_or((0, 0));
 
         Ok(WorkshopDownloadStatus {
             workshop_id: workshop_id.to_string(),
@@ -72,11 +73,10 @@ impl SteamWorkshopService {
         if !state.contains(ItemState::SUBSCRIBED) {
             let (sender, receiver) = mpsc::channel::<Result<(), String>>();
             self.client.ugc().subscribe_item(id, move |result| {
-                let _ = sender.send(
-                    result.map_err(|error| {
+                let _ =
+                    sender.send(result.map_err(|error| {
                         format!("Steam failed to subscribe Workshop mod: {error}")
-                    }),
-                );
+                    }));
             });
 
             let deadline = Instant::now() + CALLBACK_TIMEOUT;

@@ -1,0 +1,29 @@
+.status {
+  display: flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding: 7px 9px;
+  border-radius: 5px;
+  background: #242424;
+  color: #c7c7c7;
+  font-size: 9px;
+}
+
+.warning { color: #e4c873; }
+.error { color: #ef9b9b; }
+.success { color: #9fd792; }
+.neutral { color: #c7c7c7; }
+
+.status button {
+  min-height: 22px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 4px;
+  background: #3a3a3a;
+  color: #ffffff;
+  font-size: 8px;
+  cursor: pointer;
+}

@@ -289,14 +289,13 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
       try {
         await api.updateWorkshopMod(mod.workshopId);
         setActionMessage(`Steam is checking/downloading the latest ${mod.name} update.`);
-        await loadInstalledMods();
       } catch (error) {
         setActionError(errorMessage(error));
       } finally {
         setModBusy(null);
       }
     },
-    [api, loadInstalledMods, playUiSound],
+    [api, playUiSound],
   );
 
   const uninstallMod = useCallback(
@@ -686,10 +685,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
           </div>
 
           <div className="drawer-preview">
-            <img
-              alt=""
-              src={selectedMod.previewUrl ?? MONARCH_LOGO_DATA_URI}
-            />
+            <img alt="" src={selectedMod.previewUrl ?? MONARCH_LOGO_DATA_URI} />
           </div>
 
           <div className="mod-detail-status-row">

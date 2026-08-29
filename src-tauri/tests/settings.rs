@@ -44,3 +44,8 @@ fn missing_settings_file_returns_defaults() {
     assert_eq!(actual, LauncherSettings::default());
     let _ = fs::remove_dir_all(root);
 }
+
+#[test]
+fn discord_presence_is_enabled_by_default() {
+    assert!(LauncherSettings::default().discord_presence);
+}

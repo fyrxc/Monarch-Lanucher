@@ -4,8 +4,8 @@
   "version": "0.4.0",
   "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build:web": "next build",
+    "dev": "node scripts/materialize-assets.mjs && next dev",
+    "build:web": "node scripts/materialize-assets.mjs && next build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "tauri": "tauri"

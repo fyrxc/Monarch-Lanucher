@@ -3,11 +3,22 @@
 import type { DayzServer } from "../lib/models";
 import styles from "./setup-mods-dialog.module.css";
 
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const unit = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const value = bytes / 1024 ** unit;
+  return `${value >= 10 || unit === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[unit]}`;
+}
+
 export function SetupModsDialog({
   server,
   missingWorkshopIds,
   ready,
   busy,
+  progressPercent,
+  downloadedBytes,
+  totalBytes,
   onSetup,
   onCheck,
   onClose,
@@ -16,6 +27,9 @@ export function SetupModsDialog({
   missingWorkshopIds: string[];
   ready: boolean;
   busy: "setup" | "check" | null;
+  progressPercent: number | null;
+  downloadedBytes: number;
+  totalBytes: number;
   onSetup: () => void;
   onCheck: () => void;
   onClose: () => void;
@@ -44,6 +58,27 @@ export function SetupModsDialog({
             subscribe and download them through your signed-in Steam client.
           </p>
         )}
+
+        {!ready && progressPercent !== null ? (
+          <div className={styles.progressBlock}>
+            <div className={styles.progressMeta}>
+              <strong>{progressPercent}%</strong>
+              <span>
+                {formatBytes(downloadedBytes)} / {formatBytes(totalBytes)}
+              </span>
+            </div>
+            <div
+              aria-label="Workshop download progress"
+              aria-valuemax={100}
+              aria-valuemin={0}
+              aria-valuenow={progressPercent}
+              className={styles.progressTrack}
+              role="progressbar"
+            >
+              <div className={styles.progressFill} style={{ width: `${progressPercent}%` }} />
+            </div>
+          </div>
+        ) : null}
 
         <div className={styles.actions}>
           {!ready ? (

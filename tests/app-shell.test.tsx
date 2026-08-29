@@ -49,8 +49,15 @@ function createApi() {
         workshopId: "1559212036",
         name: "Community Framework",
         path: "D:\\SteamLibrary\\steamapps\\workshop\\content\\221100\\1559212036",
+        previewUrl: "https://cdn.example/cf.jpg",
+        needsUpdate: true,
+        isDownloading: false,
+        isSubscribed: true,
       },
     ]),
+    updateWorkshopMod: vi.fn().mockResolvedValue(undefined),
+    unsubscribeWorkshopMod: vi.fn().mockResolvedValue(undefined),
+    openModFolder: vi.fn().mockResolvedValue(undefined),
     checkForUpdate: vi.fn().mockResolvedValue({
       available: false,
       currentVersion: "0.4.0",
@@ -127,15 +134,27 @@ it("shows a real server-directory error and retries", async () => {
   expect(await screen.findByText("Monarch Test Server")).toBeInTheDocument();
 });
 
-it("loads installed Workshop mods on the Mods page", async () => {
+it("renders Workshop metadata and mod-management actions", async () => {
   const api = createApi();
-  render(<AppShell api={api} />);
+  const { container } = render(<AppShell api={api} />);
 
   fireEvent.click(screen.getByRole("button", { name: "Mods" }));
 
   expect(await screen.findByText("Community Framework")).toBeInTheDocument();
   expect(screen.getByText("Workshop ID 1559212036")).toBeInTheDocument();
-  expect(api.getInstalledMods).toHaveBeenCalledTimes(1);
+  expect(screen.getByText("Update available")).toBeInTheDocument();
+  expect(container.querySelector('img[src="https://cdn.example/cf.jpg"]')).toBeInTheDocument();
+  expect(screen.getByText(/steamapps\\workshop\\content\\221100\\1559212036/i)).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "OPEN FOLDER" }));
+  await waitFor(() => expect(api.openModFolder).toHaveBeenCalledWith("1559212036"));
+
+  fireEvent.click(screen.getByRole("button", { name: "UPDATE" }));
+  await waitFor(() => expect(api.updateWorkshopMod).toHaveBeenCalledWith("1559212036"));
+
+  fireEvent.click(screen.getByRole("button", { name: "UNINSTALL" }));
+  await waitFor(() => expect(api.unsubscribeWorkshopMod).toHaveBeenCalledWith("1559212036"));
+  await waitFor(() => expect(screen.queryByText("Community Framework")).not.toBeInTheDocument());
 });
 
 it("defaults a blank DayZ name to the active Steam public name", async () => {

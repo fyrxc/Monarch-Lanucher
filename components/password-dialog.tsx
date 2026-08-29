@@ -22,13 +22,15 @@ export function PasswordDialog({
     <div className={styles.layer}>
       <div className={styles.scrim} />
       <form
-        aria-label="Server password"
+        aria-labelledby="server-password-title"
         aria-modal="true"
         className={styles.dialog}
         onSubmit={submit}
         role="dialog"
       >
-        <div className={styles.heading}>Server password</div>
+        <div className={styles.heading} id="server-password-title">
+          Server password
+        </div>
         <p className={styles.serverName}>{server.name}</p>
         <label className={styles.label}>
           <span>Server password</span>

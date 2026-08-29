@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { RxUpdate } from "react-icons/rx";
 import type { LauncherApi } from "../lib/api";
 import type { UpdateInfo } from "../lib/models";
 import styles from "./update-panel.module.css";
@@ -51,12 +52,13 @@ export function UpdatePanel({ api }: { api: UpdateApi }) {
           <p>Checks GitHub Releases and only installs updates that pass Tauri signature verification.</p>
         </div>
         <button
-          className="ghost-button"
+          className="ghost-button icon-button"
           disabled={state === "checking" || state === "installing"}
           onClick={() => void checkForUpdate()}
           type="button"
         >
-          {state === "checking" ? "Checking..." : "Check for Updates"}
+          <RxUpdate aria-hidden="true" />
+          <span>{state === "checking" ? "Checking..." : "Check for Updates"}</span>
         </button>
       </div>
 
@@ -81,8 +83,9 @@ export function UpdatePanel({ api }: { api: UpdateApi }) {
         <div className={styles.available}>
           <p className={styles.status}>A signed update is ready to install.</p>
           {info.notes ? <p className={styles.notes}>{info.notes}</p> : null}
-          <button className="join-button" onClick={() => void installUpdate()} type="button">
-            Install Update
+          <button className="join-button icon-button" onClick={() => void installUpdate()} type="button">
+            <RxUpdate aria-hidden="true" />
+            <span>Install Update</span>
           </button>
         </div>
       ) : null}

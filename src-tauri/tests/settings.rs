@@ -46,6 +46,27 @@ fn missing_settings_file_returns_defaults() {
 }
 
 #[test]
+fn legacy_dayz_executable_path_is_migrated_to_install_directory() {
+    let root = temp_dir("settings-dayz-path-migration");
+    fs::write(
+        root.join("settings.json"),
+        r#"{
+  "dayzPath": "D:\\SteamLibrary\\steamapps\\common\\DayZ\\DayZ_x64.exe"
+}"#,
+    )
+    .expect("write legacy settings");
+    let store = SettingsStore::new(root.clone());
+
+    let actual = store.load().expect("load legacy settings");
+
+    assert_eq!(
+        actual.dayz_path,
+        r"D:\SteamLibrary\steamapps\common\DayZ"
+    );
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn discord_presence_is_enabled_by_default() {
     assert!(LauncherSettings::default().discord_presence);
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./server-pagination.css";
+import "./figma-shell.css";
 
 export const metadata: Metadata = {
   title: "Monarch Launcher",

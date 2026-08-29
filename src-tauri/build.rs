@@ -23,7 +23,8 @@ fn main() {
 
 #[cfg(windows)]
 fn stage_steam_api_runtime() {
-    let source = find_steam_api_runtime().expect("failed to locate steam_api64.dll from steamworks-sys");
+    let source =
+        find_steam_api_runtime().expect("failed to locate steam_api64.dll from steamworks-sys");
     let manifest_dir = PathBuf::from(
         std::env::var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR is not available"),
     );
@@ -49,7 +50,9 @@ fn stage_steam_api_runtime() {
 fn find_steam_api_runtime() -> Option<PathBuf> {
     let cargo_home = std::env::var_os("CARGO_HOME")
         .map(PathBuf::from)
-        .or_else(|| std::env::var_os("USERPROFILE").map(|home| PathBuf::from(home).join(".cargo")))?;
+        .or_else(|| {
+            std::env::var_os("USERPROFILE").map(|home| PathBuf::from(home).join(".cargo"))
+        })?;
     let registry_src = cargo_home.join("registry").join("src");
 
     for registry in fs::read_dir(registry_src).ok()?.filter_map(Result::ok) {
@@ -60,7 +63,10 @@ fn find_steam_api_runtime() -> Option<PathBuf> {
         for package in fs::read_dir(registry_path).ok()?.filter_map(Result::ok) {
             let package_path = package.path();
             let package_name = package.file_name();
-            if !package_name.to_string_lossy().starts_with("steamworks-sys-") {
+            if !package_name
+                .to_string_lossy()
+                .starts_with("steamworks-sys-")
+            {
                 continue;
             }
             let candidate = package_path

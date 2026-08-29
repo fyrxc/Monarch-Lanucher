@@ -7,6 +7,7 @@ const PUBLISHED_FILE_DETAILS_URL: &str =
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorkshopMetadata {
     pub title: String,
+    pub creator: Option<String>,
     pub preview_url: Option<String>,
     pub description: Option<String>,
     pub file_size: Option<u64>,
@@ -38,6 +39,16 @@ impl NumberOrString {
             Self::Text(value) => value.trim().parse::<u64>().ok(),
         }
     }
+
+    fn as_text(&self) -> Option<String> {
+        match self {
+            Self::Number(value) => Some(value.to_string()),
+            Self::Text(value) => {
+                let value = value.trim();
+                (!value.is_empty()).then(|| value.to_string())
+            }
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -46,6 +57,8 @@ struct PublishedFileDetail {
     result: u32,
     #[serde(default)]
     title: String,
+    #[serde(default)]
+    creator: Option<NumberOrString>,
     #[serde(default)]
     preview_url: Option<String>,
     #[serde(default)]
@@ -83,6 +96,7 @@ pub fn parse_published_file_details(
             detail.publishedfileid,
             WorkshopMetadata {
                 title: title.to_string(),
+                creator: detail.creator.as_ref().and_then(NumberOrString::as_text),
                 preview_url: normalize_optional_text(detail.preview_url),
                 description: normalize_optional_text(detail.description),
                 file_size: detail.file_size.as_ref().and_then(NumberOrString::as_u64),

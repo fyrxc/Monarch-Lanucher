@@ -18,12 +18,14 @@ import { Navigation, type LauncherView } from "./navigation";
 import { PasswordDialog } from "./password-dialog";
 import { ServerFiltersPanel } from "./server-filters";
 import { ServerTable } from "./server-table";
+import { SetupModsDialog } from "./setup-mods-dialog";
 import { SlidePanel } from "./slide-panel";
 import { StatusBanner } from "./status-banner";
 
 const SERVER_PAGE_SIZE = 100;
 
 type ModAction = "update" | "uninstall" | "folder";
+type SetupBusy = "setup" | "check";
 
 const emptyFilters: ServerFilters = {
   search: "",
@@ -54,6 +56,10 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   const [activeView, setActiveView] = useState<LauncherView>("Servers");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [passwordServer, setPasswordServer] = useState<DayzServer | null>(null);
+  const [setupServer, setSetupServer] = useState<DayzServer | null>(null);
+  const [setupMissingIds, setSetupMissingIds] = useState<string[]>([]);
+  const [setupReady, setSetupReady] = useState(false);
+  const [setupBusy, setSetupBusy] = useState<SetupBusy | null>(null);
   const [servers, setServers] = useState<DayzServer[]>([]);
   const [favorites, setFavorites] = useState<DayzServer[]>([]);
   const [recent, setRecent] = useState<DayzServer[]>([]);
@@ -226,15 +232,75 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   );
 
   const requestJoin = useCallback(
-    (server: DayzServer) => {
-      if (server.isPassworded) {
-        setPasswordServer(server);
-        return;
+    async (server: DayzServer) => {
+      const identity = serverIdentity(server);
+      setJoiningId(identity);
+      setActionMessage(null);
+      setActionError(null);
+      try {
+        const preflight = await api.prepareServerLaunch(server);
+        if (preflight.dayzRunning) {
+          setActionError("DayZ is already running. Close it before joining another server.");
+          return;
+        }
+        if (preflight.missingWorkshopIds.length > 0) {
+          setSetupServer(server);
+          setSetupMissingIds(preflight.missingWorkshopIds);
+          setSetupReady(false);
+          return;
+        }
+        if (server.isPassworded) {
+          setPasswordServer(server);
+          return;
+        }
+        await joinServer(server);
+      } catch (error) {
+        setActionError(errorMessage(error));
+      } finally {
+        setJoiningId(null);
       }
-      void joinServer(server);
     },
-    [joinServer],
+    [api, joinServer],
   );
+
+  const setupRequiredMods = useCallback(async () => {
+    if (!setupServer || setupMissingIds.length === 0) return;
+    setSetupBusy("setup");
+    setActionError(null);
+    try {
+      await api.setupServerMods(setupMissingIds);
+      setActionMessage("Steam is setting up the required server mods.");
+    } catch (error) {
+      setActionError(errorMessage(error));
+    } finally {
+      setSetupBusy(null);
+    }
+  }, [api, setupMissingIds, setupServer]);
+
+  const checkRequiredMods = useCallback(async () => {
+    if (!setupServer) return;
+    setSetupBusy("check");
+    setActionError(null);
+    try {
+      const preflight = await api.prepareServerLaunch(setupServer);
+      setSetupMissingIds(preflight.missingWorkshopIds);
+      setSetupReady(preflight.ready);
+      if (preflight.ready) {
+        setActionMessage("Required mods are ready. Press Join again when you are ready to play.");
+      }
+    } catch (error) {
+      setActionError(errorMessage(error));
+    } finally {
+      setSetupBusy(null);
+    }
+  }, [api, setupServer]);
+
+  const closeSetupMods = useCallback(() => {
+    setSetupServer(null);
+    setSetupMissingIds([]);
+    setSetupReady(false);
+    setSetupBusy(null);
+  }, []);
 
   const openModFolder = useCallback(
     async (mod: InstalledMod) => {
@@ -356,7 +422,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
               favoriteIds={favoriteIds}
               joiningId={joiningId}
               onFavorite={toggleFavorite}
-              onJoin={requestJoin}
+              onJoin={(server) => void requestJoin(server)}
               servers={serverPageResult.items}
             />
             {visibleServers.length > 0 ? (
@@ -409,7 +475,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
           favoriteIds={favoriteIds}
           joiningId={joiningId}
           onFavorite={toggleFavorite}
-          onJoin={requestJoin}
+          onJoin={(server) => void requestJoin(server)}
           servers={collection}
         />
       </>
@@ -556,6 +622,18 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
         {activeView === "Recent" ? renderCollection("Recent", recent) : null}
         {activeView === "Mods" ? renderMods() : null}
       </main>
+
+      {setupServer ? (
+        <SetupModsDialog
+          busy={setupBusy}
+          missingWorkshopIds={setupMissingIds}
+          onCheck={() => void checkRequiredMods()}
+          onClose={closeSetupMods}
+          onSetup={() => void setupRequiredMods()}
+          ready={setupReady}
+          server={setupServer}
+        />
+      ) : null}
 
       {passwordServer ? (
         <PasswordDialog

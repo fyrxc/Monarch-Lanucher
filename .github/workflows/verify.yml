@@ -66,6 +66,24 @@ jobs:
       - name: Build Tauri Windows installer
         run: npm run tauri build -- --bundles nsis
 
+      - name: Smoke test launcher startup
+        shell: pwsh
+        run: |
+          $exe = Resolve-Path '.\src-tauri\target\release\monarch_launcher.exe'
+          $stdout = Join-Path $env:RUNNER_TEMP 'monarch-stdout.log'
+          $stderr = Join-Path $env:RUNNER_TEMP 'monarch-stderr.log'
+          $process = Start-Process -FilePath $exe -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          Start-Sleep -Seconds 5
+          if ($process.HasExited) {
+            Write-Host 'Launcher exited during startup smoke test.'
+            Write-Host "Exit code: $($process.ExitCode)"
+            if (Test-Path $stdout) { Get-Content $stdout }
+            if (Test-Path $stderr) { Get-Content $stderr }
+            throw 'Monarch Launcher did not remain running after startup.'
+          }
+          Stop-Process -Id $process.Id -Force
+          Write-Host 'Launcher remained running for the startup smoke test.'
+
       - name: Stage setup executable
         shell: pwsh
         run: |

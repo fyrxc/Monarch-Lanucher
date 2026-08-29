@@ -1,5 +1,13 @@
 use crate::models::{DayzServer, InstalledMod, LauncherSettings};
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DayzLaunchCommand {
+    pub executable: PathBuf,
+    pub working_directory: PathBuf,
+    pub args: Vec<String>,
+}
 
 pub fn build_launch_args(
     server: &DayzServer,
@@ -13,9 +21,47 @@ pub fn build_launch_args_with_mods(
     settings: &LauncherSettings,
     installed_mods: &[InstalledMod],
 ) -> Result<Vec<String>, String> {
+    let mut args = vec!["-applaunch".to_string(), "221100".to_string()];
+    args.extend(build_dayz_args_with_mods(
+        server,
+        settings,
+        installed_mods,
+    )?);
+    Ok(args)
+}
+
+pub fn build_dayz_launch_command(
+    server: &DayzServer,
+    settings: &LauncherSettings,
+    installed_mods: &[InstalledMod],
+    dayz_root: &Path,
+) -> Result<DayzLaunchCommand, String> {
     let mut args = vec![
-        "-applaunch".to_string(),
-        "221100".to_string(),
+        "0".to_string(),
+        "1".to_string(),
+        "1".to_string(),
+        "-exe".to_string(),
+        "DayZ_x64.exe".to_string(),
+    ];
+    args.extend(build_dayz_args_with_mods(
+        server,
+        settings,
+        installed_mods,
+    )?);
+
+    Ok(DayzLaunchCommand {
+        executable: dayz_root.join("DayZ_BE.exe"),
+        working_directory: dayz_root.to_path_buf(),
+        args,
+    })
+}
+
+fn build_dayz_args_with_mods(
+    server: &DayzServer,
+    settings: &LauncherSettings,
+    installed_mods: &[InstalledMod],
+) -> Result<Vec<String>, String> {
+    let mut args = vec![
         format!("-connect={}", server.ip),
         format!("-port={}", server.game_port),
     ];

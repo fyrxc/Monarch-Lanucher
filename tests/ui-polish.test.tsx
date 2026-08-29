@@ -173,3 +173,21 @@ it("uses the Monarch logo when a Workshop mod has no preview image", async () =>
   expect(screen.getByTestId("monarch-mod-fallback")).toHaveAttribute("src");
   expect(screen.getByTestId("monarch-mod-fallback").getAttribute("src")).toMatch(/^data:image\/png;base64,/);
 });
+
+it("keeps the Mods page mounted while checking a Workshop mod for updates", async () => {
+  const api = apiWithMod();
+  render(<AppShell api={api} />);
+  fireEvent.click(screen.getByRole("button", { name: "Mods" }));
+
+  await waitFor(() => expect(api.getInstalledMods).toHaveBeenCalledTimes(1));
+  expect(await screen.findByText("Community Framework")).toBeInTheDocument();
+
+  fireEvent.click(screen.getByTitle("Check for update"));
+
+  await waitFor(() =>
+    expect(api.updateWorkshopMod).toHaveBeenCalledWith("1559212036"),
+  );
+  expect(api.getInstalledMods).toHaveBeenCalledTimes(1);
+  expect(screen.queryByText("Loading Steam Workshop mods...")).not.toBeInTheDocument();
+  expect(screen.getByText("Community Framework")).toBeInTheDocument();
+});

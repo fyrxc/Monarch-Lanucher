@@ -37,6 +37,17 @@ export interface InstalledMod {
   isSubscribed: boolean;
 }
 
+export interface WorkshopDownloadStatus {
+  workshopId: string;
+  isSubscribed: boolean;
+  isDownloading: boolean;
+  isInstalled: boolean;
+  needsUpdate: boolean;
+  downloadedBytes: number;
+  totalBytes: number;
+  percent: number | null;
+}
+
 export interface SystemStatus {
   steamFound: boolean;
   steamPath: string | null;

@@ -12,6 +12,9 @@ fn normalizes_successful_workshop_details_and_skips_failed_items() {
             "publishedfileid": "1559212036",
             "result": 1,
             "title": "Community Framework",
+            "description": "Framework used by many DayZ mods.",
+            "file_size": "123456789",
+            "time_updated": 1787947200,
             "preview_url": "https://cdn.example/cf.jpg"
           },
           {
@@ -38,12 +41,18 @@ fn normalizes_successful_workshop_details_and_skips_failed_items() {
         result["1559212036"].preview_url.as_deref(),
         Some("https://cdn.example/cf.jpg")
     );
+    assert_eq!(
+        result["1559212036"].description.as_deref(),
+        Some("Framework used by many DayZ mods.")
+    );
+    assert_eq!(result["1559212036"].file_size, Some(123_456_789));
+    assert_eq!(result["1559212036"].time_updated, Some(1_787_947_200));
     assert_eq!(result["2545327648"].title, "Dabs Framework");
     assert!(!result.contains_key("999"));
 }
 
 #[test]
-fn accepts_a_successful_item_without_a_preview_image() {
+fn accepts_a_successful_item_without_optional_metadata() {
     let body = r#"
     {
       "response": {
@@ -61,4 +70,7 @@ fn accepts_a_successful_item_without_a_preview_image() {
 
     let result = parse_published_file_details(body).expect("parse Workshop response");
     assert_eq!(result["42"].preview_url, None);
+    assert_eq!(result["42"].description, None);
+    assert_eq!(result["42"].file_size, None);
+    assert_eq!(result["42"].time_updated, None);
 }

@@ -1,7 +1,7 @@
 {
   "name": "monarch-lanucher",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.4.1",
   "type": "module",
   "scripts": {
     "dev": "node scripts/materialize-assets.mjs && next dev",

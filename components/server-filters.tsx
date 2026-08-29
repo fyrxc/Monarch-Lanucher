@@ -29,97 +29,136 @@ export function ServerFiltersPanel({
   const numberValue = (value: string) => (value.trim() === "" ? null : Number(value));
 
   return (
-    <div className="filters-card">
-      <div className="filters-primary">
-        <input
-          aria-label="Search servers"
-          className="field search-field"
-          onChange={(event) => set("search", event.target.value)}
-          placeholder="Search server, map, or IP..."
-          value={filters.search}
-        />
-        <select
-          aria-label="Map"
-          className="field"
-          onChange={(event) => set("map", event.target.value)}
-          value={filters.map}
-        >
-          <option value="">All maps</option>
-          {maps.map((map) => (
-            <option key={map} value={map}>
-              {map}
-            </option>
-          ))}
-        </select>
-        <input
-          aria-label="Minimum players"
-          className="field small-field"
-          min="0"
-          onChange={(event) => set("minPlayers", numberValue(event.target.value))}
-          placeholder="Min players"
-          type="number"
-          value={filters.minPlayers ?? ""}
-        />
-        <input
-          aria-label="Maximum players"
-          className="field small-field"
-          min="0"
-          onChange={(event) => set("maxPlayers", numberValue(event.target.value))}
-          placeholder="Max players"
-          type="number"
-          value={filters.maxPlayers ?? ""}
-        />
-        <input
-          aria-label="Maximum ping"
-          className="field small-field"
-          min="0"
-          onChange={(event) => set("maxPing", numberValue(event.target.value))}
-          placeholder="Max ping"
-          type="number"
-          value={filters.maxPing ?? ""}
-        />
-      </div>
-
-      <div className="filters-secondary">
-        <label className="check-field">
+    <section className="server-filter-panel" role="region" aria-label="Server filters">
+      <div className="server-filter-options">
+        <span className="server-filter-kicker">FILTER OPTIONS</span>
+        <label>
           <input
             checked={filters.hideEmpty}
             onChange={(event) => set("hideEmpty", event.target.checked)}
             type="checkbox"
           />
-          Hide empty
+          Hide Empty
         </label>
-        <label className="check-field">
+        <label>
           <input
             checked={filters.hideFull}
             onChange={(event) => set("hideFull", event.target.checked)}
             type="checkbox"
           />
-          Hide full
+          Hide Full
         </label>
-        {([
-          ["modded", "Modded"],
-          ["passworded", "Password"],
-          ["official", "Official"],
-          ["firstPersonOnly", "1PP"],
-        ] as const).map(([key, label]) => (
-          <label className="select-field" key={key}>
-            <span>{label}</span>
-            <select
-              onChange={(event) => set(key, parseTriState(event.target.value))}
-              value={triStateValue(filters[key])}
-            >
-              <option value="either">Either</option>
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
-            </select>
-          </label>
-        ))}
-        <span className="result-count">{resultCount.toLocaleString()} servers</span>
-        <button className="ghost-button" onClick={onClear} type="button">
-          Clear
-        </button>
+        <label>
+          <span>Mods</span>
+          <select
+            aria-label="Modded"
+            onChange={(event) => set("modded", parseTriState(event.target.value))}
+            value={triStateValue(filters.modded)}
+          >
+            <option value="either">Any</option>
+            <option value="yes">Modded</option>
+            <option value="no">Vanilla</option>
+          </select>
+        </label>
+        <label>
+          <span>Official</span>
+          <select
+            aria-label="Official"
+            onChange={(event) => set("official", parseTriState(event.target.value))}
+            value={triStateValue(filters.official)}
+          >
+            <option value="either">Any</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+        </label>
+        <label>
+          <span>View</span>
+          <select
+            aria-label="1PP"
+            onChange={(event) => set("firstPersonOnly", parseTriState(event.target.value))}
+            value={triStateValue(filters.firstPersonOnly)}
+          >
+            <option value="either">Any</option>
+            <option value="yes">1PP</option>
+            <option value="no">3PP</option>
+          </select>
+        </label>
+        <label>
+          <span>Password</span>
+          <select
+            aria-label="Password"
+            onChange={(event) => set("passworded", parseTriState(event.target.value))}
+            value={triStateValue(filters.passworded)}
+          >
+            <option value="either">Any</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+        </label>
       </div>
-    </div>
+
+      <div className="server-filter-main">
+        <div className="server-filter-search-row">
+          <input
+            aria-label="Search servers"
+            className="monarch-input server-search-input"
+            onChange={(event) => set("search", event.target.value)}
+            placeholder="Search"
+            value={filters.search}
+          />
+          <select
+            aria-label="Map"
+            className="monarch-input server-map-input"
+            onChange={(event) => set("map", event.target.value)}
+            value={filters.map}
+          >
+            <option value="">Map - Select</option>
+            {maps.map((map) => (
+              <option key={map} value={map}>
+                {map}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="server-filter-number-row">
+          <input
+            aria-label="Minimum players"
+            className="monarch-input"
+            min="0"
+            onChange={(event) => set("minPlayers", numberValue(event.target.value))}
+            placeholder="Min players"
+            type="number"
+            value={filters.minPlayers ?? ""}
+          />
+          <input
+            aria-label="Maximum players"
+            className="monarch-input"
+            min="0"
+            onChange={(event) => set("maxPlayers", numberValue(event.target.value))}
+            placeholder="Max players"
+            type="number"
+            value={filters.maxPlayers ?? ""}
+          />
+          <input
+            aria-label="Maximum ping"
+            className="monarch-input"
+            min="0"
+            onChange={(event) => set("maxPing", numberValue(event.target.value))}
+            placeholder="Max ping"
+            type="number"
+            value={filters.maxPing ?? ""}
+          />
+        </div>
+
+        <div className="server-filter-footer">
+          <span>{resultCount.toLocaleString()} servers</span>
+          <button className="monarch-text-button" onClick={onClear} type="button">
+            Clear Filters
+          </button>
+        </div>
+      </div>
+    </section>
   );
 }

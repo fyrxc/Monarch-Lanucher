@@ -27,6 +27,15 @@ impl SteamWorkshopService {
         Ok(Self { client })
     }
 
+    pub fn subscribed_items(&self) -> Vec<String> {
+        self.client
+            .ugc()
+            .subscribed_items(false)
+            .into_iter()
+            .map(|id| id.0.to_string())
+            .collect()
+    }
+
     pub fn status(&self, workshop_id: &str) -> Result<WorkshopItemStatus, String> {
         let id = parse_workshop_id(workshop_id)?;
         let state = self.client.ugc().item_state(id);

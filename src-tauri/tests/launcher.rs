@@ -1,5 +1,6 @@
 use monarch_launcher::launcher::{
-    build_dayz_launch_command, build_launch_args, build_launch_args_with_mods,
+    build_dayz_launch_command, build_dayz_launch_command_with_password, build_launch_args,
+    build_launch_args_with_mods,
 };
 use monarch_launcher::models::{DayzServer, InstalledMod, LauncherSettings};
 use std::path::PathBuf;
@@ -61,6 +62,21 @@ fn builds_battleye_bootstrap_command() {
     assert_eq!(&command.args[0..5], ["0", "1", "1", "-exe", "DayZ_x64.exe"]);
     assert!(command.args.iter().any(|arg| arg == "-connect=1.2.3.4"));
     assert!(command.args.iter().any(|arg| arg == "-port=2302"));
+}
+
+#[test]
+fn password_is_added_as_one_dayz_launch_argument() {
+    let root = PathBuf::from(r"C:\Steam\steamapps\common\DayZ");
+    let command = build_dayz_launch_command_with_password(
+        &server(),
+        &LauncherSettings::default(),
+        &[],
+        &root,
+        Some("secret pass"),
+    )
+    .expect("build passworded BattlEye command");
+
+    assert!(command.args.iter().any(|arg| arg == "-password=secret pass"));
 }
 
 #[test]

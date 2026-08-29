@@ -100,12 +100,17 @@ it("shows UI Sounds in Settings enabled by default and persists the toggle", asy
 
 it("plays the Monarch selection sound when UI Sounds are enabled", () => {
   const play = vi.fn().mockResolvedValue(undefined);
-  const AudioMock = vi.fn().mockImplementation((src: string) => ({
-    src,
-    currentTime: 0,
-    volume: 1,
-    play,
-  }));
+  const AudioMock = vi.fn(function AudioMock(this: {
+    src: string;
+    currentTime: number;
+    volume: number;
+    play: typeof play;
+  }, src: string) {
+    this.src = src;
+    this.currentTime = 0;
+    this.volume = 1;
+    this.play = play;
+  });
   vi.stubGlobal("Audio", AudioMock);
 
   render(<AppShell api={apiWithMod()} />);
@@ -119,11 +124,15 @@ it("plays the Monarch selection sound when UI Sounds are enabled", () => {
 it("does not play the selection sound when UI Sounds are disabled", () => {
   localStorage.setItem("monarch.uiSoundsEnabled", "false");
   const play = vi.fn().mockResolvedValue(undefined);
-  const AudioMock = vi.fn().mockImplementation(() => ({
-    currentTime: 0,
-    volume: 1,
-    play,
-  }));
+  const AudioMock = vi.fn(function AudioMock(this: {
+    currentTime: number;
+    volume: number;
+    play: typeof play;
+  }) {
+    this.currentTime = 0;
+    this.volume = 1;
+    this.play = play;
+  });
   vi.stubGlobal("Audio", AudioMock);
 
   render(<AppShell api={apiWithMod()} />);

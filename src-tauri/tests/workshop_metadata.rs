@@ -12,6 +12,7 @@ fn normalizes_successful_workshop_details_and_skips_failed_items() {
             "publishedfileid": "1559212036",
             "result": 1,
             "title": "Community Framework",
+            "creator": "76561198000000001",
             "description": "Framework used by many DayZ mods.",
             "file_size": "123456789",
             "time_updated": 1787947200,
@@ -37,6 +38,10 @@ fn normalizes_successful_workshop_details_and_skips_failed_items() {
 
     assert_eq!(result.len(), 2);
     assert_eq!(result["1559212036"].title, "Community Framework");
+    assert_eq!(
+        result["1559212036"].creator.as_deref(),
+        Some("76561198000000001")
+    );
     assert_eq!(
         result["1559212036"].preview_url.as_deref(),
         Some("https://cdn.example/cf.jpg")
@@ -69,6 +74,7 @@ fn accepts_a_successful_item_without_optional_metadata() {
     "#;
 
     let result = parse_published_file_details(body).expect("parse Workshop response");
+    assert_eq!(result["42"].creator, None);
     assert_eq!(result["42"].preview_url, None);
     assert_eq!(result["42"].description, None);
     assert_eq!(result["42"].file_size, None);

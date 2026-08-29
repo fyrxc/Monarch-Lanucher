@@ -44,7 +44,7 @@ function createApi(): LauncherApi {
     openModFolder: vi.fn().mockResolvedValue(undefined),
     checkForUpdate: vi.fn().mockResolvedValue({
       available: false,
-      currentVersion: "0.4.0",
+      currentVersion: "0.4.1",
       latestVersion: null,
       notes: null,
     }),
@@ -77,7 +77,7 @@ function createApi(): LauncherApi {
   };
 }
 
-it("opens server info, copies the address, shows required mod names/status, and joins", async () => {
+it("opens server info, copies the address, shows server summary and required mod status, and joins", async () => {
   const api = createApi();
   const writeText = vi.fn().mockResolvedValue(undefined);
   Object.defineProperty(navigator, "clipboard", {
@@ -93,9 +93,12 @@ it("opens server info, copies the address, shows required mod names/status, and 
   const panel = await screen.findByRole("dialog", { name: "Server Info" });
   expect(within(panel).getByText("Monarch Detail Server")).toBeInTheDocument();
   expect(within(panel).getByText("10.0.0.10:2302")).toBeInTheDocument();
+  expect(within(panel).getByText("Query port 2303")).toBeInTheDocument();
   expect(within(panel).getByText("namalsk")).toBeInTheDocument();
-  expect(within(panel).getByText("45 / 60")).toBeInTheDocument();
-  expect(within(panel).getByText("28 ms")).toBeInTheDocument();
+  expect(within(panel).getAllByText("45 / 60")).toHaveLength(2);
+  expect(within(panel).getAllByText("28 ms")).toHaveLength(2);
+  expect(within(panel).getByText("US")).toBeInTheDocument();
+  expect(within(panel).getByText("Community")).toBeInTheDocument();
   expect(await within(panel).findByText("Community Framework")).toBeInTheDocument();
   expect(within(panel).getByText("Monarch Server Pack")).toBeInTheDocument();
   expect(within(panel).getByText("Installed")).toBeInTheDocument();

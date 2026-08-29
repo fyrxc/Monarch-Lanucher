@@ -1,0 +1,45 @@
+.button {
+  display: flex;
+  width: calc(100% - 18px);
+  min-height: 34px;
+  align-items: center;
+  gap: 8px;
+  margin: auto 9px 8px;
+  padding: 0 10px;
+  border: 1px solid #28323d;
+  border-radius: 8px;
+  background: #131920;
+  color: #8f9ba7;
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.button:hover:not(:disabled) {
+  border-color: #3a4754;
+  background: #1a212b;
+  color: #d8dee5;
+}
+
+.button:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.button svg {
+  flex: 0 0 auto;
+  font-size: 14px;
+}
+
+.button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.available {
+  border-color: #596979;
+  color: #edf2f7;
+  background: #1a212b;
+}

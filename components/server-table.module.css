@@ -1,6 +1,18 @@
+.row {
+  transition: background 120ms ease;
+}
+
+.serverIdentity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
 .detailsButton {
   display: block;
-  width: 100%;
+  min-width: 0;
+  flex: 1;
   padding: 0;
   border: 0;
   background: transparent;
@@ -11,40 +23,73 @@
 
 .nameRow {
   display: flex;
-  align-items: center;
-  gap: 7px;
   min-width: 0;
+  align-items: center;
+  gap: 6px;
 }
 
 .lockIcon {
   flex: 0 0 auto;
   color: #7d8995;
-  font-size: 9px;
+  font-size: 8px;
+}
+
+.numeric {
+  font-variant-numeric: tabular-nums;
+}
+
+.pingUnknown {
+  color: #7c8792 !important;
+}
+
+.pingGood {
+  color: #69d642 !important;
+}
+
+.pingMedium {
+  color: #d7bf45 !important;
+}
+
+.pingBad {
+  color: #d84040 !important;
+}
+
+.actionCell {
+  width: 86px;
+  text-align: right;
 }
 
 .joinActions {
   display: inline-flex;
   align-items: stretch;
+  opacity: 0.72;
+  transition: opacity 120ms ease;
+}
+
+.row:hover .joinActions,
+.joinActions:focus-within {
+  opacity: 1;
 }
 
 .joinActions :global(.join-button) {
-  min-width: 61px;
-  border-radius: 7px 0 0 7px;
+  min-width: 52px;
+  height: 24px;
+  border-radius: 4px 0 0 4px;
 }
 
 .detailsArrow {
   display: grid;
-  width: 27px;
+  width: 24px;
   place-items: center;
-  border: 1px solid #4c5967;
+  border: 1px solid #515151;
   border-left: 0;
-  border-radius: 0 7px 7px 0;
-  background: #d7dde3;
-  color: #151a20;
+  border-radius: 0 4px 4px 0;
+  background: #373737;
+  color: #f1f1f1;
   cursor: pointer;
-  font-size: 9px;
+  font-size: 8px;
 }
 
 .detailsArrow:hover {
-  background: #f5f7f9;
+  background: #4a4a4a;
 }

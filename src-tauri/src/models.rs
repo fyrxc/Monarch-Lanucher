@@ -54,6 +54,7 @@ impl Default for LauncherSettings {
 #[serde(rename_all = "camelCase")]
 pub struct SystemStatus {
     pub steam_found: bool,
+    pub steam_running: bool,
     pub steam_path: Option<String>,
     pub steam_persona_name: Option<String>,
     pub dayz_found: bool,
@@ -76,6 +77,7 @@ pub struct WorkshopMod {
     pub path: String,
     pub preview_url: Option<String>,
     pub description: Option<String>,
+    pub creator: Option<String>,
     pub file_size: Option<u64>,
     pub time_updated: Option<u64>,
     pub needs_update: bool,

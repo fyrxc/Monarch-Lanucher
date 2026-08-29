@@ -4,6 +4,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 fn main() {
+    println!("cargo:rerun-if-changed=icons/icon.ico.b64");
+    println!("cargo:rerun-if-env-changed=MONARCH_UPDATER_PUBLIC_KEY");
+    println!("cargo:rerun-if-env-changed=MONARCH_DISCORD_APP_ID");
+
     let icon_path = Path::new("icons/icon.ico");
     if !icon_path.exists() {
         fs::create_dir_all("icons").expect("failed to create Tauri icon directory");

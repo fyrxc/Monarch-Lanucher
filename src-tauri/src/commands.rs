@@ -1,7 +1,8 @@
 use crate::collections::CollectionsStore;
-use crate::launcher::build_dayz_launch_command;
+use crate::launcher::build_dayz_launch_command_with_password;
 use crate::models::{
-    DayzServer, InstalledMod, LauncherSettings, ServerDirectoryResult, SystemStatus, WorkshopMod,
+    DayzServer, InstalledMod, LauncherSettings, RequiredMod, RequiredModState,
+    ServerDirectoryResult, SystemStatus, WorkshopMod,
 };
 use crate::servers::ServerDirectory;
 use crate::settings::SettingsStore;
@@ -11,6 +12,7 @@ use crate::workshop::discovery::discover_from_roots;
 use crate::workshop::metadata::fetch_published_file_details;
 use crate::workshop::steamworks_ugc::{parse_workshop_id, SteamWorkshopService};
 use crate::workshop::sync::verify_required_mods;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Arc;
@@ -156,6 +158,93 @@ pub async fn get_installed_mods() -> Result<Vec<WorkshopMod>, String> {
 }
 
 #[tauri::command]
+pub async fn get_required_mods(server: DayzServer) -> Result<Vec<RequiredMod>, String> {
+    if server.required_workshop_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    for workshop_id in &server.required_workshop_ids {
+        parse_workshop_id(workshop_id)?;
+    }
+
+    let steam = discover_steam()?;
+    let local_mods = discover_from_roots(&steam.library_roots)?;
+    let local_by_id: HashMap<&str, &InstalledMod> = local_mods
+        .iter()
+        .map(|item| (item.workshop_id.as_str(), item))
+        .collect();
+    let metadata = fetch_published_file_details(
+        &reqwest::Client::new(),
+        &server.required_workshop_ids,
+    )
+    .await
+    .unwrap_or_default();
+    let steamworks = SteamWorkshopService::initialize().ok();
+
+    Ok(server
+        .required_workshop_ids
+        .iter()
+        .map(|workshop_id| {
+            let local = local_by_id.get(workshop_id.as_str()).copied();
+            let status = steamworks
+                .as_ref()
+                .and_then(|service| service.status(workshop_id).ok())
+                .unwrap_or_default();
+            let details = metadata.get(workshop_id);
+
+            let state = if status.is_downloading || (local.is_some() && status.needs_update) {
+                RequiredModState::Updating
+            } else if local.is_some() {
+                RequiredModState::Installed
+            } else {
+                RequiredModState::Missing
+            };
+
+            RequiredMod {
+                workshop_id: workshop_id.clone(),
+                name: details
+                    .map(|value| value.title.clone())
+                    .or_else(|| local.map(|item| item.name.clone()))
+                    .unwrap_or_else(|| format!("Workshop {workshop_id}")),
+                preview_url: details.and_then(|value| value.preview_url.clone()),
+                state,
+            }
+        })
+        .collect())
+}
+
+#[tauri::command]
+pub fn sync_required_mods(server: DayzServer) -> Result<(), String> {
+    if server.required_workshop_ids.is_empty() {
+        return Ok(());
+    }
+
+    let steam = discover_steam()?;
+    let local_mods = discover_from_roots(&steam.library_roots)?;
+    let local_ids: HashSet<&str> = local_mods
+        .iter()
+        .map(|item| item.workshop_id.as_str())
+        .collect();
+    let steamworks = SteamWorkshopService::initialize()?;
+
+    for workshop_id in &server.required_workshop_ids {
+        parse_workshop_id(workshop_id)?;
+        let status = steamworks.status(workshop_id)?;
+        if !status.is_subscribed {
+            steamworks.subscribe(workshop_id)?;
+        }
+
+        if (!local_ids.contains(workshop_id.as_str()) || status.needs_update)
+            && !status.is_downloading
+        {
+            steamworks.request_update(workshop_id)?;
+        }
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
 pub fn update_workshop_mod(workshop_id: String) -> Result<(), String> {
     SteamWorkshopService::initialize()?.request_update(&workshop_id)
 }
@@ -183,7 +272,15 @@ pub fn open_mod_folder(workshop_id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn launch_server(state: State<'_, LauncherState>, server: DayzServer) -> Result<(), String> {
+pub fn launch_server(
+    state: State<'_, LauncherState>,
+    server: DayzServer,
+    password: Option<String>,
+) -> Result<(), String> {
+    if server.is_passworded && password.as_deref().map(str::trim).unwrap_or_default().is_empty() {
+        return Err("this server requires a password".to_string());
+    }
+
     let steam = discover_steam()?;
     let dayz_root = steam.dayz_root.as_deref().ok_or_else(|| {
         "DayZ_x64.exe was not found in the detected DayZ installation.".to_string()
@@ -198,10 +295,27 @@ pub fn launch_server(state: State<'_, LauncherState>, server: DayzServer) -> Res
     let installed_mods = discover_from_roots(&steam.library_roots)?;
     verify_required_mods(&server.required_workshop_ids, &installed_mods)?;
 
+    if let Ok(steamworks) = SteamWorkshopService::initialize() {
+        for workshop_id in &server.required_workshop_ids {
+            let status = steamworks.status(workshop_id)?;
+            if status.is_downloading || status.needs_update {
+                return Err(format!(
+                    "required Workshop mod {workshop_id} is still updating"
+                ));
+            }
+        }
+    }
+
     let mut settings = state.settings().load()?;
     let steam_persona_name = steam.steam_exe.parent().and_then(detect_persona_name);
     settings.dayz_name = resolve_player_name(&settings.dayz_name, steam_persona_name.as_deref());
-    let launch = build_dayz_launch_command(&server, &settings, &installed_mods, dayz_root)?;
+    let launch = build_dayz_launch_command_with_password(
+        &server,
+        &settings,
+        &installed_mods,
+        dayz_root,
+        password.as_deref(),
+    )?;
 
     Command::new(&launch.executable)
         .current_dir(&launch.working_directory)

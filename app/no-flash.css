@@ -1,0 +1,8 @@
+.slide-scrim {
+  background: transparent !important;
+  transition: none !important;
+}
+
+.slide-layer.open .slide-scrim {
+  opacity: 1;
+}

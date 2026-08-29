@@ -69,10 +69,7 @@ fn send_presence(_state: Option<&str>, _details: Option<&str>) -> Result<bool, S
 }
 
 #[tauri::command]
-pub async fn set_discord_presence(
-    state: String,
-    details: Option<String>,
-) -> Result<bool, String> {
+pub async fn set_discord_presence(state: String, details: Option<String>) -> Result<bool, String> {
     tauri::async_runtime::spawn_blocking(move || {
         send_presence(Some(state.trim()), details.as_deref().map(str::trim))
     })

@@ -5,6 +5,7 @@ pub mod models;
 pub mod servers;
 pub mod settings;
 pub mod steam;
+pub mod steam_profile;
 pub mod updates;
 pub mod workshop;
 

@@ -25,10 +25,14 @@
 .previewFallback {
   display: grid;
   place-items: center;
-  color: rgba(255, 255, 255, 0.82);
-  font-size: 44px;
-  font-weight: 900;
   background: #0a0e13;
+}
+
+.previewFallback img {
+  width: min(72%, 168px);
+  height: auto;
+  object-fit: contain;
+  opacity: 0.94;
 }
 
 .content h3,

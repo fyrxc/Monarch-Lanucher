@@ -97,3 +97,31 @@ it("verifies installed mods and requires confirmation before uninstalling all", 
   fireEvent.click(within(confirm).getByRole("button", { name: "UNINSTALL ALL" }));
   await waitFor(() => expect(api.unsubscribeWorkshopMod).toHaveBeenCalledWith("111"));
 });
+
+it("uses the detected DayZ install when the saved DayZ path is blank", async () => {
+  const api = createApi();
+  vi.mocked(api.getSettings).mockResolvedValue({
+    dayzName: "",
+    dayzPath: "",
+    extraLaunchParameters: "",
+    skipBattleye: false,
+    discordPresence: true,
+  });
+  vi.mocked(api.getSystemStatus).mockResolvedValue({
+    steamFound: true,
+    steamPath: "C:\\Program Files (x86)\\Steam\\steam.exe",
+    steamPersonaName: "MonarchPlayer",
+    dayzFound: true,
+    dayzPath: "D:\\SteamLibrary\\steamapps\\common\\DayZ",
+  });
+
+  render(<AppShell api={api} />);
+  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+
+  const panel = await screen.findByRole("dialog", { name: "Settings" });
+  await waitFor(() =>
+    expect(within(panel).getByLabelText("DayZ Path")).toHaveValue(
+      "D:\\SteamLibrary\\steamapps\\common\\DayZ",
+    ),
+  );
+});

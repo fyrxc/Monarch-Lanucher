@@ -4,6 +4,7 @@ import type {
   InstalledMod,
   LauncherSettings,
   ServerDirectoryResult,
+  ServerLaunchPreflight,
   SystemStatus,
   UpdateInfo,
 } from "./models";
@@ -23,6 +24,8 @@ export interface LauncherApi {
   openModFolder(workshopId: string): Promise<void>;
   checkForUpdate(): Promise<UpdateInfo>;
   installUpdate(): Promise<void>;
+  prepareServerLaunch(server: DayzServer): Promise<ServerLaunchPreflight>;
+  setupServerMods(workshopIds: string[]): Promise<void>;
   launchServer(server: DayzServer, password?: string | null): Promise<void>;
 }
 
@@ -43,6 +46,9 @@ export const tauriApi: LauncherApi = {
   openModFolder: (workshopId) => invoke<void>("open_mod_folder", { workshopId }),
   checkForUpdate: () => invoke<UpdateInfo>("check_for_update"),
   installUpdate: () => invoke<void>("install_update"),
+  prepareServerLaunch: (server) =>
+    invoke<ServerLaunchPreflight>("prepare_server_launch", { server }),
+  setupServerMods: (workshopIds) => invoke<void>("setup_server_mods", { workshopIds }),
   launchServer: (server, password = null) =>
     invoke<void>("launch_server", { server, password }),
 };

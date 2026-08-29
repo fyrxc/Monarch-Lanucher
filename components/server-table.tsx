@@ -1,7 +1,8 @@
+import { memo } from "react";
 import type { DayzServer } from "../lib/models";
 import { serverIdentity } from "../lib/server-id";
 
-export function ServerTable({
+export const ServerTable = memo(function ServerTable({
   servers,
   favoriteIds,
   joiningId,
@@ -78,4 +79,4 @@ export function ServerTable({
       </table>
     </div>
   );
-}
+});

@@ -14,7 +14,7 @@ function errorMessage(error: unknown): string {
   return String(error);
 }
 
-export function UpdatePanel({ api }: { api: UpdateApi }) {
+export function UpdatePanel({ api, compact = false }: { api: UpdateApi; compact?: boolean }) {
   const [state, setState] = useState<UpdateState>("idle");
   const [info, setInfo] = useState<UpdateInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -42,6 +42,29 @@ export function UpdatePanel({ api }: { api: UpdateApi }) {
       setError(errorMessage(nextError));
       setState("error");
     }
+  }
+
+  if (compact) {
+    return (
+      <div className={styles.compact}>
+        <button
+          className={styles.compactButton}
+          disabled={state === "checking" || state === "installing"}
+          onClick={() => void checkForUpdate()}
+          type="button"
+        >
+          <RxUpdate aria-hidden="true" />
+          <span>{state === "checking" ? "Checking..." : "Check for Updates"}</span>
+        </button>
+        {state === "available" ? (
+          <button className={styles.compactInstall} onClick={() => void installUpdate()} type="button">
+            Install {info?.latestVersion ?? "Update"}
+          </button>
+        ) : null}
+        {state === "up-to-date" ? <span className={styles.compactStatus}>Up to date</span> : null}
+        {error ? <span className={styles.compactError}>{error}</span> : null}
+      </div>
+    );
   }
 
   return (

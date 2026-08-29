@@ -118,10 +118,9 @@ pub fn get_installed_mods() -> Result<Vec<InstalledMod>, String> {
 #[tauri::command]
 pub fn launch_server(state: State<'_, LauncherState>, server: DayzServer) -> Result<(), String> {
     let steam = discover_steam()?;
-    let dayz_root = steam
-        .dayz_root
-        .as_deref()
-        .ok_or_else(|| "DayZ_x64.exe was not found in the detected DayZ installation.".to_string())?;
+    let dayz_root = steam.dayz_root.as_deref().ok_or_else(|| {
+        "DayZ_x64.exe was not found in the detected DayZ installation.".to_string()
+    })?;
     if steam.dayz_exe.is_none() {
         return Err("DayZ_x64.exe was not found in the detected DayZ installation.".to_string());
     }

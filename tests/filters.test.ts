@@ -50,6 +50,13 @@ const defaults: ServerFilters = {
 };
 
 describe("filterServers", () => {
+  it("returns the original server list when no filters are active", () => {
+    const servers = [monarch, emptyVanilla];
+
+    expect(filterServers(servers, defaults)).toBe(servers);
+    expect(filterServers(servers, defaults, new Set(["monarch-1"]))).toBe(servers);
+  });
+
   it("matches text across name map and address", () => {
     expect(filterServers([monarch, emptyVanilla], { ...defaults, search: "monarch" })).toEqual([monarch]);
     expect(filterServers([monarch, emptyVanilla], { ...defaults, search: "chernarus" })).toEqual([monarch]);

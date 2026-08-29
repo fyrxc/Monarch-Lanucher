@@ -192,7 +192,9 @@ pub fn launch_server(state: State<'_, LauncherState>, server: DayzServer) -> Res
         return Err("DayZ_x64.exe was not found in the detected DayZ installation.".to_string());
     }
     if find_dayz_launcher(&steam.library_roots).is_none() {
-        return Err("DayZLauncher.exe was not found in the detected DayZ installation.".to_string());
+        return Err(
+            "DayZLauncher.exe was not found in the detected DayZ installation.".to_string(),
+        );
     }
 
     let installed_mods = discover_from_roots(&steam.library_roots)?;

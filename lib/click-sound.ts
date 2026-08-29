@@ -1,12 +1,15 @@
-let audioContext: AudioContext | null = null;
+export const LAUNCHER_CLICK_SOUND_URL = "/sounds/header-click.ogg";
 
-function getAudioContext(): AudioContext | null {
-  if (typeof window === "undefined") return null;
-  const AudioContextClass = window.AudioContext ??
-    (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  if (!AudioContextClass) return null;
-  audioContext ??= new AudioContextClass();
-  return audioContext;
+let audioTemplate: HTMLAudioElement | null = null;
+
+function getAudioTemplate(): HTMLAudioElement | null {
+  if (typeof window === "undefined" || typeof Audio === "undefined") return null;
+  if (!audioTemplate) {
+    audioTemplate = new Audio(LAUNCHER_CLICK_SOUND_URL);
+    audioTemplate.preload = "auto";
+    audioTemplate.volume = 0.65;
+  }
+  return audioTemplate;
 }
 
 export function isClickableTarget(target: EventTarget | null): boolean {
@@ -19,27 +22,11 @@ export function isClickableTarget(target: EventTarget | null): boolean {
 }
 
 export function playLauncherClick(): void {
-  const context = getAudioContext();
-  if (!context) return;
+  const template = getAudioTemplate();
+  if (!template) return;
 
-  const play = () => {
-    const now = context.currentTime;
-    const oscillator = context.createOscillator();
-    const gain = context.createGain();
-    oscillator.type = "sine";
-    oscillator.frequency.setValueAtTime(760, now);
-    oscillator.frequency.exponentialRampToValueAtTime(430, now + 0.035);
-    gain.gain.setValueAtTime(0.035, now);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.045);
-    oscillator.connect(gain);
-    gain.connect(context.destination);
-    oscillator.start(now);
-    oscillator.stop(now + 0.05);
-  };
-
-  if (context.state === "suspended") {
-    void context.resume().then(play).catch(() => undefined);
-  } else {
-    play();
-  }
+  const audio = template.cloneNode(true) as HTMLAudioElement;
+  audio.volume = template.volume;
+  audio.currentTime = 0;
+  void audio.play().catch(() => undefined);
 }

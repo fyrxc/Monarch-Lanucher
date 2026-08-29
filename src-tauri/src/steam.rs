@@ -3,6 +3,12 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SteamPaths {
     pub steam_exe: PathBuf,
@@ -124,6 +130,7 @@ fn dedupe_paths(paths: &mut Vec<PathBuf>) {
 #[cfg(windows)]
 fn registry_value(name: &str) -> Option<String> {
     let output = Command::new("reg")
+        .creation_flags(CREATE_NO_WINDOW)
         .args(["query", r"HKCU\Software\Valve\Steam", "/v", name])
         .output()
         .ok()?;

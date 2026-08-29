@@ -157,6 +157,15 @@ pub async fn get_installed_mods() -> Result<Vec<WorkshopMod>, String> {
 }
 
 #[tauri::command]
+pub fn get_installed_workshop_ids() -> Result<Vec<String>, String> {
+    let steam = discover_steam()?;
+    Ok(discover_from_roots(&steam.library_roots)?
+        .into_iter()
+        .map(|item| item.workshop_id)
+        .collect())
+}
+
+#[tauri::command]
 pub fn install_workshop_mod(workshop_id: String) -> Result<(), String> {
     SteamWorkshopService::initialize()?.subscribe_and_download(&workshop_id)
 }

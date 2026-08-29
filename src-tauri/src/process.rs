@@ -1,5 +1,11 @@
 use std::process::Command;
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
 const DAYZ_PROCESSES: [&str; 3] = ["DayZ_x64.exe", "DayZ_BE.exe", "DayZLauncher.exe"];
 
 pub fn tasklist_contains_dayz(output: &str) -> bool {
@@ -10,8 +16,11 @@ pub fn tasklist_contains_dayz(output: &str) -> bool {
 }
 
 pub fn is_dayz_running() -> Result<bool, String> {
-    let output = Command::new("tasklist")
-        .args(["/NH", "/FO", "CSV"])
+    let mut command = Command::new("tasklist");
+    command.args(["/NH", "/FO", "CSV"]);
+    #[cfg(windows)]
+    command.creation_flags(CREATE_NO_WINDOW);
+    let output = command
         .output()
         .map_err(|error| format!("failed to check running DayZ processes: {error}"))?;
 
@@ -36,8 +45,11 @@ pub fn close_dayz_processes() -> Result<(), String> {
     let mut failures = Vec::new();
 
     for process in DAYZ_PROCESSES {
-        let output = Command::new("taskkill")
-            .args(["/IM", process, "/T", "/F"])
+        let mut command = Command::new("taskkill");
+        command.args(["/IM", process, "/T", "/F"]);
+        #[cfg(windows)]
+        command.creation_flags(CREATE_NO_WINDOW);
+        let output = command
             .output()
             .map_err(|error| format!("failed to run taskkill for {process}: {error}"))?;
 

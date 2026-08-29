@@ -1,3 +1,4 @@
+use discord_rich_presence::{activity, DiscordIpc, DiscordIpcClient};
 use serde_json::json;
 
 fn configured_app_id() -> Option<&'static str> {
@@ -6,20 +7,27 @@ fn configured_app_id() -> Option<&'static str> {
         .filter(|value| !value.is_empty())
 }
 
-fn activity_payload(state: Option<&str>, context: Option<&str>) -> serde_json::Value {
+fn display_state(state: Option<&str>, context: Option<&str>) -> Option<String> {
     if state.is_none() && context.is_none() {
-        return serde_json::Value::Null;
+        return None;
     }
 
     let state = state.unwrap_or("Browsing servers").trim();
     let context = context.unwrap_or("").trim();
-    let display_state = if context.is_empty() || context.eq_ignore_ascii_case("Monarch Launcher") {
+    Some(if context.is_empty() || context.eq_ignore_ascii_case("Monarch Launcher") {
         state.to_string()
     } else {
         format!("{state} • {context}")
+    })
+}
+
+fn activity_payload(state: Option<&str>, context: Option<&str>) -> serde_json::Value {
+    let Some(display_state) = display_state(state, context) else {
+        return serde_json::Value::Null;
     };
 
     json!({
+        "name": "Monarch Launcher",
         "details": "Monarch Launcher",
         "state": display_state,
         "assets": {
@@ -29,60 +37,34 @@ fn activity_payload(state: Option<&str>, context: Option<&str>) -> serde_json::V
     })
 }
 
-#[cfg(windows)]
-fn send_presence(state: Option<&str>, details: Option<&str>) -> Result<bool, String> {
-    use std::fs::{File, OpenOptions};
-    use std::io::Write;
-    use std::process;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
+fn send_presence(state: Option<&str>, context: Option<&str>) -> Result<bool, String> {
     let Some(client_id) = configured_app_id() else {
         return Ok(false);
     };
 
-    fn frame(file: &mut File, opcode: u32, value: serde_json::Value) -> Result<(), String> {
-        let payload = serde_json::to_vec(&value)
-            .map_err(|error| format!("failed to serialize Discord presence: {error}"))?;
-        file.write_all(&opcode.to_le_bytes())
-            .and_then(|_| file.write_all(&(payload.len() as u32).to_le_bytes()))
-            .and_then(|_| file.write_all(&payload))
-            .and_then(|_| file.flush())
-            .map_err(|error| format!("failed to write Discord IPC: {error}"))
+    let mut client = DiscordIpcClient::new(client_id);
+    client
+        .connect()
+        .map_err(|error| format!("failed to connect Discord Rich Presence: {error}"))?;
+
+    let result = match display_state(state, context) {
+        Some(display_state) => client.set_activity(
+            activity::Activity::new()
+                .name("Monarch Launcher")
+                .details("Monarch Launcher")
+                .state(display_state)
+                .assets(
+                    activity::Assets::new()
+                        .large_image("monarch_m")
+                        .large_text("Monarch Launcher"),
+                ),
+        ),
+        None => client.clear_activity(),
     }
+    .map_err(|error| format!("failed to update Discord Rich Presence: {error}"));
 
-    let mut pipe = (0..10)
-        .find_map(|index| {
-            OpenOptions::new()
-                .read(true)
-                .write(true)
-                .open(format!(r"\\?\pipe\discord-ipc-{index}"))
-                .ok()
-        })
-        .ok_or_else(|| "Discord is not running or its IPC pipe is unavailable.".to_string())?;
-
-    frame(&mut pipe, 0, json!({ "v": 1, "client_id": client_id }))?;
-
-    let nonce = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos()
-        .to_string();
-    let activity = activity_payload(state, details);
-    frame(
-        &mut pipe,
-        1,
-        json!({
-            "cmd": "SET_ACTIVITY",
-            "args": { "pid": process::id(), "activity": activity },
-            "nonce": nonce,
-        }),
-    )?;
-    Ok(true)
-}
-
-#[cfg(not(windows))]
-fn send_presence(_state: Option<&str>, _details: Option<&str>) -> Result<bool, String> {
-    Ok(false)
+    let _ = client.close();
+    result.map(|_| true)
 }
 
 #[tauri::command]
@@ -108,6 +90,7 @@ mod tests {
     #[test]
     fn presence_activity_uses_monarch_m_branding() {
         let activity = activity_payload(Some("Browsing servers"), Some("Monarch Launcher"));
+        assert_eq!(activity["name"], "Monarch Launcher");
         assert_eq!(activity["details"], "Monarch Launcher");
         assert_eq!(activity["state"], "Browsing servers");
         assert_eq!(activity["assets"]["large_image"], "monarch_m");
@@ -117,7 +100,13 @@ mod tests {
     #[test]
     fn presence_keeps_server_context_below_launcher_title() {
         let activity = activity_payload(Some("Playing DayZ"), Some("Crashout PVP"));
+        assert_eq!(activity["name"], "Monarch Launcher");
         assert_eq!(activity["details"], "Monarch Launcher");
         assert_eq!(activity["state"], "Playing DayZ • Crashout PVP");
+    }
+
+    #[test]
+    fn clearing_presence_builds_no_activity() {
+        assert_eq!(activity_payload(None, None), serde_json::Value::Null);
     }
 }

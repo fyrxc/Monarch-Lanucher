@@ -37,6 +37,12 @@ export interface InstalledMod {
   isSubscribed: boolean;
 }
 
+export interface ServerLaunchPreflight {
+  ready: boolean;
+  missingWorkshopIds: string[];
+  dayzRunning: boolean;
+}
+
 export interface SystemStatus {
   steamFound: boolean;
   steamPath: string | null;

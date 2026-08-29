@@ -1,4 +1,4 @@
-use monarch_launcher::steam::{find_dayz_install, parse_libraryfolders};
+use monarch_launcher::steam::{find_dayz_install, find_dayz_launcher, parse_libraryfolders};
 use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -56,6 +56,28 @@ fn discovers_dayz_and_battleye_from_a_steam_library() {
     assert_eq!(
         battleye_exe.as_deref(),
         Some(dayz_root.join("DayZ_BE.exe").as_path())
+    );
+
+    fs::remove_dir_all(root).expect("remove Steam test directory");
+}
+
+#[test]
+fn discovers_dayz_launcher_from_a_steam_library() {
+    let suffix = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("clock")
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!("monarch-dayz-launcher-test-{suffix}"));
+    let dayz_root = root.join("steamapps").join("common").join("DayZ");
+    fs::create_dir_all(&dayz_root).expect("create DayZ test directory");
+    fs::write(dayz_root.join("DayZ_x64.exe"), b"").expect("create DayZ exe");
+    fs::write(dayz_root.join("DayZLauncher.exe"), b"").expect("create DayZ launcher exe");
+
+    let launcher = find_dayz_launcher(&[PathBuf::from(&root)]);
+
+    assert_eq!(
+        launcher.as_deref(),
+        Some(dayz_root.join("DayZLauncher.exe").as_path())
     );
 
     fs::remove_dir_all(root).expect("remove Steam test directory");

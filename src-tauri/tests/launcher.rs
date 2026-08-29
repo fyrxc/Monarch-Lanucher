@@ -1,5 +1,6 @@
 use monarch_launcher::launcher::{
-    build_dayz_launch_command, build_launch_args, build_launch_args_with_mods,
+    build_dayz_launch_command, build_dayz_launcher_command, build_launch_args,
+    build_launch_args_with_mods,
 };
 use monarch_launcher::models::{DayzServer, InstalledMod, LauncherSettings};
 use std::path::PathBuf;
@@ -61,6 +62,38 @@ fn builds_battleye_bootstrap_command() {
     assert_eq!(&command.args[0..5], ["0", "1", "1", "-exe", "DayZ_x64.exe"]);
     assert!(command.args.iter().any(|arg| arg == "-connect=1.2.3.4"));
     assert!(command.args.iter().any(|arg| arg == "-port=2302"));
+}
+
+#[test]
+fn builds_dayz_launcher_relay_command_for_server_join() {
+    let root = PathBuf::from(r"C:\Steam\steamapps\common\DayZ");
+    let mut target = server();
+    target.required_workshop_ids = vec!["20".into(), "10".into()];
+    let settings = LauncherSettings {
+        dayz_name: "Crash Out".to_string(),
+        extra_launch_parameters: "-nosplash".to_string(),
+    };
+    let installed = vec![
+        installed("10", r"C:\mods\10"),
+        installed("20", r"C:\mods\20"),
+    ];
+
+    let command = build_dayz_launcher_command(&target, &settings, &installed, &root)
+        .expect("build DayZ launcher relay command");
+
+    assert_eq!(command.executable, root.join("DayZLauncher.exe"));
+    assert_eq!(command.working_directory, root);
+    assert!(command.args.iter().any(|arg| arg == "-nolauncher"));
+    assert!(command
+        .args
+        .iter()
+        .any(|arg| arg == "-connect=1.2.3.4:2302"));
+    assert!(command.args.iter().any(|arg| arg == "-name=Crash Out"));
+    assert!(command
+        .args
+        .iter()
+        .any(|arg| arg == r"-mod=C:\mods\20;C:\mods\10"));
+    assert!(command.args.iter().any(|arg| arg == "-nosplash"));
 }
 
 #[test]

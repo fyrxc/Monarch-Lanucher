@@ -44,7 +44,7 @@ The current launcher starts `steam.exe -applaunch 221100` and appends DayZ conne
   - `DayZ_x64.exe`
   - `DayZ_BE.exe`
 - Launch the BattlEye bootstrap directly from the DayZ install directory.
-- Use the standard BattlEye bootstrap form with `-exe DayZ_x64.exe` and append DayZ arguments after the bootstrap arguments.
+- The exact process prefix is `DayZ_BE.exe 0 1 1 -exe DayZ_x64.exe` followed by the DayZ arguments built by Monarch.
 - Preserve:
   - `-connect=<ip>`
   - `-port=<game port>`

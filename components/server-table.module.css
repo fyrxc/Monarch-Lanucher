@@ -1,0 +1,50 @@
+.detailsButton {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.nameRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.lockIcon {
+  flex: 0 0 auto;
+  color: #7d8995;
+  font-size: 9px;
+}
+
+.joinActions {
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.joinActions :global(.join-button) {
+  min-width: 61px;
+  border-radius: 7px 0 0 7px;
+}
+
+.detailsArrow {
+  display: grid;
+  width: 27px;
+  place-items: center;
+  border: 1px solid #4c5967;
+  border-left: 0;
+  border-radius: 0 7px 7px 0;
+  background: #d7dde3;
+  color: #151a20;
+  cursor: pointer;
+  font-size: 9px;
+}
+
+.detailsArrow:hover {
+  background: #f5f7f9;
+}

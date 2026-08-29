@@ -36,4 +36,25 @@ describe("release scripts", () => {
       url: "https://github.com/fyrxc/Monarch-Lanucher/releases/download/v0.4.77/MonarchLauncher-Setup.exe",
     });
   });
+
+  it("still writes usable GitHub metadata when signing is not configured", () => {
+    const root = mkdtempSync(join(tmpdir(), "monarch-release-"));
+    const output = join(root, "latest.json");
+
+    writeLatestJson(
+      {
+        MONARCH_VERSION: "0.4.78",
+        MONARCH_RELEASE_URL:
+          "https://github.com/fyrxc/Monarch-Lanucher/releases/download/v0.4.78/MonarchLauncher-Setup.exe",
+        MONARCH_SIGNATURE: "",
+        MONARCH_NOTES: "Release 0.4.78",
+      },
+      output,
+      new Date("2026-08-28T23:10:00.000Z"),
+    );
+
+    const metadata = JSON.parse(readFileSync(output, "utf8"));
+    expect(metadata.version).toBe("0.4.78");
+    expect(metadata.platforms).toEqual({});
+  });
 });

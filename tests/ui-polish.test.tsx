@@ -79,16 +79,19 @@ it("marks the selected navigation tab as the current page", async () => {
   expect(servers).not.toHaveAttribute("aria-current");
 });
 
-it("uses the Figma M plus onarch wordmark and keeps updates in the sidebar footer", () => {
+it("matches the Figma rail and settings wordmark placement", async () => {
   render(<AppShell api={apiWithMod()} />);
 
   const sidebar = screen.getByRole("complementary", { name: /monarch launcher/i });
-  const wordmark = within(sidebar).getByTestId("monarch-wordmark");
-
-  expect(wordmark).toHaveTextContent("onarch");
-  expect(within(wordmark).getByRole("img", { name: /monarch m/i })).toBeInTheDocument();
+  expect(within(sidebar).getByRole("img", { name: /monarch m/i })).toBeInTheDocument();
   expect(screen.queryByText("DAYZ LAUNCHER")).not.toBeInTheDocument();
   expect(within(sidebar).getByRole("button", { name: /check for updates/i })).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+  const settings = await screen.findByRole("dialog", { name: /settings/i });
+  const wordmark = within(settings).getByTestId("monarch-wordmark");
+  expect(wordmark).toHaveTextContent("onarch");
+  expect(within(wordmark).getByRole("img", { name: /monarch m/i })).toBeInTheDocument();
 });
 
 it("shows UI Sounds in Settings enabled by default and persists the toggle", async () => {

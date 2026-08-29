@@ -28,7 +28,7 @@ export interface LauncherApi {
   prepareServerLaunch(server: DayzServer): Promise<ServerLaunchPreflight>;
   setupServerMods(workshopIds: string[]): Promise<void>;
   getWorkshopDownloadProgress(workshopIds: string[]): Promise<WorkshopDownloadProgress[]>;
-  closeDayz?(): Promise<void>;
+  closeDayz(): Promise<void>;
   launchServer(server: DayzServer, password?: string | null): Promise<void>;
 }
 

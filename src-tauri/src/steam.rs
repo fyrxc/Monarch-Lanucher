@@ -45,9 +45,7 @@ pub fn parse_libraryfolders(body: &str) -> Result<Vec<PathBuf>, String> {
     Ok(roots)
 }
 
-pub fn find_dayz_install(
-    roots: &[PathBuf],
-) -> (Option<PathBuf>, Option<PathBuf>, Option<PathBuf>) {
+pub fn find_dayz_install(roots: &[PathBuf]) -> (Option<PathBuf>, Option<PathBuf>, Option<PathBuf>) {
     for root in roots {
         let dayz_root = root.join("steamapps").join("common").join("DayZ");
         let dayz_exe = dayz_root.join("DayZ_x64.exe");

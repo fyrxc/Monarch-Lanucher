@@ -67,6 +67,19 @@ pub struct WorkshopMod {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct WorkshopDownloadStatus {
+    pub workshop_id: String,
+    pub is_subscribed: bool,
+    pub is_downloading: bool,
+    pub is_installed: bool,
+    pub needs_update: bool,
+    pub downloaded_bytes: u64,
+    pub total_bytes: u64,
+    pub percent: Option<u8>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct ModSyncPlan {
     pub required: Vec<String>,
     pub installed: Vec<InstalledMod>,

@@ -24,6 +24,7 @@ fn settings_round_trip_dayz_name_and_launch_parameters() {
     let expected = LauncherSettings {
         dayz_name: "Crash Out".to_string(),
         extra_launch_parameters: "-nosplash".to_string(),
+        ..LauncherSettings::default()
     };
 
     store.save(&expected).expect("save settings");

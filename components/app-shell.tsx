@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type { LauncherApi } from "../lib/api";
 import { tauriApi } from "../lib/api";
 import { filterServers, type ServerFilters } from "../lib/filters";
@@ -22,17 +22,19 @@ import { useLauncherSession } from "../lib/use-launcher-session";
 import { useLiveServerPing } from "../lib/use-live-server-ping";
 import { DayzRunningDialog } from "./dayz-running-dialog";
 import { MonarchDrawer } from "./monarch-drawer";
+import { MonarchMods } from "./monarch-mods";
 import type { LauncherView } from "./monarch-navigation";
 import { MonarchServerFilters } from "./monarch-server-filters";
 import { MonarchServerList } from "./monarch-server-list";
+import { MonarchSettings } from "./monarch-settings";
 import { MonarchShell } from "./monarch-shell";
 import { MonarchStatus } from "./monarch-status";
-import { ModsView } from "./mods-view";
 import { PasswordDialog } from "./password-dialog";
-import { SettingsContent } from "./settings-content";
 import { SetupModsDialog } from "./setup-mods-dialog";
+import { SteamRequired } from "./steam-required";
 
 const WORKSHOP_PROGRESS_POLL_MS = 1500;
+const SETTINGS_SAVE_DELAY_MS = 180;
 type SetupBusy = "setup" | "check";
 
 const emptyFilters: ServerFilters = {
@@ -89,6 +91,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   const [filters, setFilters] = useState<ServerFilters>(emptyFilters);
   const [settings, setSettings] = useState<LauncherSettings>(emptySettings);
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
+  const [checkingSteam, setCheckingSteam] = useState(true);
   const [loadingServers, setLoadingServers] = useState(initialServers.length === 0);
   const [loadingMods, setLoadingMods] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -96,8 +99,9 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   const [joiningId, setJoiningId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [savingSettings, setSavingSettings] = useState(false);
   const deferredSearch = useDeferredValue(filters.search);
+  const settingsRef = useRef<LauncherSettings>(emptySettings);
+  const settingsSaveTimer = useRef<number | null>(null);
 
   const loadServers = useCallback(async () => {
     setServerError(null);
@@ -142,6 +146,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   }, [api]);
 
   const loadSettings = useCallback(async () => {
+    setCheckingSteam(true);
     try {
       const [nextSettings, status] = await Promise.all([api.getSettings(), api.getSystemStatus()]);
       const steamDefault = status.steamPersonaName?.trim() ?? "";
@@ -153,29 +158,44 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
         skipBattleye: nextSettings.skipBattleye ?? false,
         discordPresence: nextSettings.discordPresence ?? true,
       };
-      setSettings(
+      const resolved =
         normalized.dayzName.trim() || !steamDefault
           ? normalized
-          : { ...normalized, dayzName: steamDefault },
-      );
+          : { ...normalized, dayzName: steamDefault };
+      settingsRef.current = resolved;
+      setSettings(resolved);
       setSystemStatus(status);
     } catch (error) {
       setActionError(errorMessage(error));
+    } finally {
+      setCheckingSteam(false);
     }
   }, [api]);
+
+  const steamReady = systemStatus
+    ? (systemStatus.steamRunning ?? systemStatus.steamFound)
+    : null;
 
   const session = useLauncherSession(api, settings.discordPresence ?? true, loadRecent);
 
   useEffect(() => {
-    void loadServers();
-    void loadFavorites();
     void loadSettings();
-    void loadInstalledMods();
-  }, [loadFavorites, loadInstalledMods, loadServers, loadSettings]);
+  }, [loadSettings]);
 
   useEffect(() => {
-    if (activeView === "Recent") void loadRecent();
-  }, [activeView, loadRecent]);
+    if (!steamReady) return;
+    void loadServers();
+    void loadFavorites();
+    void loadInstalledMods();
+  }, [loadFavorites, loadInstalledMods, loadServers, steamReady]);
+
+  useEffect(() => {
+    if (steamReady && activeView === "Recent") void loadRecent();
+  }, [activeView, loadRecent, steamReady]);
+
+  useEffect(() => () => {
+    if (settingsSaveTimer.current !== null) window.clearTimeout(settingsSaveTimer.current);
+  }, []);
 
   useEffect(() => {
     if (!setupServer || !setupMonitoring || setupReady || setupMissingIds.length === 0) return;
@@ -197,7 +217,8 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
         setSetupReady(preflight.ready);
         if (preflight.ready) {
           setSetupMonitoring(false);
-          setActionMessage("Required mods are ready. Press Join again when you are ready to play.");
+          setActionMessage("Ready — press Join again.");
+          void loadInstalledMods();
         }
       } catch (error) {
         if (!cancelled) {
@@ -213,7 +234,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [api, setupMissingIds, setupMonitoring, setupReady, setupServer]);
+  }, [api, loadInstalledMods, setupMissingIds, setupMonitoring, setupReady, setupServer]);
 
   const favoriteIds = useMemo(
     () => new Set(favorites.map((server) => serverIdentity(server))),
@@ -246,7 +267,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     return [];
   }, [activeView, favoriteFirstServers, liveFavorites, liveRecent]);
 
-  useLiveServerPing(api, pingTargets.length > 0, pingTargets, setServers);
+  useLiveServerPing(api, Boolean(steamReady) && pingTargets.length > 0, pingTargets, setServers);
 
   const setupProgressSummary = useMemo(() => {
     if (setupProgress.length === 0) {
@@ -344,6 +365,23 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     }
   }, [api, requestJoin, runningServer]);
 
+  const updateSettings = useCallback((patch: Partial<LauncherSettings>) => {
+    const next = { ...settingsRef.current, ...patch };
+    settingsRef.current = next;
+    setSettings(next);
+
+    if (settingsSaveTimer.current !== null) window.clearTimeout(settingsSaveTimer.current);
+    settingsSaveTimer.current = window.setTimeout(() => {
+      void api.saveSettings(next)
+        .then(async () => {
+          if (!(next.discordPresence ?? true) && api.clearDiscordPresence) {
+            await api.clearDiscordPresence().catch(() => false);
+          }
+        })
+        .catch((error) => setActionError(errorMessage(error)));
+    }, SETTINGS_SAVE_DELAY_MS);
+  }, [api]);
+
   async function setupRequiredMods() {
     if (!setupServer || setupMissingIds.length === 0) return;
     setSetupBusy("setup");
@@ -370,7 +408,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
       setSetupReady(preflight.ready);
       if (preflight.ready) {
         setSetupMonitoring(false);
-        setActionMessage("Required mods are ready. Press Join again when you are ready to play.");
+        setActionMessage("Ready — press Join again.");
       }
     } catch (error) {
       setActionError(errorMessage(error));
@@ -394,23 +432,6 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
       setRecent([]);
     } catch (error) {
       setActionError(errorMessage(error));
-    }
-  }
-
-  async function saveSettings() {
-    setSavingSettings(true);
-    setActionError(null);
-    setActionMessage(null);
-    try {
-      await api.saveSettings(settings);
-      if (!(settings.discordPresence ?? true) && api.clearDiscordPresence) {
-        await api.clearDiscordPresence().catch(() => false);
-      }
-      setActionMessage("Settings saved.");
-    } catch (error) {
-      setActionError(errorMessage(error));
-    } finally {
-      setSavingSettings(false);
     }
   }
 
@@ -470,6 +491,10 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     );
   }
 
+  if (systemStatus && !steamReady) {
+    return <SteamRequired checking={checkingSteam} onRetry={() => void loadSettings()} />;
+  }
+
   const visibleMessage = actionMessage ?? session.status;
 
   return (
@@ -482,13 +507,14 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
           setActiveView(view);
         }}
       >
+        {systemStatus === null ? <MonarchStatus>Checking Steam...</MonarchStatus> : null}
         {actionError ? <MonarchStatus tone="error">{actionError}</MonarchStatus> : null}
         {visibleMessage ? <MonarchStatus tone="success">{visibleMessage}</MonarchStatus> : null}
         {activeView === "Servers" ? renderServerDirectory() : null}
         {activeView === "Favorites" ? renderCollection("Favorites", liveFavorites) : null}
         {activeView === "Recent" ? renderCollection("Recent", liveRecent) : null}
         {activeView === "Mods" ? (
-          <ModsView
+          <MonarchMods
             api={api}
             loading={loadingMods}
             mods={installedMods}
@@ -534,17 +560,15 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
       ) : null}
 
       <MonarchDrawer label="Settings" onClose={() => setSettingsOpen(false)} open={settingsOpen}>
-        <SettingsContent
+        <MonarchSettings
           api={api}
-          onChange={setSettings}
+          onChange={updateSettings}
           onError={setActionError}
           onMessage={setActionMessage}
           onRefresh={() => {
             void loadSettings();
-            void loadInstalledMods();
+            if (steamReady) void loadInstalledMods();
           }}
-          onSave={() => void saveSettings()}
-          saving={savingSettings}
           settings={settings}
           systemStatus={systemStatus}
         />

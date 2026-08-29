@@ -1,0 +1,183 @@
+.content {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 34px;
+  color: #f3f3f3;
+}
+
+.titleRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.kicker,
+.titleRow span,
+.grid span,
+.address span,
+.sectionTitle small,
+.mod small {
+  color: #a8a8a8;
+  font-size: 9px;
+}
+
+.titleRow h2 {
+  margin: 4px 0 0;
+  font-size: 19px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.state {
+  padding: 5px 7px;
+  border-radius: 4px;
+  background: #444444;
+  text-transform: uppercase;
+}
+
+.address {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: #242424;
+}
+
+.address > div {
+  display: grid;
+  flex: 1;
+  gap: 4px;
+}
+
+.address strong {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.address button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 0;
+  border-radius: 4px;
+  background: #3a3a3a;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.address small {
+  position: absolute;
+  right: 10px;
+  bottom: -14px;
+  color: #bfbfbf;
+  font-size: 8px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.grid > div {
+  display: grid;
+  gap: 4px;
+  min-height: 52px;
+  padding: 9px 10px;
+  border-radius: 5px;
+  background: #343434;
+}
+
+.grid strong {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.good { color: #57bb36; }
+.medium { color: #e7b83d; }
+.bad { color: #d84a43; }
+.unavailable { color: #929292; }
+
+.mods {
+  min-height: 0;
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 7px;
+  font-size: 13px;
+}
+
+.modList {
+  display: grid;
+  max-height: 230px;
+  gap: 5px;
+  overflow: auto;
+}
+
+.mod {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 9px;
+  border-radius: 5px;
+  background: #242424;
+}
+
+.mod > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.mod strong {
+  overflow: hidden;
+  font-size: 10px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mod > span {
+  flex: 0 0 auto;
+  color: #c8c8c8;
+  font-size: 9px;
+}
+
+.empty {
+  padding: 12px;
+  border-radius: 5px;
+  background: #242424;
+  color: #aaa;
+  font-size: 10px;
+}
+
+.join {
+  width: 100%;
+  min-height: 36px;
+  margin-top: auto;
+  border: 0;
+  border-radius: 5px;
+  background: #f1f1f1;
+  color: #111111;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.join:hover {
+  background: #ffffff;
+}

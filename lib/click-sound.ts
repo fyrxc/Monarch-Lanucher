@@ -1,4 +1,4 @@
-export const LAUNCHER_CLICK_SOUND_URL = "/sounds/header-click.ogg";
+export const LAUNCHER_CLICK_SOUND_URL = "/sounds/Header_Click_UI.mp4";
 
 let audioTemplate: HTMLAudioElement | null = null;
 
@@ -7,18 +7,25 @@ function getAudioTemplate(): HTMLAudioElement | null {
   if (!audioTemplate) {
     audioTemplate = new Audio(LAUNCHER_CLICK_SOUND_URL);
     audioTemplate.preload = "auto";
-    audioTemplate.volume = 0.65;
+    audioTemplate.volume = 0.72;
   }
   return audioTemplate;
 }
 
 export function isClickableTarget(target: EventTarget | null): boolean {
-  return (
-    target instanceof Element &&
-    target.closest(
-      "button, a, input, select, textarea, label, [role='button'], [role='checkbox'], [role='menuitem']",
-    ) !== null
+  if (!(target instanceof Element)) return false;
+  const control = target.closest(
+    "button, a, input, select, label, [role='button'], [role='checkbox'], [role='menuitem']",
   );
+  if (!control) return false;
+
+  if (control instanceof HTMLButtonElement && control.disabled) return false;
+  if (control instanceof HTMLInputElement) {
+    if (control.disabled) return false;
+    return ["button", "submit", "reset", "checkbox", "radio", "range"].includes(control.type);
+  }
+  if (control instanceof HTMLSelectElement && control.disabled) return false;
+  return true;
 }
 
 export function playLauncherClick(): void {

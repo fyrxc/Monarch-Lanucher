@@ -41,6 +41,7 @@ export function ModInfoPanel({
   onUninstall: (mod: InstalledMod) => void;
 }) {
   const commandBusy = busyAction === "folder" || busyAction === "uninstall";
+  const showingUpdate = Boolean(mod && (busyAction === "update" || mod.isDownloading || progressPercent !== null));
 
   return (
     <SlidePanel open={mod !== null} title="Mod Info" onClose={onClose}>
@@ -59,14 +60,14 @@ export function ModInfoPanel({
             <p className={styles.workshopId}>Workshop ID {mod.workshopId}</p>
           </div>
 
-          {progressPercent !== null ? (
+          {showingUpdate ? (
             <div className={styles.progress}>
               <div className={styles.progressHeader}>
                 <span>Updating</span>
-                <strong>{progressPercent}%</strong>
+                <strong>{progressPercent !== null ? `${progressPercent}%` : "Waiting for Steam"}</strong>
               </div>
               <div className={styles.track}>
-                <div className={styles.fill} style={{ width: `${progressPercent}%` }} />
+                <div className={styles.fill} style={{ width: `${progressPercent ?? 0}%` }} />
               </div>
             </div>
           ) : null}

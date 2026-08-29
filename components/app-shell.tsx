@@ -12,6 +12,7 @@ import type {
 } from "../lib/models";
 import { paginate } from "../lib/pagination";
 import { serverIdentity } from "../lib/server-id";
+import { ModCard } from "./mod-card";
 import { Navigation, type LauncherView } from "./navigation";
 import { ServerFiltersPanel } from "./server-filters";
 import { ServerTable } from "./server-table";
@@ -19,6 +20,8 @@ import { StatusBanner } from "./status-banner";
 import { UpdatePanel } from "./update-panel";
 
 const SERVER_PAGE_SIZE = 100;
+
+type ModAction = "update" | "uninstall" | "folder";
 
 const emptyFilters: ServerFilters = {
   search: "",
@@ -60,6 +63,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   const [serverError, setServerError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [joiningId, setJoiningId] = useState<string | null>(null);
+  const [modBusy, setModBusy] = useState<{ id: string; action: ModAction } | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [savingSettings, setSavingSettings] = useState(false);
@@ -206,6 +210,60 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     [api, loadRecent],
   );
 
+  const openModFolder = useCallback(
+    async (mod: InstalledMod) => {
+      setModBusy({ id: mod.workshopId, action: "folder" });
+      setActionMessage(null);
+      setActionError(null);
+      try {
+        await api.openModFolder(mod.workshopId);
+      } catch (error) {
+        setActionError(errorMessage(error));
+      } finally {
+        setModBusy(null);
+      }
+    },
+    [api],
+  );
+
+  const updateMod = useCallback(
+    async (mod: InstalledMod) => {
+      setModBusy({ id: mod.workshopId, action: "update" });
+      setActionMessage(null);
+      setActionError(null);
+      try {
+        await api.updateWorkshopMod(mod.workshopId);
+        setActionMessage(`Steam is checking/downloading the latest ${mod.name} update.`);
+        await loadInstalledMods();
+      } catch (error) {
+        setActionError(errorMessage(error));
+      } finally {
+        setModBusy(null);
+      }
+    },
+    [api, loadInstalledMods],
+  );
+
+  const uninstallMod = useCallback(
+    async (mod: InstalledMod) => {
+      setModBusy({ id: mod.workshopId, action: "uninstall" });
+      setActionMessage(null);
+      setActionError(null);
+      try {
+        await api.unsubscribeWorkshopMod(mod.workshopId);
+        setInstalledMods((current) =>
+          current.filter((item) => item.workshopId !== mod.workshopId),
+        );
+        setActionMessage(`Unsubscribed ${mod.name} through Steam.`);
+      } catch (error) {
+        setActionError(errorMessage(error));
+      } finally {
+        setModBusy(null);
+      }
+    },
+    [api],
+  );
+
   async function clearRecent() {
     setActionError(null);
     try {
@@ -335,7 +393,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
         <div className="view-toolbar">
           <div>
             <h1>Mods</h1>
-            <p>Installed DayZ Workshop content detected from your Steam libraries.</p>
+            <p>Steam Workshop mods installed for DayZ.</p>
           </div>
           <button
             className="ghost-button"
@@ -348,19 +406,20 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
         </div>
 
         {loadingMods ? (
-          <div className="loading-state">Scanning Steam Workshop folders...</div>
+          <div className="loading-state">Loading Steam Workshop mods...</div>
         ) : installedMods.length === 0 ? (
           <div className="empty-state">No installed DayZ Workshop mods were detected.</div>
         ) : (
           <div className="mods-list" aria-label="Installed DayZ Workshop mods">
             {installedMods.map((mod) => (
-              <article className="mod-card" key={mod.workshopId}>
-                <div className="mod-card-main">
-                  <strong>{mod.name}</strong>
-                  <span>Workshop ID {mod.workshopId}</span>
-                </div>
-                <code>{mod.path}</code>
-              </article>
+              <ModCard
+                busyAction={modBusy?.id === mod.workshopId ? modBusy.action : null}
+                key={mod.workshopId}
+                mod={mod}
+                onOpenFolder={(item) => void openModFolder(item)}
+                onUninstall={(item) => void uninstallMod(item)}
+                onUpdate={(item) => void updateMod(item)}
+              />
             ))}
           </div>
         )}

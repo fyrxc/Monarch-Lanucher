@@ -104,7 +104,7 @@ export function SettingsContent({
 
   return (
     <div className={styles.content}>
-      <MonarchBrand className={styles.brand} />
+      <MonarchBrand ariaLabel="Monarch settings brand" className={styles.brand} />
 
       <div className={styles.section}>
         <label className={styles.fieldLabel}>

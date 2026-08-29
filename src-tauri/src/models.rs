@@ -73,6 +73,16 @@ pub struct WorkshopMod {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct ServerModDetail {
+    pub workshop_id: String,
+    pub name: String,
+    pub is_installed: bool,
+    pub is_downloading: bool,
+    pub needs_update: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct ModSyncPlan {
     pub required: Vec<String>,
     pub installed: Vec<InstalledMod>,

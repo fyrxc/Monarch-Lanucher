@@ -24,7 +24,10 @@ export interface ServerDirectoryResult {
 
 export interface LauncherSettings {
   dayzName: string;
+  dayzPath?: string;
   extraLaunchParameters: string;
+  skipBattleye?: boolean;
+  discordPresence?: boolean;
 }
 
 export interface InstalledMod {

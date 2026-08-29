@@ -64,6 +64,9 @@ jobs:
         run: cargo test --manifest-path src-tauri/Cargo.toml
 
       - name: Build Tauri Windows installer
+        env:
+          MONARCH_UPDATER_PUBLIC_KEY: ${{ vars.MONARCH_UPDATER_PUBLIC_KEY }}
+          MONARCH_DISCORD_APP_ID: ${{ vars.MONARCH_DISCORD_APP_ID }}
         run: npm run tauri build -- --bundles nsis
 
       - name: Smoke test launcher startup

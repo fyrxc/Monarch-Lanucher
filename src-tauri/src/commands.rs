@@ -6,6 +6,7 @@ use crate::models::{
 use crate::servers::ServerDirectory;
 use crate::settings::SettingsStore;
 use crate::steam::discover_steam;
+use crate::steam_profile::{detect_persona_name, resolve_player_name};
 use crate::workshop::discovery::discover_from_roots;
 use crate::workshop::sync::verify_required_mods;
 use std::path::PathBuf;
@@ -97,14 +98,22 @@ pub fn clear_recent(state: State<'_, LauncherState>) -> Result<(), String> {
 #[tauri::command]
 pub fn get_system_status() -> SystemStatus {
     match discover_steam() {
-        Ok(paths) => SystemStatus {
-            steam_found: true,
-            steam_path: Some(paths.steam_exe.to_string_lossy().into_owned()),
-            dayz_found: paths.dayz_exe.is_some(),
-            dayz_path: paths
-                .dayz_exe
-                .map(|path| path.to_string_lossy().into_owned()),
-        },
+        Ok(paths) => {
+            let steam_persona_name = paths
+                .steam_exe
+                .parent()
+                .and_then(detect_persona_name);
+
+            SystemStatus {
+                steam_found: true,
+                steam_path: Some(paths.steam_exe.to_string_lossy().into_owned()),
+                steam_persona_name,
+                dayz_found: paths.dayz_exe.is_some(),
+                dayz_path: paths
+                    .dayz_exe
+                    .map(|path| path.to_string_lossy().into_owned()),
+            }
+        }
         Err(_) => SystemStatus::default(),
     }
 }
@@ -131,7 +140,9 @@ pub fn launch_server(state: State<'_, LauncherState>, server: DayzServer) -> Res
     let installed_mods = discover_from_roots(&steam.library_roots)?;
     verify_required_mods(&server.required_workshop_ids, &installed_mods)?;
 
-    let settings = state.settings().load()?;
+    let mut settings = state.settings().load()?;
+    let steam_persona_name = steam.steam_exe.parent().and_then(detect_persona_name);
+    settings.dayz_name = resolve_player_name(&settings.dayz_name, steam_persona_name.as_deref());
     let launch = build_dayz_launch_command(&server, &settings, &installed_mods, dayz_root)?;
 
     Command::new(&launch.executable)

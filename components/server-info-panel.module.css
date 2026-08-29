@@ -1,50 +1,92 @@
 .content {
   display: grid;
-  gap: 16px;
+  gap: 14px;
+  min-height: 100%;
 }
 
-.identity {
-  padding-bottom: 14px;
+.hero {
+  padding: 2px 0 14px;
   border-bottom: 1px solid #2d3742;
 }
 
-.nameRow {
+.badges {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
 }
 
-.nameRow h3 {
-  min-width: 0;
+.badges span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border: 1px solid #35414d;
+  border-radius: 5px;
+  background: #171e26;
+  color: #8f9aa5;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
+.badges .online {
+  border-color: #355244;
+  background: #192a22;
+  color: #b9d8c5;
+}
+
+.badges .offline {
+  border-color: #603b3b;
+  background: #2a1919;
+  color: #efaaa7;
+}
+
+.badges .locked {
+  color: #d6c8a4;
+}
+
+.hero h3 {
   margin: 0;
   overflow: hidden;
   color: #f0f3f6;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 750;
+  line-height: 1.25;
   text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.nameRow svg {
-  flex: 0 0 auto;
-  color: #8d98a4;
-  font-size: 11px;
 }
 
 .addressRow {
   display: flex;
   align-items: center;
-  gap: 7px;
-  margin-top: 8px;
+  gap: 8px;
+  margin-top: 11px;
   color: #8a96a2;
-  font-size: 10px;
   font-variant-numeric: tabular-nums;
+}
+
+.addressRow > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.addressRow strong {
+  color: #cbd3db;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.addressRow small {
+  color: #6f7b87;
+  font-size: 8px;
 }
 
 .iconButton {
   display: grid;
-  width: 25px;
-  height: 25px;
+  width: 27px;
+  height: 27px;
+  flex: 0 0 27px;
   place-items: center;
   border: 1px solid #35414d;
   border-radius: 6px;
@@ -65,29 +107,33 @@
 .stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 7px;
   margin: 0;
 }
 
 .stats div {
-  padding: 10px;
+  min-width: 0;
+  padding: 9px 10px;
   border: 1px solid #2e3944;
-  border-radius: 8px;
+  border-radius: 7px;
   background: #171e26;
 }
 
 .stats dt {
   color: #6f7b87;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .stats dd {
-  margin: 5px 0 0;
+  margin: 4px 0 0;
+  overflow: hidden;
   color: #d8dee4;
-  font-size: 11px;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .modsSection {
@@ -96,8 +142,9 @@
 
 .sectionHeading {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
+  gap: 10px;
   margin-bottom: 8px;
 }
 
@@ -107,16 +154,26 @@
   font-size: 11px;
 }
 
-.sectionHeading span {
+.sectionHeading p {
+  margin: 3px 0 0;
+  color: #697582;
+  font-size: 8px;
+}
+
+.sectionHeading > span {
+  flex: 0 0 auto;
   color: #727e8a;
-  font-size: 9px;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .modList {
   display: grid;
-  gap: 6px;
-  max-height: 260px;
+  gap: 5px;
+  max-height: 245px;
   overflow: auto;
+  padding-right: 2px;
 }
 
 .modRow {
@@ -124,7 +181,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 9px 10px;
+  padding: 8px 9px;
   border: 1px solid #2b3640;
   border-radius: 7px;
   background: #171e25;
@@ -138,7 +195,8 @@
   display: block;
   overflow: hidden;
   color: #cfd6dd;
-  font-size: 10px;
+  font-size: 9px;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -146,7 +204,7 @@
 .modIdentity small,
 .vanilla {
   color: #707c88;
-  font-size: 9px;
+  font-size: 8px;
 }
 
 .modIdentity small {
@@ -159,28 +217,28 @@
   padding: 4px 6px;
   border: 1px solid #3a4652;
   border-radius: 999px;
-  font-size: 8px;
+  font-size: 7px;
   font-weight: 800;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
 .installed {
-  color: #b9d8c5;
   border-color: #355244;
   background: #192a22;
+  color: #b9d8c5;
 }
 
 .missing {
-  color: #efaaa7;
   border-color: #603b3b;
   background: #2a1919;
+  color: #efaaa7;
 }
 
 .updating {
-  color: #c7d3e2;
   border-color: #42556b;
   background: #1c2937;
+  color: #c7d3e2;
 }
 
 .vanilla {
@@ -190,14 +248,40 @@
   text-align: center;
 }
 
+.joinArea {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid #2d3742;
+}
+
+.joinArea > div {
+  display: grid;
+  gap: 2px;
+}
+
+.joinArea strong {
+  color: #e3e8ed;
+  font-size: 10px;
+}
+
+.joinArea span {
+  color: #75818d;
+  font-size: 8px;
+}
+
 .joinButton {
+  min-width: 128px;
   height: 36px;
   border: 1px solid #4c5967;
-  border-radius: 8px;
+  border-radius: 7px;
   background: #e4e9ee;
   color: #151a20;
   cursor: pointer;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.04em;
 }

@@ -37,6 +37,15 @@ export interface InstalledMod {
   isSubscribed: boolean;
 }
 
+export type RequiredModState = "installed" | "missing" | "updating";
+
+export interface RequiredMod {
+  workshopId: string;
+  name: string;
+  previewUrl: string | null;
+  state: RequiredModState;
+}
+
 export interface SystemStatus {
   steamFound: boolean;
   steamPath: string | null;

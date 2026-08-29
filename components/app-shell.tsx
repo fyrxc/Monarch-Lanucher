@@ -14,6 +14,7 @@ import type {
   WorkshopDownloadProgress,
 } from "../lib/models";
 import { paginate } from "../lib/pagination";
+import { readServerCache, writeServerCache } from "../lib/server-cache";
 import { serverIdentity } from "../lib/server-id";
 import { useGlobalClickSound } from "../lib/use-global-click-sound";
 import { useLauncherSession } from "../lib/use-launcher-session";
@@ -61,9 +62,15 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function normalizeDetectedDayzPath(path: string | null): string {
+  if (!path) return "";
+  return path.replace(/[\\/]DayZ_x64\.exe$/i, "");
+}
+
 export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   useGlobalClickSound();
 
+  const initialServers = useMemo(() => readServerCache(), []);
   const [activeView, setActiveView] = useState<LauncherView>("Servers");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [passwordServer, setPasswordServer] = useState<DayzServer | null>(null);
@@ -75,7 +82,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   const [setupBusy, setSetupBusy] = useState<SetupBusy | null>(null);
   const [setupMonitoring, setSetupMonitoring] = useState(false);
   const [setupProgress, setSetupProgress] = useState<WorkshopDownloadProgress[]>([]);
-  const [servers, setServers] = useState<DayzServer[]>([]);
+  const [servers, setServers] = useState<DayzServer[]>(initialServers);
   const [favorites, setFavorites] = useState<DayzServer[]>([]);
   const [recent, setRecent] = useState<DayzServer[]>([]);
   const [installedMods, setInstalledMods] = useState<InstalledMod[]>([]);
@@ -83,7 +90,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   const [serverPage, setServerPage] = useState(1);
   const [settings, setSettings] = useState<LauncherSettings>(emptySettings);
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
-  const [loadingServers, setLoadingServers] = useState(true);
+  const [loadingServers, setLoadingServers] = useState(initialServers.length === 0);
   const [loadingMods, setLoadingMods] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
@@ -94,11 +101,11 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   const deferredSearch = useDeferredValue(filters.search);
 
   const loadServers = useCallback(async () => {
-    setLoadingServers(true);
     setServerError(null);
     try {
       const result = await api.getServers();
       setServers(result.servers);
+      writeServerCache(result.servers);
       setWarning(result.warning);
     } catch (error) {
       setServerError(errorMessage(error));
@@ -139,10 +146,11 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     try {
       const [nextSettings, status] = await Promise.all([api.getSettings(), api.getSystemStatus()]);
       const steamDefault = status.steamPersonaName?.trim() ?? "";
+      const configuredPath = nextSettings.dayzPath?.trim() ?? "";
       const normalized: LauncherSettings = {
         ...emptySettings,
         ...nextSettings,
-        dayzPath: nextSettings.dayzPath ?? status.dayzPath ?? "",
+        dayzPath: configuredPath || normalizeDetectedDayzPath(status.dayzPath),
         skipBattleye: nextSettings.skipBattleye ?? false,
         discordPresence: nextSettings.discordPresence ?? true,
       };
@@ -162,16 +170,13 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   useEffect(() => {
     void loadServers();
     void loadFavorites();
-  }, [loadFavorites, loadServers]);
+    void loadSettings();
+    void loadInstalledMods();
+  }, [loadFavorites, loadInstalledMods, loadServers, loadSettings]);
 
   useEffect(() => {
     if (activeView === "Recent") void loadRecent();
-    if (activeView === "Mods") void loadInstalledMods();
-  }, [activeView, loadInstalledMods, loadRecent]);
-
-  useEffect(() => {
-    if (settingsOpen) void loadSettings();
-  }, [loadSettings, settingsOpen]);
+  }, [activeView, loadRecent]);
 
   useEffect(() => {
     if (!setupServer || !setupMonitoring || setupReady || setupMissingIds.length === 0) return;
@@ -230,7 +235,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
 
   useLiveServerPing(
     api,
-    activeView === "Servers" && !loadingServers,
+    activeView === "Servers" && servers.length > 0,
     serverPageResult.items,
     setServers,
   );
@@ -402,6 +407,9 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   }
 
   function renderServerDirectory() {
+    const showInitialLoader = loadingServers && servers.length === 0;
+    const showEmptyError = serverError && servers.length === 0;
+
     return (
       <>
         <div className="view-toolbar">
@@ -414,7 +422,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
             {serverError}
           </StatusBanner>
         ) : null}
-        {loadingServers ? <div className="loading-state">Loading public DayZ servers...</div> : serverError ? null : (
+        {showInitialLoader ? <div className="loading-state">Loading public DayZ servers...</div> : showEmptyError ? null : (
           <>
             <ServerFiltersPanel
               filters={filters}

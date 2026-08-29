@@ -14,13 +14,6 @@ interface ModCardProps {
   onUninstall(mod: InstalledMod): void;
 }
 
-function stateLabel(mod: InstalledMod): string {
-  if (mod.isDownloading) return "Downloading";
-  if (mod.needsUpdate) return "Update available";
-  if (!mod.isSubscribed) return "Installed locally";
-  return "Installed";
-}
-
 export function ModCard({
   mod,
   busyAction,
@@ -35,7 +28,7 @@ export function ModCard({
     <article className={styles.card}>
       <button
         aria-label={`View details for ${mod.name}`}
-        className={styles.previewButton}
+        className={styles.detailsButton}
         onClick={() => onSelect(mod)}
         type="button"
       >
@@ -52,71 +45,40 @@ export function ModCard({
           )}
           <span className={styles.previewOverlay}>View details</span>
         </div>
+        <strong className={styles.modName}>{mod.name}</strong>
       </button>
 
-      <div className={styles.content}>
+      <div className={styles.actions}>
         <button
-          aria-label={`Open details for ${mod.name}`}
-          className={styles.titleButton}
-          onClick={() => onSelect(mod)}
+          aria-label={`Open ${mod.name} files`}
+          className={styles.secondaryButton}
+          disabled={busy}
+          onClick={() => onOpenFolder(mod)}
+          title="Open files"
           type="button"
         >
-          <div className={styles.header}>
-            <div className={styles.titleBlock}>
-              <strong>{mod.name}</strong>
-              <span>Workshop ID {mod.workshopId}</span>
-            </div>
-            <span
-              className={`${styles.state} ${mod.needsUpdate ? styles.stateUpdate : ""}`}
-            >
-              {stateLabel(mod)}
-            </span>
-          </div>
+          <VscFiles aria-hidden="true" />
         </button>
-
-        <div className={styles.location}>
-          <span>Folder location</span>
-          <code title={mod.path}>{mod.path}</code>
-        </div>
-
-        <div className={styles.actions}>
-          <button
-            className={styles.secondaryButton}
-            disabled={busy}
-            onClick={() => onOpenFolder(mod)}
-            title="Open files"
-            type="button"
-          >
-            <VscFiles aria-hidden="true" />
-            <span>{busyAction === "folder" ? "OPENING..." : "OPEN FOLDER"}</span>
-          </button>
-          <button
-            className={styles.primaryButton}
-            disabled={busy || mod.isDownloading}
-            onClick={() => onUpdate(mod)}
-            title="Check for update"
-            type="button"
-          >
-            <RxUpdate aria-hidden="true" />
-            <span>
-              {busyAction === "update"
-                ? "UPDATING..."
-                : mod.needsUpdate
-                  ? "UPDATE"
-                  : "CHECK / UPDATE"}
-            </span>
-          </button>
-          <button
-            className={styles.dangerButton}
-            disabled={busy}
-            onClick={() => onUninstall(mod)}
-            title="Uninstall"
-            type="button"
-          >
-            <FaTrashCan aria-hidden="true" />
-            <span>{busyAction === "uninstall" ? "UNINSTALLING..." : "UNINSTALL"}</span>
-          </button>
-        </div>
+        <button
+          aria-label={`Check ${mod.name} for update`}
+          className={styles.primaryButton}
+          disabled={busy || mod.isDownloading}
+          onClick={() => onUpdate(mod)}
+          title="Check for update"
+          type="button"
+        >
+          <RxUpdate aria-hidden="true" />
+        </button>
+        <button
+          aria-label={`Uninstall ${mod.name}`}
+          className={styles.dangerButton}
+          disabled={busy}
+          onClick={() => onUninstall(mod)}
+          title="Uninstall"
+          type="button"
+        >
+          <FaTrashCan aria-hidden="true" />
+        </button>
       </div>
     </article>
   );

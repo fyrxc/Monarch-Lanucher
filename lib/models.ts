@@ -43,6 +43,16 @@ export interface ServerLaunchPreflight {
   dayzRunning: boolean;
 }
 
+export interface WorkshopDownloadProgress {
+  workshopId: string;
+  downloadedBytes: number;
+  totalBytes: number;
+  isDownloading: boolean;
+  isInstalled: boolean;
+  isSubscribed: boolean;
+  needsUpdate: boolean;
+}
+
 export interface SystemStatus {
   steamFound: boolean;
   steamPath: string | null;

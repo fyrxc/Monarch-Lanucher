@@ -124,7 +124,12 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     if (activeView === "Settings") {
       void Promise.all([api.getSettings(), api.getSystemStatus()])
         .then(([nextSettings, status]) => {
-          setSettings(nextSettings);
+          const steamDefault = status.steamPersonaName?.trim() ?? "";
+          setSettings(
+            nextSettings.dayzName.trim() || !steamDefault
+              ? nextSettings
+              : { ...nextSettings, dayzName: steamDefault },
+          );
           setSystemStatus(status);
         })
         .catch((error) => setActionError(errorMessage(error)));
@@ -380,7 +385,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
               <input
                 className="field"
                 onChange={(event) => setSettings({ ...settings, dayzName: event.target.value })}
-                placeholder="Your in-game name"
+                placeholder="Steam public name"
                 value={settings.dayzName}
               />
             </label>
@@ -412,6 +417,10 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
                 <div>
                   <dt>Steam</dt>
                   <dd>{systemStatus.steamFound ? "Detected" : "Not detected"}</dd>
+                </div>
+                <div>
+                  <dt>Steam Name</dt>
+                  <dd>{systemStatus.steamPersonaName ?? "--"}</dd>
                 </div>
                 <div>
                   <dt>DayZ</dt>

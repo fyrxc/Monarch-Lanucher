@@ -2,14 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { LauncherApi } from "../lib/api";
-import type { InstalledMod } from "../lib/models";
+import type { InstalledMod, WorkshopDownloadProgress } from "../lib/models";
 import { ConfirmDialog } from "./confirm-dialog";
 import { ModCard } from "./mod-card";
 import { ModInfoPanel } from "./mod-info-panel";
 import styles from "./mods-view.module.css";
 
-const PROGRESS_POLL_MS = 1500;
-const MOD_LIST_REFRESH_MS = 5000;
+const PROGRESS_POLL_MS = 1200;
+const MOD_LIST_REFRESH_MS = 3000;
 type ModAction = "update" | "uninstall" | "folder";
 
 type ModsApi = Pick<
@@ -23,6 +23,17 @@ type ModsApi = Pick<
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function percentFor(progress: WorkshopDownloadProgress | undefined): number | null {
+  if (!progress) return null;
+  if (progress.totalBytes > 0) {
+    return Math.max(
+      0,
+      Math.min(100, Math.round((progress.downloadedBytes / progress.totalBytes) * 100)),
+    );
+  }
+  return progress.isInstalled && !progress.needsUpdate ? 100 : null;
 }
 
 export function ModsView({
@@ -49,7 +60,7 @@ export function ModsView({
   const [updatingIds, setUpdatingIds] = useState<Set<string>>(() =>
     new Set(mods.filter((mod) => mod.isDownloading).map((mod) => mod.workshopId)),
   );
-  const [progress, setProgress] = useState<Record<string, number | null>>({});
+  const [progress, setProgress] = useState<Record<string, WorkshopDownloadProgress>>({});
 
   const selectedMod = useMemo(
     () => mods.find((mod) => mod.workshopId === selectedId) ?? null,
@@ -68,6 +79,17 @@ export function ModsView({
         mod.workshopId.toLocaleLowerCase().includes(query),
     );
   }, [mods, search]);
+
+  const aggregateDownload = useMemo(() => {
+    const items = Array.from(updatingIds)
+      .map((id) => progress[id])
+      .filter((item): item is WorkshopDownloadProgress => Boolean(item));
+    const downloadedBytes = items.reduce((sum, item) => sum + item.downloadedBytes, 0);
+    const totalBytes = items.reduce((sum, item) => sum + item.totalBytes, 0);
+    const percent =
+      totalBytes > 0 ? Math.round((downloadedBytes / totalBytes) * 100) : null;
+    return { count: updatingIds.size, percent };
+  }, [progress, updatingIds]);
 
   useEffect(() => {
     const downloading = mods.filter((mod) => mod.isDownloading).map((mod) => mod.workshopId);
@@ -91,13 +113,11 @@ export function ModsView({
         const downloading = nextMods
           .filter((mod) => mod.isDownloading)
           .map((mod) => mod.workshopId);
-        if (downloading.length > 0) {
-          setUpdatingIds((current) => {
-            const next = new Set(current);
-            downloading.forEach((id) => next.add(id));
-            return next;
-          });
-        }
+        setUpdatingIds((current) => {
+          const next = new Set(current);
+          downloading.forEach((id) => next.add(id));
+          return next;
+        });
       } catch (error) {
         if (!cancelled) onError(errorMessage(error));
       }
@@ -121,16 +141,10 @@ export function ModsView({
         const next = await api.getWorkshopDownloadProgress(ids);
         if (cancelled) return;
 
-        const nextProgress: Record<string, number | null> = {};
+        const nextProgress: Record<string, WorkshopDownloadProgress> = {};
         const completed = new Set<string>();
         for (const item of next) {
-          const percent =
-            item.totalBytes > 0
-              ? Math.max(0, Math.min(100, Math.round((item.downloadedBytes / item.totalBytes) * 100)))
-              : item.isInstalled && !item.needsUpdate
-                ? 100
-                : null;
-          nextProgress[item.workshopId] = percent;
+          nextProgress[item.workshopId] = item;
           if (item.isInstalled && !item.isDownloading && !item.needsUpdate) {
             completed.add(item.workshopId);
           }
@@ -138,20 +152,21 @@ export function ModsView({
         setProgress((current) => ({ ...current, ...nextProgress }));
 
         if (completed.size > 0) {
-          onChange(
-            mods.map((mod) =>
-              completed.has(mod.workshopId)
-                ? { ...mod, needsUpdate: false, isDownloading: false }
-                : mod,
-            ),
-          );
+          const refreshed = await api.getInstalledMods();
+          if (cancelled) return;
+          onChange(refreshed);
           setUpdatingIds((current) => {
             const nextIds = new Set(current);
             completed.forEach((id) => nextIds.delete(id));
             return nextIds;
           });
+          setProgress((current) => {
+            const nextState = { ...current };
+            completed.forEach((id) => delete nextState[id]);
+            return nextState;
+          });
           completed.forEach((id) => {
-            const mod = mods.find((item) => item.workshopId === id);
+            const mod = refreshed.find((item) => item.workshopId === id);
             if (mod) onMessage(`${mod.name} is up to date.`);
           });
         }
@@ -166,7 +181,7 @@ export function ModsView({
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [api, mods, onChange, onError, onMessage, updatingIds]);
+  }, [api, onChange, onError, onMessage, updatingIds]);
 
   async function openFolder(mod: InstalledMod) {
     setBusy({ id: mod.workshopId, action: "folder" });
@@ -201,7 +216,8 @@ export function ModsView({
     setBusy({ id: mod.workshopId, action: "uninstall" });
     try {
       await api.unsubscribeWorkshopMod(mod.workshopId);
-      onChange(mods.filter((item) => item.workshopId !== mod.workshopId));
+      const refreshed = await api.getInstalledMods();
+      onChange(refreshed.filter((item) => item.workshopId !== mod.workshopId));
       setSelectedId((current) => (current === mod.workshopId ? null : current));
       setPendingUninstallId(null);
       onMessage(`Unsubscribed ${mod.name} through Steam.`);
@@ -213,26 +229,38 @@ export function ModsView({
   }
 
   return (
-    <>
+    <div className={styles.view}>
       <div className={styles.toolbar}>
-        <div>
-          <h1>Mods</h1>
-          <p>Steam Workshop mods already installed for DayZ.</p>
-        </div>
-        <div className={styles.toolbarActions}>
-          <input
-            aria-label="Search installed mods"
-            className={styles.search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search installed mods"
-            role="searchbox"
-            value={search}
-          />
-          <button className="ghost-button" disabled={loading} onClick={onRefresh} type="button">
-            {loading ? "Scanning..." : "Refresh"}
-          </button>
-        </div>
+        <input
+          aria-label="Search installed mods"
+          className={styles.search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search"
+          role="searchbox"
+          value={search}
+        />
+        <button className={styles.refresh} disabled={loading} onClick={onRefresh} type="button">
+          {loading ? "SCANNING..." : "REFRESH"}
+        </button>
       </div>
+
+      {aggregateDownload.count > 0 ? (
+        <div className={styles.downloadStatus} role="status" aria-label="Mod download status">
+          <div>
+            <strong>MOD DOWNLOAD</strong>
+            <span>{aggregateDownload.count} active</span>
+          </div>
+          <div className={styles.downloadBar}>
+            <div
+              className={styles.downloadFill}
+              style={{ width: `${aggregateDownload.percent ?? 2}%` }}
+            />
+          </div>
+          <span className={styles.downloadPercent}>
+            {aggregateDownload.percent !== null ? `${aggregateDownload.percent}%` : "Waiting for Steam"}
+          </span>
+        </div>
+      ) : null}
 
       {loading && mods.length === 0 ? (
         <div className="loading-state">Loading Steam Workshop mods...</div>
@@ -243,22 +271,14 @@ export function ModsView({
       ) : (
         <div className={styles.grid} aria-label="Installed DayZ Workshop mods">
           {visibleMods.map((mod) => {
-            const activeBusy =
-              busy?.id === mod.workshopId
-                ? busy.action
-                : updatingIds.has(mod.workshopId)
-                  ? "update"
-                  : null;
+            const updating = updatingIds.has(mod.workshopId) || mod.isDownloading;
             return (
               <ModCard
-                busyAction={activeBusy}
                 key={mod.workshopId}
                 mod={mod}
                 onDetails={(item) => setSelectedId(item.workshopId)}
-                onOpenFolder={(item) => void openFolder(item)}
-                onUninstall={(item) => setPendingUninstallId(item.workshopId)}
-                onUpdate={(item) => void update(item)}
-                progressPercent={progress[mod.workshopId] ?? null}
+                progressPercent={percentFor(progress[mod.workshopId])}
+                updating={updating}
               />
             );
           })}
@@ -278,7 +298,7 @@ export function ModsView({
         onOpenFolder={(item) => void openFolder(item)}
         onUninstall={(item) => setPendingUninstallId(item.workshopId)}
         onUpdate={(item) => void update(item)}
-        progressPercent={selectedMod ? progress[selectedMod.workshopId] ?? null : null}
+        progress={selectedMod ? progress[selectedMod.workshopId] ?? null : null}
       />
 
       {pendingUninstall ? (
@@ -292,6 +312,6 @@ export function ModsView({
           Uninstall {pendingUninstall.name}? Steam will unsubscribe it and remove the Workshop item.
         </ConfirmDialog>
       ) : null}
-    </>
+    </div>
   );
 }

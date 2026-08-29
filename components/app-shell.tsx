@@ -4,6 +4,7 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "rea
 import { IoSettingsOutline } from "react-icons/io5";
 import type { LauncherApi } from "../lib/api";
 import { tauriApi } from "../lib/api";
+import { MONARCH_LOGO_DATA_URL } from "../lib/branding";
 import { filterServers, type ServerFilters } from "../lib/filters";
 import type {
   DayzServer,
@@ -14,6 +15,9 @@ import type {
 } from "../lib/models";
 import { paginate } from "../lib/pagination";
 import { serverIdentity } from "../lib/server-id";
+import { useGlobalClickSound } from "../lib/use-global-click-sound";
+import { useLauncherSession } from "../lib/use-launcher-session";
+import { useLiveServerPing } from "../lib/use-live-server-ping";
 import { DayzRunningDialog } from "./dayz-running-dialog";
 import { ModsView } from "./mods-view";
 import { Navigation, type LauncherView } from "./navigation";
@@ -22,6 +26,7 @@ import { ServerFiltersPanel } from "./server-filters";
 import { ServerTable } from "./server-table";
 import { SettingsContent } from "./settings-content";
 import { SetupModsDialog } from "./setup-mods-dialog";
+import { SidebarUpdate } from "./sidebar-update";
 import { SlidePanel } from "./slide-panel";
 import { StatusBanner } from "./status-banner";
 
@@ -57,6 +62,8 @@ function errorMessage(error: unknown): string {
 }
 
 export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
+  useGlobalClickSound();
+
   const [activeView, setActiveView] = useState<LauncherView>("Servers");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [passwordServer, setPasswordServer] = useState<DayzServer | null>(null);
@@ -150,6 +157,8 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     }
   }, [api]);
 
+  const session = useLauncherSession(api, settings.discordPresence ?? true, loadRecent);
+
   useEffect(() => {
     void loadServers();
     void loadFavorites();
@@ -218,6 +227,14 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     () => paginate(visibleServers, serverPage, SERVER_PAGE_SIZE),
     [serverPage, visibleServers],
   );
+
+  useLiveServerPing(
+    api,
+    activeView === "Servers" && !loadingServers,
+    serverPageResult.items,
+    setServers,
+  );
+
   const setupProgressSummary = useMemo(() => {
     if (setupProgress.length === 0) {
       return { percent: null as number | null, downloadedBytes: 0, totalBytes: 0 };
@@ -254,7 +271,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
       try {
         if (password === undefined) await api.launchServer(server);
         else await api.launchServer(server, password);
-        setActionMessage(`Launching ${server.name}`);
+        session.startSession(server);
         await loadRecent();
       } catch (error) {
         setActionError(errorMessage(error));
@@ -262,7 +279,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
         setJoiningId(null);
       }
     },
-    [api, loadRecent],
+    [api, loadRecent, session],
   );
 
   const requestJoin = useCallback(
@@ -373,6 +390,9 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     setActionMessage(null);
     try {
       await api.saveSettings(settings);
+      if (!(settings.discordPresence ?? true) && api.clearDiscordPresence) {
+        await api.clearDiscordPresence().catch(() => false);
+      }
       setActionMessage("Settings saved.");
     } catch (error) {
       setActionError(errorMessage(error));
@@ -404,6 +424,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
               resultCount={visibleServers.length}
             />
             <ServerTable
+              api={api}
               favoriteIds={favoriteIds}
               joiningId={joiningId}
               onFavorite={toggleFavorite}
@@ -434,19 +455,28 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
           </div>
           {isRecent && collection.length > 0 ? <button className="ghost-button" onClick={() => void clearRecent()} type="button">Clear Played On</button> : null}
         </div>
-        <ServerTable favoriteIds={favoriteIds} joiningId={joiningId} onFavorite={toggleFavorite} onJoin={(server) => void requestJoin(server)} servers={collection} />
+        <ServerTable
+          api={api}
+          favoriteIds={favoriteIds}
+          joiningId={joiningId}
+          onFavorite={toggleFavorite}
+          onJoin={(server) => void requestJoin(server)}
+          servers={collection}
+        />
       </>
     );
   }
+
+  const visibleMessage = actionMessage ?? session.status;
 
   return (
     <div className="launcher-shell">
       <aside className="sidebar">
         <div aria-label="Monarch" className="brand">
-          <div aria-hidden="true" className="brand-mark">M</div>
-          <strong className="brand-word">ONARCH</strong>
+          <img className="brand-logo" src={MONARCH_LOGO_DATA_URL} alt="Monarch" />
         </div>
         <Navigation active={activeView} onSelect={(view) => { setSettingsOpen(false); setActiveView(view); }} />
+        <SidebarUpdate api={api} />
         <div className="sidebar-version">v0.4.0</div>
       </aside>
 
@@ -457,7 +487,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
           </button>
         </div>
         {actionError ? <StatusBanner tone="error">{actionError}</StatusBanner> : null}
-        {actionMessage ? <StatusBanner tone="success">{actionMessage}</StatusBanner> : null}
+        {visibleMessage ? <StatusBanner tone="success">{visibleMessage}</StatusBanner> : null}
         {activeView === "Servers" ? renderServerDirectory() : null}
         {activeView === "Favorites" ? renderCollection("Favorites", favorites) : null}
         {activeView === "Recent" ? renderCollection("Recent", recent) : null}

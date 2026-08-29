@@ -22,7 +22,9 @@ pub fn is_dayz_running() -> Result<bool, String> {
         ));
     }
 
-    Ok(tasklist_contains_dayz(&String::from_utf8_lossy(&output.stdout)))
+    Ok(tasklist_contains_dayz(&String::from_utf8_lossy(
+        &output.stdout,
+    )))
 }
 
 #[tauri::command]

@@ -1,6 +1,7 @@
 import { FaTrashCan } from "react-icons/fa6";
 import { RxUpdate } from "react-icons/rx";
 import { VscFiles } from "react-icons/vsc";
+import { MONARCH_LOGO_DATA_URL } from "../lib/branding";
 import type { InstalledMod } from "../lib/models";
 import styles from "./mod-card.module.css";
 
@@ -29,7 +30,7 @@ export function ModCard({
   onUpdate,
   onUninstall,
 }: ModCardProps) {
-  const busy = busyAction !== null;
+  const commandBusy = busyAction === "folder" || busyAction === "uninstall";
   const status = stateLabel(mod, busyAction);
 
   return (
@@ -45,7 +46,7 @@ export function ModCard({
             <img className={styles.preview} src={mod.previewUrl} alt="" loading="lazy" />
           ) : (
             <div className={styles.previewFallback} aria-label="Monarch logo fallback" role="img">
-              <span>M</span>
+              <img src={MONARCH_LOGO_DATA_URL} alt="" />
             </div>
           )}
           {progressPercent !== null ? (
@@ -64,7 +65,7 @@ export function ModCard({
         <div className={styles.actions}>
           <button
             aria-label={`Open ${mod.name} folder`}
-            disabled={busy}
+            disabled={commandBusy}
             onClick={() => onOpenFolder(mod)}
             title="Open folder"
             type="button"
@@ -73,7 +74,7 @@ export function ModCard({
           </button>
           <button
             aria-label={`Update ${mod.name}`}
-            disabled={busy || mod.isDownloading}
+            disabled={busyAction !== null || mod.isDownloading}
             onClick={() => onUpdate(mod)}
             title="Check / update"
             type="button"
@@ -82,7 +83,7 @@ export function ModCard({
           </button>
           <button
             aria-label={`Uninstall ${mod.name}`}
-            disabled={busy}
+            disabled={commandBusy}
             onClick={() => onUninstall(mod)}
             title="Uninstall"
             type="button"

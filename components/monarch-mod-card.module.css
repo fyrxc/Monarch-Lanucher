@@ -1,0 +1,60 @@
+.card {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  padding: 8px 8px 6px;
+  border: 0;
+  border-radius: 5px;
+  background: #1a212b;
+  color: #ffffff;
+  cursor: pointer;
+  text-align: center;
+}
+
+.card:hover {
+  background: #202936;
+}
+
+.image {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border-radius: 5px;
+  background: #131820;
+}
+
+.name {
+  overflow: hidden;
+  min-height: 14px;
+  font-size: 9px;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card small {
+  margin-top: -3px;
+  color: #b8c0c8;
+  font-size: 7px;
+}
+
+.progress {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  left: 5px;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #f2f2f2;
+  transition: width 180ms ease;
+}

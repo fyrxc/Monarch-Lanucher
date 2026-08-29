@@ -1,5 +1,8 @@
-use monarch_launcher::launcher::{build_launch_args, build_launch_args_with_mods};
+use monarch_launcher::launcher::{
+    build_dayz_launch_command, build_launch_args, build_launch_args_with_mods,
+};
 use monarch_launcher::models::{DayzServer, InstalledMod, LauncherSettings};
+use std::path::PathBuf;
 
 fn server() -> DayzServer {
     DayzServer {
@@ -45,6 +48,22 @@ fn builds_separate_safe_steam_launch_arguments() {
     assert!(args.iter().any(|arg| arg == "-name=Crash Out"));
     assert!(args.iter().any(|arg| arg == "-nosplash"));
     assert!(args.iter().any(|arg| arg == "-skipIntro"));
+}
+
+#[test]
+fn builds_battleye_bootstrap_command() {
+    let root = PathBuf::from(r"C:\Steam\steamapps\common\DayZ");
+    let command = build_dayz_launch_command(&server(), &LauncherSettings::default(), &[], &root)
+        .expect("build BattlEye command");
+
+    assert_eq!(command.executable, root.join("DayZ_BE.exe"));
+    assert_eq!(command.working_directory, root);
+    assert_eq!(
+        &command.args[0..5],
+        ["0", "1", "1", "-exe", "DayZ_x64.exe"]
+    );
+    assert!(command.args.iter().any(|arg| arg == "-connect=1.2.3.4"));
+    assert!(command.args.iter().any(|arg| arg == "-port=2302"));
 }
 
 #[test]

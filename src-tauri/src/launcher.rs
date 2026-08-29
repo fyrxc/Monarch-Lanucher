@@ -22,7 +22,12 @@ pub fn build_launch_args_with_mods(
     installed_mods: &[InstalledMod],
 ) -> Result<Vec<String>, String> {
     let mut args = vec!["-applaunch".to_string(), "221100".to_string()];
-    args.extend(build_dayz_args_with_mods(server, settings, installed_mods)?);
+    args.extend(build_dayz_args_with_mods(
+        server,
+        settings,
+        installed_mods,
+        None,
+    )?);
     Ok(args)
 }
 
@@ -32,6 +37,16 @@ pub fn build_dayz_launch_command(
     installed_mods: &[InstalledMod],
     dayz_root: &Path,
 ) -> Result<DayzLaunchCommand, String> {
+    build_dayz_launch_command_with_password(server, settings, installed_mods, dayz_root, None)
+}
+
+pub fn build_dayz_launch_command_with_password(
+    server: &DayzServer,
+    settings: &LauncherSettings,
+    installed_mods: &[InstalledMod],
+    dayz_root: &Path,
+    password: Option<&str>,
+) -> Result<DayzLaunchCommand, String> {
     let mut args = vec![
         "0".to_string(),
         "1".to_string(),
@@ -39,7 +54,12 @@ pub fn build_dayz_launch_command(
         "-exe".to_string(),
         "DayZ_x64.exe".to_string(),
     ];
-    args.extend(build_dayz_args_with_mods(server, settings, installed_mods)?);
+    args.extend(build_dayz_args_with_mods(
+        server,
+        settings,
+        installed_mods,
+        password,
+    )?);
 
     Ok(DayzLaunchCommand {
         executable: dayz_root.join("DayZ_BE.exe"),
@@ -52,6 +72,7 @@ fn build_dayz_args_with_mods(
     server: &DayzServer,
     settings: &LauncherSettings,
     installed_mods: &[InstalledMod],
+    password: Option<&str>,
 ) -> Result<Vec<String>, String> {
     let mut args = vec![
         format!("-connect={}", server.ip),
@@ -64,6 +85,13 @@ fn build_dayz_args_with_mods(
             return Err("invalid DayZ player name".to_string());
         }
         args.push(format!("-name={player_name}"));
+    }
+
+    if let Some(password) = password.filter(|value| !value.is_empty()) {
+        if contains_control_characters(password) {
+            return Err("invalid server password".to_string());
+        }
+        args.push(format!("-password={password}"));
     }
 
     if !server.required_workshop_ids.is_empty() {

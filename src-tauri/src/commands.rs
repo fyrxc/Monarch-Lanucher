@@ -1,5 +1,5 @@
 use crate::collections::CollectionsStore;
-use crate::launcher::build_dayz_launch_command;
+use crate::launcher::build_dayz_launch_command_with_password;
 use crate::models::{
     DayzServer, InstalledMod, LauncherSettings, ServerDirectoryResult, SystemStatus, WorkshopMod,
 };
@@ -183,7 +183,11 @@ pub fn open_mod_folder(workshop_id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn launch_server(state: State<'_, LauncherState>, server: DayzServer) -> Result<(), String> {
+pub fn launch_server(
+    state: State<'_, LauncherState>,
+    server: DayzServer,
+    password: Option<String>,
+) -> Result<(), String> {
     let steam = discover_steam()?;
     let dayz_root = steam.dayz_root.as_deref().ok_or_else(|| {
         "DayZ_x64.exe was not found in the detected DayZ installation.".to_string()
@@ -201,7 +205,13 @@ pub fn launch_server(state: State<'_, LauncherState>, server: DayzServer) -> Res
     let mut settings = state.settings().load()?;
     let steam_persona_name = steam.steam_exe.parent().and_then(detect_persona_name);
     settings.dayz_name = resolve_player_name(&settings.dayz_name, steam_persona_name.as_deref());
-    let launch = build_dayz_launch_command(&server, &settings, &installed_mods, dayz_root)?;
+    let launch = build_dayz_launch_command_with_password(
+        &server,
+        &settings,
+        &installed_mods,
+        dayz_root,
+        password.as_deref(),
+    )?;
 
     Command::new(&launch.executable)
         .current_dir(&launch.working_directory)

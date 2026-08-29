@@ -23,7 +23,7 @@ export interface LauncherApi {
   openModFolder(workshopId: string): Promise<void>;
   checkForUpdate(): Promise<UpdateInfo>;
   installUpdate(): Promise<void>;
-  launchServer(server: DayzServer): Promise<void>;
+  launchServer(server: DayzServer, password?: string | null): Promise<void>;
 }
 
 export const tauriApi: LauncherApi = {
@@ -43,5 +43,6 @@ export const tauriApi: LauncherApi = {
   openModFolder: (workshopId) => invoke<void>("open_mod_folder", { workshopId }),
   checkForUpdate: () => invoke<UpdateInfo>("check_for_update"),
   installUpdate: () => invoke<void>("install_update"),
-  launchServer: (server) => invoke<void>("launch_server", { server }),
+  launchServer: (server, password = null) =>
+    invoke<void>("launch_server", { server, password }),
 };

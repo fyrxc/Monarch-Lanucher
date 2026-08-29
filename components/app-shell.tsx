@@ -15,6 +15,7 @@ import { paginate } from "../lib/pagination";
 import { serverIdentity } from "../lib/server-id";
 import { ModCard } from "./mod-card";
 import { Navigation, type LauncherView } from "./navigation";
+import { PasswordDialog } from "./password-dialog";
 import { ServerFiltersPanel } from "./server-filters";
 import { ServerTable } from "./server-table";
 import { SlidePanel } from "./slide-panel";
@@ -52,6 +53,7 @@ function errorMessage(error: unknown): string {
 export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   const [activeView, setActiveView] = useState<LauncherView>("Servers");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [passwordServer, setPasswordServer] = useState<DayzServer | null>(null);
   const [servers, setServers] = useState<DayzServer[]>([]);
   const [favorites, setFavorites] = useState<DayzServer[]>([]);
   const [recent, setRecent] = useState<DayzServer[]>([]);
@@ -201,13 +203,17 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   );
 
   const joinServer = useCallback(
-    async (server: DayzServer) => {
+    async (server: DayzServer, password?: string) => {
       const identity = serverIdentity(server);
       setJoiningId(identity);
       setActionMessage(null);
       setActionError(null);
       try {
-        await api.launchServer(server);
+        if (password === undefined) {
+          await api.launchServer(server);
+        } else {
+          await api.launchServer(server, password);
+        }
         setActionMessage(`Launching ${server.name}`);
         await loadRecent();
       } catch (error) {
@@ -217,6 +223,17 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
       }
     },
     [api, loadRecent],
+  );
+
+  const requestJoin = useCallback(
+    (server: DayzServer) => {
+      if (server.isPassworded) {
+        setPasswordServer(server);
+        return;
+      }
+      void joinServer(server);
+    },
+    [joinServer],
   );
 
   const openModFolder = useCallback(
@@ -339,7 +356,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
               favoriteIds={favoriteIds}
               joiningId={joiningId}
               onFavorite={toggleFavorite}
-              onJoin={joinServer}
+              onJoin={requestJoin}
               servers={serverPageResult.items}
             />
             {visibleServers.length > 0 ? (
@@ -392,7 +409,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
           favoriteIds={favoriteIds}
           joiningId={joiningId}
           onFavorite={toggleFavorite}
-          onJoin={joinServer}
+          onJoin={requestJoin}
           servers={collection}
         />
       </>
@@ -539,6 +556,17 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
         {activeView === "Recent" ? renderCollection("Recent", recent) : null}
         {activeView === "Mods" ? renderMods() : null}
       </main>
+
+      {passwordServer ? (
+        <PasswordDialog
+          server={passwordServer}
+          onJoin={(password) => {
+            const server = passwordServer;
+            setPasswordServer(null);
+            void joinServer(server, password);
+          }}
+        />
+      ) : null}
 
       <SlidePanel open={settingsOpen} title="Settings" onClose={() => setSettingsOpen(false)}>
         {renderSettings()}

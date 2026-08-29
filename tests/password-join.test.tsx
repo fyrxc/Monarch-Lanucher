@@ -53,6 +53,12 @@ function createApi(): LauncherApi {
       notes: null,
     }),
     installUpdate: vi.fn().mockResolvedValue(undefined),
+    prepareServerLaunch: vi.fn().mockResolvedValue({
+      ready: true,
+      missingWorkshopIds: [],
+      dayzRunning: false,
+    }),
+    setupServerMods: vi.fn().mockResolvedValue(undefined),
     launchServer: vi.fn().mockResolvedValue(undefined),
   };
 }

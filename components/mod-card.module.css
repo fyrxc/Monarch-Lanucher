@@ -1,33 +1,30 @@
 .card {
+  display: grid;
   min-width: 0;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-  background: #11161c;
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.16);
-}
-
-.previewButton,
-.nameButton {
-  border: 0;
   padding: 0;
-  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  outline: none;
+  background: #16191c;
   color: inherit;
   cursor: pointer;
   text-align: left;
+  transition: transform 120ms ease, background 120ms ease;
 }
 
-.previewButton {
-  display: block;
-  width: 100%;
+.card:hover,
+.card:focus-visible {
+  background: #202428;
+  transform: translateY(-1px);
 }
 
 .previewWrap {
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 8.5;
+  aspect-ratio: 1 / 1;
   overflow: hidden;
-  background: #0a0e13;
+  background: #0b0e11;
 }
 
 .preview,
@@ -44,17 +41,26 @@
 .previewFallback {
   display: grid;
   place-items: center;
-  background:
-    radial-gradient(circle at 50% 38%, rgba(255, 255, 255, 0.08), transparent 34%),
-    #0a0e13;
-  color: rgba(255, 255, 255, 0.82);
+  background: #0d1013;
 }
 
 .previewFallback img {
-  width: min(72%, 168px);
+  width: 56%;
+  max-width: 78px;
   height: auto;
   object-fit: contain;
   opacity: 0.92;
+}
+
+.downloadOverlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(7, 9, 11, 0.58);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .progressTrack {
@@ -63,80 +69,39 @@
   bottom: 0;
   left: 0;
   height: 3px;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.18);
 }
 
 .progressFill {
   height: 100%;
-  background: #e8edf2;
+  background: #f0f2f4;
   transition: width 180ms ease;
 }
 
-.footer {
-  display: flex;
-  min-height: 50px;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 10px 9px 12px;
+.caption {
+  display: grid;
+  min-height: 36px;
+  align-content: center;
+  gap: 2px;
+  padding: 6px 7px 7px;
 }
 
-.nameButton {
-  min-width: 0;
-  flex: 1;
-}
-
-.nameButton strong,
-.nameButton span {
+.caption strong,
+.caption span {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.nameButton strong {
-  color: #f0f3f6;
-  font-size: 12px;
-  font-weight: 720;
-}
-
-.nameButton span {
-  margin-top: 3px;
-  color: #8b96a2;
+.caption strong {
+  color: #f1f2f3;
   font-size: 9px;
+  font-weight: 600;
+}
+
+.caption span {
+  color: #8f989f;
+  font-size: 7px;
   text-transform: uppercase;
-}
-
-.actions {
-  display: flex;
-  flex: 0 0 auto;
-  gap: 5px;
-}
-
-.actions button {
-  display: grid;
-  width: 29px;
-  height: 29px;
-  place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 7px;
-  background: #181f27;
-  color: #aeb8c2;
-  cursor: pointer;
-  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
-}
-
-.actions button:hover:not(:disabled) {
-  border-color: rgba(255, 255, 255, 0.18);
-  background: #1a212b;
-  color: #fff;
-}
-
-.actions button:disabled {
-  cursor: default;
-  opacity: 0.42;
-}
-
-.actions svg {
-  width: 13px;
-  height: 13px;
 }

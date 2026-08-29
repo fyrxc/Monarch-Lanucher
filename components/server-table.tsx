@@ -7,6 +7,13 @@ import { serverIdentity } from "../lib/server-id";
 import { ServerInfoPanel } from "./server-info-panel";
 import styles from "./server-table.module.css";
 
+function pingTone(ping: number | null): string {
+  if (ping === null) return styles.pingUnknown;
+  if (ping <= 70) return styles.pingGood;
+  if (ping <= 110) return styles.pingMedium;
+  return styles.pingBad;
+}
+
 export const ServerTable = memo(function ServerTable({
   servers,
   favoriteIds,
@@ -31,17 +38,16 @@ export const ServerTable = memo(function ServerTable({
   return (
     <>
       <div className="server-table-wrap">
-        <table className="server-table">
+        <table aria-label="DayZ servers" className="server-table">
           <thead>
             <tr>
-              <th aria-label="Favorite" />
-              <th>Server</th>
+              <th>Name</th>
               <th>Map</th>
               <th>Players</th>
               <th>Ping</th>
               <th>Mods</th>
               <th>View</th>
-              <th aria-label="Join" />
+              <th aria-label="Actions" />
             </tr>
           </thead>
           <tbody>
@@ -50,39 +56,40 @@ export const ServerTable = memo(function ServerTable({
               const favorite = favoriteIds.has(identity);
               const joining = joiningId === identity;
               return (
-                <tr key={identity}>
-                  <td className="favorite-cell">
-                    <button
-                      aria-label={favorite ? `Remove ${server.name} from favorites` : `Favorite ${server.name}`}
-                      className={favorite ? "star-button active" : "star-button"}
-                      onClick={() => onFavorite(server)}
-                      type="button"
-                    >
-                      {favorite ? <FaStar aria-hidden="true" /> : <FaRegStar aria-hidden="true" />}
-                    </button>
-                  </td>
+                <tr className={styles.row} key={identity}>
                   <td>
-                    <button
-                      aria-label={`View details for ${server.name}`}
-                      className={styles.detailsButton}
-                      onClick={() => setSelectedServer(server)}
-                      type="button"
-                    >
-                      <div className={styles.nameRow}>
-                        <div className="server-name">{server.name}</div>
-                        {server.isPassworded ? (
-                          <FaKey aria-hidden="true" className={styles.lockIcon} />
-                        ) : null}
-                      </div>
-                      <div className="server-address">{server.ip}:{server.gamePort}</div>
-                    </button>
+                    <div className={styles.serverIdentity}>
+                      <button
+                        aria-label={favorite ? `Remove ${server.name} from favorites` : `Favorite ${server.name}`}
+                        className={favorite ? "star-button active" : "star-button"}
+                        onClick={() => onFavorite(server)}
+                        type="button"
+                      >
+                        {favorite ? <FaStar aria-hidden="true" /> : <FaRegStar aria-hidden="true" />}
+                      </button>
+                      <button
+                        aria-label={`View details for ${server.name}`}
+                        className={styles.detailsButton}
+                        onClick={() => setSelectedServer(server)}
+                        type="button"
+                      >
+                        <div className={styles.nameRow}>
+                          <div className="server-name">{server.name}</div>
+                          {server.isPassworded ? (
+                            <FaKey aria-hidden="true" className={styles.lockIcon} />
+                          ) : null}
+                        </div>
+                      </button>
+                    </div>
                   </td>
-                  <td>{server.map}</td>
-                  <td>{server.players} / {server.capacity}</td>
-                  <td>{server.ping === null ? "--" : `${server.ping} ms`}</td>
-                  <td>{server.requiredWorkshopIds.length || "Vanilla"}</td>
+                  <td>{server.map || "Unknown"}</td>
+                  <td className={styles.numeric}>{server.players}/{server.capacity}</td>
+                  <td className={`${styles.numeric} ${pingTone(server.ping)}`}>
+                    {server.ping === null ? "--" : server.ping}
+                  </td>
+                  <td className={styles.numeric}>{server.requiredWorkshopIds.length || "0"}</td>
                   <td>{server.firstPersonOnly ? "1PP" : "3PP"}</td>
-                  <td className="join-cell">
+                  <td className={styles.actionCell}>
                     <div className={styles.joinActions}>
                       <button
                         className="join-button"

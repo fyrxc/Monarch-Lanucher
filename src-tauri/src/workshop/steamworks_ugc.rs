@@ -37,6 +37,36 @@ impl SteamWorkshopService {
         })
     }
 
+    pub fn subscribe(&self, workshop_id: &str) -> Result<(), String> {
+        let id = parse_workshop_id(workshop_id)?;
+        let (sender, receiver) = mpsc::channel::<Result<(), String>>();
+
+        self.client.ugc().subscribe_item(id, move |result| {
+            let _ = sender.send(
+                result.map_err(|error| format!("Steam failed to subscribe Workshop mod: {error}")),
+            );
+        });
+
+        let deadline = Instant::now() + CALLBACK_TIMEOUT;
+        loop {
+            self.client.run_callbacks();
+            match receiver.try_recv() {
+                Ok(result) => return result,
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    return Err("Steam Workshop subscribe callback disconnected".to_string())
+                }
+                Err(mpsc::TryRecvError::Empty) => {}
+            }
+
+            if Instant::now() >= deadline {
+                return Err(format!(
+                    "Steam timed out while subscribing Workshop mod {workshop_id}"
+                ));
+            }
+            thread::sleep(CALLBACK_POLL_INTERVAL);
+        }
+    }
+
     pub fn request_update(&self, workshop_id: &str) -> Result<(), String> {
         let id = parse_workshop_id(workshop_id)?;
         if self.client.ugc().download_item(id, true) {

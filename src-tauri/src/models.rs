@@ -29,10 +29,13 @@ pub struct ServerDirectoryResult {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase")]
 pub struct LauncherSettings {
     pub dayz_name: String,
+    pub dayz_path: String,
     pub extra_launch_parameters: String,
+    pub skip_battleye: bool,
+    pub discord_presence: bool,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]

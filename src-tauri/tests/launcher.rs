@@ -76,7 +76,10 @@ fn password_is_added_as_one_dayz_launch_argument() {
     )
     .expect("build passworded BattlEye command");
 
-    assert!(command.args.iter().any(|arg| arg == "-password=secret pass"));
+    assert!(command
+        .args
+        .iter()
+        .any(|arg| arg == "-password=secret pass"));
 }
 
 #[test]

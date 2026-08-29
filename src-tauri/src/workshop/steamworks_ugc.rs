@@ -1,3 +1,4 @@
+use crate::models::WorkshopDownloadProgress;
 use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -39,6 +40,23 @@ impl SteamWorkshopService {
         })
     }
 
+    pub fn download_progress(&self, workshop_id: &str) -> Result<WorkshopDownloadProgress, String> {
+        let id = parse_workshop_id(workshop_id)?;
+        let state = self.client.ugc().item_state(id);
+        let (downloaded_bytes, total_bytes) = self.client.ugc().item_download_info(id).unwrap_or((0, 0));
+
+        Ok(WorkshopDownloadProgress {
+            workshop_id: workshop_id.to_string(),
+            downloaded_bytes,
+            total_bytes,
+            is_downloading: state.contains(ItemState::DOWNLOADING)
+                || state.contains(ItemState::DOWNLOAD_PENDING),
+            is_installed: state.contains(ItemState::INSTALLED),
+            is_subscribed: state.contains(ItemState::SUBSCRIBED),
+            needs_update: state.contains(ItemState::NEEDS_UPDATE),
+        })
+    }
+
     pub fn request_update(&self, workshop_id: &str) -> Result<(), String> {
         let id = parse_workshop_id(workshop_id)?;
         if self.client.ugc().download_item(id, true) {
@@ -57,10 +75,9 @@ impl SteamWorkshopService {
         if !state.contains(ItemState::SUBSCRIBED) {
             let (sender, receiver) = mpsc::channel::<Result<(), String>>();
             self.client.ugc().subscribe_item(id, move |result| {
-                let _ =
-                    sender.send(result.map_err(|error| {
-                        format!("Steam failed to subscribe Workshop mod: {error}")
-                    }));
+                let _ = sender.send(
+                    result.map_err(|error| format!("Steam failed to subscribe Workshop mod: {error}")),
+                );
             });
             self.wait_for_callback(
                 receiver,

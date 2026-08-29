@@ -1,6 +1,7 @@
 import { memo, useState } from "react";
 import { FaRegStar, FaStar } from "react-icons/fa";
 import { FaChevronRight, FaKey } from "react-icons/fa6";
+import type { LauncherApi } from "../lib/api";
 import type { DayzServer } from "../lib/models";
 import { serverIdentity } from "../lib/server-id";
 import { ServerInfoPanel } from "./server-info-panel";
@@ -10,12 +11,14 @@ export const ServerTable = memo(function ServerTable({
   servers,
   favoriteIds,
   joiningId,
+  api,
   onFavorite,
   onJoin,
 }: {
   servers: DayzServer[];
   favoriteIds: ReadonlySet<string>;
   joiningId: string | null;
+  api?: Pick<LauncherApi, "getServerModDetails">;
   onFavorite: (server: DayzServer) => void;
   onJoin: (server: DayzServer) => void;
 }) {
@@ -107,6 +110,7 @@ export const ServerTable = memo(function ServerTable({
       </div>
 
       <ServerInfoPanel
+        api={api}
         onClose={() => setSelectedServer(null)}
         onJoin={(server) => {
           setSelectedServer(null);

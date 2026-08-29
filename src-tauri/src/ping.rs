@@ -57,3 +57,10 @@ pub fn query_ping_with_timeout(
         Err(error) => Err(format!("failed to receive server query: {error}")),
     }
 }
+
+#[tauri::command]
+pub async fn ping_server(server: DayzServer) -> Result<Option<u32>, String> {
+    tauri::async_runtime::spawn_blocking(move || query_ping(&server))
+        .await
+        .map_err(|error| format!("server ping task failed: {error}"))?
+}

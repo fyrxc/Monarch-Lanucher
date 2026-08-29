@@ -83,6 +83,18 @@ pub struct ServerLaunchPreflight {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct WorkshopDownloadProgress {
+    pub workshop_id: String,
+    pub downloaded_bytes: u64,
+    pub total_bytes: u64,
+    pub is_downloading: bool,
+    pub is_installed: bool,
+    pub is_subscribed: bool,
+    pub needs_update: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateInfo {
     pub available: bool,
     pub current_version: String,

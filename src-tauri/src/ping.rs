@@ -27,7 +27,11 @@ pub fn query_ping_with_timeout(
     }
 
     let target = resolve_target(server)?;
-    let bind_address = if target.is_ipv4() { "0.0.0.0:0" } else { "[::]:0" };
+    let bind_address = if target.is_ipv4() {
+        "0.0.0.0:0"
+    } else {
+        "[::]:0"
+    };
     let socket = UdpSocket::bind(bind_address)
         .map_err(|error| format!("failed to create server query socket: {error}"))?;
     socket
@@ -44,9 +48,9 @@ pub fn query_ping_with_timeout(
 
     let mut response = [0u8; 2048];
     match socket.recv_from(&mut response) {
-        Ok((size, _)) if size >= 5 && response[..4] == [0xFF, 0xFF, 0xFF, 0xFF] => {
-            Ok(Some(started.elapsed().as_millis().min(u32::MAX as u128) as u32))
-        }
+        Ok((size, _)) if size >= 5 && response[..4] == [0xFF, 0xFF, 0xFF, 0xFF] => Ok(Some(
+            started.elapsed().as_millis().min(u32::MAX as u128) as u32,
+        )),
         Ok(_) => Ok(None),
         Err(error)
             if error.kind() == std::io::ErrorKind::WouldBlock

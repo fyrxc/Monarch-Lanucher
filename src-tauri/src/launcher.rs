@@ -22,11 +22,7 @@ pub fn build_launch_args_with_mods(
     installed_mods: &[InstalledMod],
 ) -> Result<Vec<String>, String> {
     let mut args = vec!["-applaunch".to_string(), "221100".to_string()];
-    args.extend(build_dayz_args_with_mods(
-        server,
-        settings,
-        installed_mods,
-    )?);
+    args.extend(build_dayz_args_with_mods(server, settings, installed_mods)?);
     Ok(args)
 }
 
@@ -43,11 +39,7 @@ pub fn build_dayz_launch_command(
         "-exe".to_string(),
         "DayZ_x64.exe".to_string(),
     ];
-    args.extend(build_dayz_args_with_mods(
-        server,
-        settings,
-        installed_mods,
-    )?);
+    args.extend(build_dayz_args_with_mods(server, settings, installed_mods)?);
 
     Ok(DayzLaunchCommand {
         executable: dayz_root.join("DayZ_BE.exe"),

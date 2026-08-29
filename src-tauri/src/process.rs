@@ -25,6 +25,11 @@ pub fn is_dayz_running() -> Result<bool, String> {
     Ok(tasklist_contains_dayz(&String::from_utf8_lossy(&output.stdout)))
 }
 
+#[tauri::command]
+pub fn get_dayz_running() -> Result<bool, String> {
+    is_dayz_running()
+}
+
 pub fn close_dayz_processes() -> Result<(), String> {
     let mut failures = Vec::new();
 

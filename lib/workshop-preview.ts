@@ -1,12 +1,14 @@
 const DEFAULT_DAYZ_WORKSHOP_DHASH = BigInt("0x377770033e0d0f46");
 const DEFAULT_HASH_DISTANCE = 4;
+const BIGINT_ZERO = BigInt(0);
+const BIGINT_ONE = BigInt(1);
 
 function hammingDistance(a: bigint, b: bigint): number {
   let value = a ^ b;
   let count = 0;
-  while (value !== 0n) {
+  while (value !== BIGINT_ZERO) {
     count += 1;
-    value &= value - 1n;
+    value &= value - BIGINT_ONE;
   }
   return count;
 }
@@ -35,7 +37,7 @@ export function workshopPreviewDhash(image: HTMLImageElement): string | null {
     if (!context) return null;
     context.drawImage(image, 0, 0, 9, 8);
     const pixels = context.getImageData(0, 0, 9, 8).data;
-    let hash = 0n;
+    let hash = BIGINT_ZERO;
     let bit = 63;
     for (let y = 0; y < 8; y += 1) {
       for (let x = 0; x < 8; x += 1) {
@@ -45,7 +47,7 @@ export function workshopPreviewDhash(image: HTMLImageElement): string | null {
           grayscale(pixels[left], pixels[left + 1], pixels[left + 2]) >
           grayscale(pixels[right], pixels[right + 1], pixels[right + 2])
         ) {
-          hash |= 1n << BigInt(bit);
+          hash |= BIGINT_ONE << BigInt(bit);
         }
         bit -= 1;
       }

@@ -7,7 +7,9 @@ use std::process::Command;
 pub struct SteamPaths {
     pub steam_exe: PathBuf,
     pub library_roots: Vec<PathBuf>,
+    pub dayz_root: Option<PathBuf>,
     pub dayz_exe: Option<PathBuf>,
+    pub dayz_be_exe: Option<PathBuf>,
 }
 
 pub fn parse_libraryfolders(body: &str) -> Result<Vec<PathBuf>, String> {
@@ -43,6 +45,27 @@ pub fn parse_libraryfolders(body: &str) -> Result<Vec<PathBuf>, String> {
     Ok(roots)
 }
 
+pub fn find_dayz_install(
+    roots: &[PathBuf],
+) -> (Option<PathBuf>, Option<PathBuf>, Option<PathBuf>) {
+    for root in roots {
+        let dayz_root = root.join("steamapps").join("common").join("DayZ");
+        let dayz_exe = dayz_root.join("DayZ_x64.exe");
+        if !dayz_exe.exists() {
+            continue;
+        }
+
+        let dayz_be_exe = dayz_root.join("DayZ_BE.exe");
+        return (
+            Some(dayz_root),
+            Some(dayz_exe),
+            dayz_be_exe.exists().then_some(dayz_be_exe),
+        );
+    }
+
+    (None, None, None)
+}
+
 pub fn discover_steam() -> Result<SteamPaths, String> {
     let registry_exe = registry_value("SteamExe").map(PathBuf::from);
     let registry_root = registry_value("SteamPath").map(PathBuf::from);
@@ -69,19 +92,14 @@ pub fn discover_steam() -> Result<SteamPaths, String> {
     }
     dedupe_paths(&mut roots);
 
-    let dayz_exe = roots.iter().find_map(|root| {
-        let candidate = root
-            .join("steamapps")
-            .join("common")
-            .join("DayZ")
-            .join("DayZ_x64.exe");
-        candidate.exists().then_some(candidate)
-    });
+    let (dayz_root, dayz_exe, dayz_be_exe) = find_dayz_install(&roots);
 
     Ok(SteamPaths {
         steam_exe,
         library_roots: roots,
+        dayz_root,
         dayz_exe,
+        dayz_be_exe,
     })
 }
 

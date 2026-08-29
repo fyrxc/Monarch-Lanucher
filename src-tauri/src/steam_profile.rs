@@ -10,9 +10,9 @@ enum Token {
 
 pub fn parse_persona_name(body: &str) -> Option<String> {
     let tokens = tokenize(body);
-    let users_index = tokens
-        .iter()
-        .position(|token| matches!(token, Token::Text(value) if value.eq_ignore_ascii_case("users")))?;
+    let users_index = tokens.iter().position(
+        |token| matches!(token, Token::Text(value) if value.eq_ignore_ascii_case("users")),
+    )?;
 
     let mut index = users_index + 1;
     while index < tokens.len() && !matches!(tokens[index], Token::Open) {

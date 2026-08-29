@@ -1,14 +1,21 @@
 .content {
   display: grid;
-  gap: 16px;
+  gap: 13px;
+}
+
+.identity {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 11px;
+  align-items: start;
 }
 
 .previewWrap {
-  width: 100%;
-  aspect-ratio: 16 / 8.5;
+  width: 96px;
+  aspect-ratio: 1 / 1;
   overflow: hidden;
-  border-radius: 9px;
-  background: #0a0e13;
+  border-radius: 4px;
+  background: #0b0e11;
 }
 
 .preview,
@@ -25,142 +32,185 @@
 .previewFallback {
   display: grid;
   place-items: center;
-  background: #0a0e13;
+  background: #0d1013;
 }
 
 .previewFallback img {
-  width: min(72%, 168px);
+  width: 56%;
   height: auto;
   object-fit: contain;
   opacity: 0.94;
 }
 
+.titleBlock {
+  min-width: 0;
+}
+
 .content h3,
 .description h4 {
   margin: 0;
-  color: #f2f5f8;
+  color: #f2f3f4;
 }
 
 .content h3 {
-  font-size: 16px;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.25;
+  text-overflow: ellipsis;
 }
 
 .workshopId {
-  margin: 4px 0 0;
-  color: #7f8b97;
-  font-size: 10px;
+  margin: 5px 0 8px;
+  color: #7f8992;
+  font-size: 8px;
+}
+
+.steamLink {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  padding: 0 7px;
+  border: 1px solid #3c454d;
+  border-radius: 3px;
+  background: #202830;
+  color: #d9dde1;
+  font-size: 7px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.steamLink:hover {
+  background: #2b333b;
+  color: #fff;
 }
 
 .progress {
   display: grid;
-  gap: 7px;
+  gap: 6px;
+  padding: 9px 10px;
+  border-radius: 4px;
+  background: #111923;
+}
+
+.progressHeader,
+.progressBytes {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .progressHeader {
-  display: flex;
-  justify-content: space-between;
-  color: #9aa5b0;
-  font-size: 10px;
+  color: #9ba4ac;
+  font-size: 8px;
 }
 
 .progressHeader strong {
-  color: #f1f4f7;
+  color: #f0f2f4;
+}
+
+.progressBytes {
+  color: #747f89;
+  font-size: 7px;
 }
 
 .track {
   height: 4px;
   overflow: hidden;
   border-radius: 999px;
-  background: #29313a;
+  background: #303942;
 }
 
 .fill {
   height: 100%;
-  background: #edf1f5;
+  border-radius: inherit;
+  background: #edf0f2;
   transition: width 180ms ease;
 }
 
 .metaGrid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
 }
 
 .metaGrid div {
   display: grid;
-  gap: 4px;
-  padding: 10px;
-  border: 1px solid #28323d;
-  border-radius: 8px;
-  background: #111820;
+  min-width: 0;
+  gap: 3px;
+  padding: 8px;
+  border-radius: 4px;
+  background: #111923;
 }
 
 .metaGrid span {
-  color: #707c88;
-  font-size: 9px;
+  color: #727c85;
+  font-size: 7px;
   text-transform: uppercase;
 }
 
 .metaGrid strong {
-  color: #dfe5ea;
-  font-size: 11px;
+  overflow: hidden;
+  color: #dfe3e6;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .description {
   display: grid;
-  gap: 7px;
+  gap: 6px;
 }
 
 .description h4 {
-  font-size: 11px;
+  font-size: 9px;
+  font-weight: 650;
 }
 
 .description p {
-  max-height: 190px;
+  max-height: 260px;
   margin: 0;
   overflow-y: auto;
-  color: #9ca7b2;
-  font-size: 11px;
-  line-height: 1.55;
+  color: #9ca4ab;
+  font-size: 9px;
+  line-height: 1.5;
   white-space: pre-wrap;
-}
-
-.steamLink {
-  color: #dbe3ea;
-  font-size: 11px;
-  text-decoration: none;
-}
-
-.steamLink:hover {
-  text-decoration: underline;
 }
 
 .actions {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 7px;
+  gap: 6px;
+  padding-top: 3px;
 }
 
 .actions button {
   display: flex;
-  min-height: 34px;
+  min-height: 31px;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  border: 1px solid #34414e;
-  border-radius: 7px;
-  background: #131a22;
-  color: #cbd3db;
+  gap: 5px;
+  border: 1px solid #39434c;
+  border-radius: 3px;
+  background: #202830;
+  color: #cbd1d6;
   cursor: pointer;
-  font-size: 9px;
-  font-weight: 700;
+  font-size: 8px;
+  font-weight: 650;
 }
 
 .actions button:hover:not(:disabled) {
-  background: #1a212b;
+  background: #2b333b;
   color: #fff;
 }
 
+.actions button:last-child {
+  border-color: #57353a;
+  background: #2b1d20;
+  color: #f0b8bf;
+}
+
 .actions button:disabled {
+  cursor: default;
   opacity: 0.45;
 }

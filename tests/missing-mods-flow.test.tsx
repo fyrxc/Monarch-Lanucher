@@ -63,6 +63,7 @@ function createApi(): LauncherApi {
     installUpdate: vi.fn().mockResolvedValue(undefined),
     prepareServerLaunch: vi.fn().mockResolvedValueOnce(missing).mockResolvedValue(ready),
     setupServerMods: vi.fn().mockResolvedValue(undefined),
+    getWorkshopDownloadProgress: vi.fn().mockResolvedValue([]),
     launchServer: vi.fn().mockResolvedValue(undefined),
   };
 }

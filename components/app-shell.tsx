@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
+import {
+  type MouseEvent as ReactMouseEvent,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { FaTrashCan } from "react-icons/fa6";
 import { HiOutlineSpeakerWave } from "react-icons/hi2";
 import { IoClose } from "react-icons/io5";
@@ -92,6 +99,19 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     }
   }, [uiSoundsEnabled]);
 
+  const handleInteractiveClick = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      if (!(event.target instanceof Element)) return;
+      const control = event.target.closest(
+        "button, a, input, select, textarea, [role='button'], [data-ui-click]",
+      );
+      if (!control) return;
+      if (control.hasAttribute("disabled") || control.getAttribute("aria-disabled") === "true") return;
+      playUiSound();
+    },
+    [playUiSound],
+  );
+
   const loadServers = useCallback(async () => {
     setLoadingServers(true);
     setServerError(null);
@@ -178,27 +198,21 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     [serverPage, visibleServers],
   );
 
-  const selectView = useCallback(
-    (view: LauncherView) => {
-      playUiSound();
-      setSelectedMod(null);
-      setActiveView(view);
-    },
-    [playUiSound],
-  );
+  const selectView = useCallback((view: LauncherView) => {
+    setSelectedMod(null);
+    setActiveView(view);
+  }, []);
 
   const toggleFavorite = useCallback(async (server: DayzServer) => {
-    playUiSound();
     try {
       await api.toggleFavorite(server);
       await loadFavorites();
     } catch (error) {
       setActionError(errorMessage(error));
     }
-  }, [api, loadFavorites, playUiSound]);
+  }, [api, loadFavorites]);
 
   const joinServer = useCallback(async (server: DayzServer) => {
-    playUiSound();
     setJoiningId(serverIdentity(server));
     setActionMessage(null);
     setActionError(null);
@@ -211,10 +225,9 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     } finally {
       setJoiningId(null);
     }
-  }, [api, loadRecent, playUiSound]);
+  }, [api, loadRecent]);
 
   const openModFolder = useCallback(async (mod: InstalledMod) => {
-    playUiSound();
     setModBusy({ id: mod.workshopId, action: "folder" });
     try {
       await api.openModFolder(mod.workshopId);
@@ -223,10 +236,9 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     } finally {
       setModBusy(null);
     }
-  }, [api, playUiSound]);
+  }, [api]);
 
   const updateMod = useCallback(async (mod: InstalledMod) => {
-    playUiSound();
     setModBusy({ id: mod.workshopId, action: "update" });
     setActionMessage(null);
     setActionError(null);
@@ -238,10 +250,9 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     } finally {
       setModBusy(null);
     }
-  }, [api, playUiSound]);
+  }, [api]);
 
   const uninstallMod = useCallback(async (mod: InstalledMod) => {
-    playUiSound();
     setModBusy({ id: mod.workshopId, action: "uninstall" });
     setActionError(null);
     try {
@@ -254,10 +265,9 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     } finally {
       setModBusy(null);
     }
-  }, [api, playUiSound]);
+  }, [api]);
 
   async function clearRecent() {
-    playUiSound();
     try {
       await api.clearRecent();
       setRecent([]);
@@ -267,7 +277,6 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   }
 
   async function saveSettings() {
-    playUiSound();
     setSavingSettings(true);
     try {
       await api.saveSettings(settings);
@@ -280,7 +289,6 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   }
 
   function toggleUiSounds() {
-    if (uiSoundsEnabled) playUiSound();
     const next = !uiSoundsEnabled;
     setUiSoundsEnabled(next);
     window.localStorage.setItem(UI_SOUND_KEY, String(next));
@@ -291,7 +299,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
       <div className="view-content view-enter figma-server-view">
         <div className="view-toolbar figma-server-toolbar">
           <div><h1>Servers</h1><p>Public DayZ servers load automatically.</p></div>
-          <button className="ghost-button icon-button" onClick={() => { playUiSound(); void loadServers(); }} type="button">
+          <button className="ghost-button icon-button" onClick={() => void loadServers()} type="button">
             <RxUpdate aria-hidden="true" /><span>Refresh</span>
           </button>
         </div>
@@ -313,9 +321,9 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
             <ServerTable favoriteIds={favoriteIds} joiningId={joiningId} onFavorite={toggleFavorite} onJoin={joinServer} servers={serverPageResult.items} />
             {visibleServers.length > 0 ? (
               <div className="server-pagination" aria-label="Server pages">
-                <button className="ghost-button" disabled={serverPageResult.page <= 1} onClick={() => { playUiSound(); setServerPage(serverPageResult.page - 1); }} type="button">Previous</button>
+                <button className="ghost-button" disabled={serverPageResult.page <= 1} onClick={() => setServerPage(serverPageResult.page - 1)} type="button">Previous</button>
                 <span>Page {serverPageResult.page} of {serverPageResult.pageCount} · {serverPageResult.total.toLocaleString()} servers</span>
-                <button className="ghost-button" disabled={serverPageResult.page >= serverPageResult.pageCount} onClick={() => { playUiSound(); setServerPage(serverPageResult.page + 1); }} type="button">Next</button>
+                <button className="ghost-button" disabled={serverPageResult.page >= serverPageResult.pageCount} onClick={() => setServerPage(serverPageResult.page + 1)} type="button">Next</button>
               </div>
             ) : null}
           </>
@@ -341,7 +349,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
       <div className="view-content view-enter mods-view figma-mods-view">
         <div className="view-toolbar figma-mods-toolbar">
           <div><h1>Mods</h1><p>Steam Workshop mods installed for DayZ.</p></div>
-          <button className="ghost-button icon-button" disabled={loadingMods} onClick={() => { playUiSound(); void loadInstalledMods(); }} type="button">
+          <button className="ghost-button icon-button" disabled={loadingMods} onClick={() => void loadInstalledMods()} type="button">
             <RxUpdate aria-hidden="true" /><span>{loadingMods ? "Scanning..." : "Refresh"}</span>
           </button>
         </div>
@@ -356,7 +364,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
                   key={mod.workshopId}
                   mod={mod}
                   onOpenFolder={(item) => void openModFolder(item)}
-                  onSelect={(item) => { playUiSound(); setSelectedMod(item); }}
+                  onSelect={setSelectedMod}
                   onUninstall={(item) => void uninstallMod(item)}
                   onUpdate={(item) => void updateMod(item)}
                 />
@@ -372,9 +380,9 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   function renderSettingsDrawer() {
     if (activeView !== "Settings") return null;
     return (
-      <div className="drawer-scrim settings-scrim" onMouseDown={() => { playUiSound(); setActiveView("Servers"); }}>
+      <div className="drawer-scrim settings-scrim" data-ui-click onMouseDown={() => setActiveView("Servers")}>
         <aside aria-label="Settings" aria-modal="true" className="settings-drawer" onMouseDown={(event) => event.stopPropagation()} role="dialog">
-          <button aria-label="Close settings" className="drawer-close settings-back" onClick={() => { playUiSound(); setActiveView("Servers"); }} type="button"><IoClose aria-hidden="true" /></button>
+          <button aria-label="Close settings" className="drawer-close settings-back" onClick={() => setActiveView("Servers")} type="button"><IoClose aria-hidden="true" /></button>
           <div className="settings-wordmark" data-testid="monarch-wordmark">
             <img alt="Monarch M" src={MONARCH_LOGO_DATA_URI} /><span>onarch</span>
           </div>
@@ -388,8 +396,8 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
             <span>Steam</span><strong>{systemStatus?.steamPersonaName ?? "Detecting..."}</strong>
           </div>
           <button className="settings-wide-button" disabled={savingSettings} onClick={() => void saveSettings()} type="button">{savingSettings ? "SAVING..." : "SAVE SETTINGS"}</button>
-          <button className="settings-wide-button" onClick={() => { playUiSound(); void loadInstalledMods(); }} type="button">VERIFY MODS</button>
-          <button className="settings-wide-button" onClick={() => { playUiSound(); void loadServers(); }} type="button">REFRESH</button>
+          <button className="settings-wide-button" onClick={() => void loadInstalledMods()} type="button">VERIFY MODS</button>
+          <button className="settings-wide-button" onClick={() => void loadServers()} type="button">REFRESH</button>
         </aside>
       </div>
     );
@@ -398,9 +406,9 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   function renderModDrawer() {
     if (!selectedMod) return null;
     return (
-      <div className="drawer-scrim" onMouseDown={() => { playUiSound(); setSelectedMod(null); }}>
+      <div className="drawer-scrim" data-ui-click onMouseDown={() => setSelectedMod(null)}>
         <aside aria-label={selectedMod.name} aria-modal="true" className="mod-details-drawer" onMouseDown={(event) => event.stopPropagation()} role="dialog">
-          <div className="drawer-header"><div><span className="eyebrow">WORKSHOP MOD</span><h2>{selectedMod.name}</h2></div><button aria-label="Close mod details" className="drawer-close" onClick={() => { playUiSound(); setSelectedMod(null); }} type="button"><IoClose aria-hidden="true" /></button></div>
+          <div className="drawer-header"><div><span className="eyebrow">WORKSHOP MOD</span><h2>{selectedMod.name}</h2></div><button aria-label="Close mod details" className="drawer-close" onClick={() => setSelectedMod(null)} type="button"><IoClose aria-hidden="true" /></button></div>
           <div className="drawer-preview"><img alt="" src={selectedMod.previewUrl ?? MONARCH_LOGO_DATA_URI} /></div>
           <div className="mod-detail-status-row"><span>{modStateLabel(selectedMod)}</span><span>{selectedMod.isSubscribed ? "Subscribed" : "Installed locally"}</span></div>
           <dl className="mod-detail-list">
@@ -420,7 +428,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   }
 
   return (
-    <div className="launcher-shell figma-shell">
+    <div className="launcher-shell figma-shell" onClickCapture={handleInteractiveClick}>
       <aside aria-label="Monarch Launcher" className="sidebar figma-sidebar">
         <div className="brand figma-rail-brand"><img alt="Monarch M" className="brand-mark-image" src={MONARCH_LOGO_DATA_URI} /></div>
         <Navigation active={activeView} onSelect={selectView} />

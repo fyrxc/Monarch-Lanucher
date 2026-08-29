@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { AppShell } from "../components/app-shell";
 import type { LauncherApi } from "../lib/api";
@@ -68,10 +68,10 @@ it("prompts for a password before launching a passworded server", async () => {
   expect(prompt).toBeInTheDocument();
   expect(api.launchServer).not.toHaveBeenCalled();
 
-  fireEvent.change(screen.getByLabelText("Server password"), {
+  fireEvent.change(within(prompt).getByLabelText("Server password"), {
     target: { value: "letmein" },
   });
-  fireEvent.click(screen.getByRole("button", { name: "JOIN SERVER" }));
+  fireEvent.click(within(prompt).getByRole("button", { name: "JOIN SERVER" }));
 
   await waitFor(() => expect(api.launchServer).toHaveBeenCalledWith(lockedServer, "letmein"));
   await waitFor(() => expect(screen.queryByRole("dialog", { name: "Server password" })).not.toBeInTheDocument());

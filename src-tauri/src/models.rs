@@ -75,6 +75,14 @@ pub struct ModSyncPlan {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct ServerLaunchPreflight {
+    pub ready: bool,
+    pub missing_workshop_ids: Vec<String>,
+    pub dayz_running: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateInfo {
     pub available: bool,
     pub current_version: String,

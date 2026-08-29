@@ -134,25 +134,30 @@ it("shows a real server-directory error and retries", async () => {
   expect(await screen.findByText("Monarch Test Server")).toBeInTheDocument();
 });
 
-it("renders Workshop metadata and mod-management actions", async () => {
+it("keeps Workshop metadata in the details drawer and exposes compact mod actions", async () => {
   const api = createApi();
   const { container } = render(<AppShell api={api} />);
 
   fireEvent.click(screen.getByRole("button", { name: "Mods" }));
 
   expect(await screen.findByText("Community Framework")).toBeInTheDocument();
-  expect(screen.getByText("Workshop ID 1559212036")).toBeInTheDocument();
-  expect(screen.getByText("Update available")).toBeInTheDocument();
   expect(container.querySelector('img[src="https://cdn.example/cf.jpg"]')).toBeInTheDocument();
-  expect(screen.getByText(/steamapps\\workshop\\content\\221100\\1559212036/i)).toBeInTheDocument();
+  expect(screen.queryByText("Workshop ID 1559212036")).not.toBeInTheDocument();
+  expect(screen.queryByText(/steamapps\\workshop\\content\\221100\\1559212036/i)).not.toBeInTheDocument();
 
-  fireEvent.click(screen.getByRole("button", { name: "OPEN FOLDER" }));
+  fireEvent.click(screen.getByRole("button", { name: /view details for community framework/i }));
+  const drawer = await screen.findByRole("dialog", { name: /community framework/i });
+  expect(drawer).toHaveTextContent("1559212036");
+  expect(drawer).toHaveTextContent(/steamapps\\workshop\\content\\221100\\1559212036/i);
+  fireEvent.click(screen.getByRole("button", { name: /close mod details/i }));
+
+  fireEvent.click(screen.getByRole("button", { name: /open community framework files/i }));
   await waitFor(() => expect(api.openModFolder).toHaveBeenCalledWith("1559212036"));
 
-  fireEvent.click(screen.getByRole("button", { name: "UPDATE" }));
+  fireEvent.click(screen.getByRole("button", { name: /check community framework for update/i }));
   await waitFor(() => expect(api.updateWorkshopMod).toHaveBeenCalledWith("1559212036"));
 
-  fireEvent.click(screen.getByRole("button", { name: "UNINSTALL" }));
+  fireEvent.click(screen.getByRole("button", { name: /uninstall community framework/i }));
   await waitFor(() => expect(api.unsubscribeWorkshopMod).toHaveBeenCalledWith("1559212036"));
   await waitFor(() => expect(screen.queryByText("Community Framework")).not.toBeInTheDocument());
 });

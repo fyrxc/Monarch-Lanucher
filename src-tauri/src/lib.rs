@@ -34,6 +34,8 @@ pub fn run() {
             commands::clear_recent,
             commands::get_system_status,
             commands::get_installed_mods,
+            commands::get_required_mods,
+            commands::sync_required_mods,
             commands::update_workshop_mod,
             commands::unsubscribe_workshop_mod,
             commands::open_mod_folder,

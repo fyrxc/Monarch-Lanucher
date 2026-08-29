@@ -36,6 +36,7 @@ export interface InstalledMod {
   path: string;
   previewUrl: string | null;
   description?: string | null;
+  creator?: string | null;
   fileSize?: number | null;
   timeUpdated?: number | null;
   needsUpdate: boolean;
@@ -69,6 +70,7 @@ export interface WorkshopDownloadProgress {
 
 export interface SystemStatus {
   steamFound: boolean;
+  steamRunning?: boolean;
   steamPath: string | null;
   steamPersonaName: string | null;
   dayzFound: boolean;

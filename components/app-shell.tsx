@@ -6,6 +6,7 @@ import type { LauncherApi } from "../lib/api";
 import { tauriApi } from "../lib/api";
 import { MONARCH_LOGO_DATA_URL } from "../lib/branding";
 import { filterServers, type ServerFilters } from "../lib/filters";
+import { reconcileServerCollection } from "../lib/live-server-collections";
 import type {
   DayzServer,
   InstalledMod,
@@ -220,6 +221,14 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     () => new Set(favorites.map((server) => serverIdentity(server))),
     [favorites],
   );
+  const liveFavorites = useMemo(
+    () => reconcileServerCollection(favorites, servers),
+    [favorites, servers],
+  );
+  const liveRecent = useMemo(
+    () => reconcileServerCollection(recent, servers),
+    [recent, servers],
+  );
   const maps = useMemo(
     () => Array.from(new Set(servers.map((server) => server.map).filter(Boolean))).sort(),
     [servers],
@@ -228,17 +237,22 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     () => filterServers(servers, { ...filters, search: deferredSearch }, favoriteIds),
     [deferredSearch, favoriteIds, filters, servers],
   );
+  const searchActive = deferredSearch.trim().length > 0;
   const serverPageResult = useMemo(
-    () => paginate(visibleServers, serverPage, SERVER_PAGE_SIZE),
-    [serverPage, visibleServers],
+    () =>
+      searchActive
+        ? { items: visibleServers, page: 1, pageCount: 1, total: visibleServers.length }
+        : paginate(visibleServers, serverPage, SERVER_PAGE_SIZE),
+    [searchActive, serverPage, visibleServers],
   );
+  const pingTargets = useMemo(() => {
+    if (activeView === "Servers") return serverPageResult.items;
+    if (activeView === "Favorites") return liveFavorites;
+    if (activeView === "Recent") return liveRecent;
+    return [];
+  }, [activeView, liveFavorites, liveRecent, serverPageResult.items]);
 
-  useLiveServerPing(
-    api,
-    activeView === "Servers" && servers.length > 0,
-    serverPageResult.items,
-    setServers,
-  );
+  useLiveServerPing(api, pingTargets.length > 0, pingTargets, setServers);
 
   const setupProgressSummary = useMemo(() => {
     if (setupProgress.length === 0) {
@@ -439,7 +453,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
               onJoin={(server) => void requestJoin(server)}
               servers={serverPageResult.items}
             />
-            {visibleServers.length > 0 ? (
+            {!searchActive && visibleServers.length > 0 ? (
               <div className="server-pagination" aria-label="Server pages">
                 <button className="ghost-button" disabled={serverPageResult.page <= 1} onClick={() => setServerPage(serverPageResult.page - 1)} type="button">Previous</button>
                 <span>Page {serverPageResult.page} of {serverPageResult.pageCount} · {serverPageResult.total.toLocaleString()} servers</span>
@@ -497,8 +511,8 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
         {actionError ? <StatusBanner tone="error">{actionError}</StatusBanner> : null}
         {visibleMessage ? <StatusBanner tone="success">{visibleMessage}</StatusBanner> : null}
         {activeView === "Servers" ? renderServerDirectory() : null}
-        {activeView === "Favorites" ? renderCollection("Favorites", favorites) : null}
-        {activeView === "Recent" ? renderCollection("Recent", recent) : null}
+        {activeView === "Favorites" ? renderCollection("Favorites", liveFavorites) : null}
+        {activeView === "Recent" ? renderCollection("Recent", liveRecent) : null}
         {activeView === "Mods" ? (
           <ModsView
             api={api}

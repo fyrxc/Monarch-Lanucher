@@ -66,6 +66,23 @@ pub struct WorkshopMod {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum RequiredModState {
+    Installed,
+    Missing,
+    Updating,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RequiredMod {
+    pub workshop_id: String,
+    pub name: String,
+    pub preview_url: Option<String>,
+    pub state: RequiredModState,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ModSyncPlan {
     pub required: Vec<String>,

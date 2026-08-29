@@ -1,4 +1,5 @@
 export const LAUNCHER_CLICK_SOUND_URL = "/sounds/Header_Click_UI.mp4";
+export const LAUNCHER_CLICK_VOLUME = 1;
 
 let audioTemplate: HTMLAudioElement | null = null;
 
@@ -7,7 +8,7 @@ function getAudioTemplate(): HTMLAudioElement | null {
   if (!audioTemplate) {
     audioTemplate = new Audio(LAUNCHER_CLICK_SOUND_URL);
     audioTemplate.preload = "auto";
-    audioTemplate.volume = 0.72;
+    audioTemplate.volume = LAUNCHER_CLICK_VOLUME;
   }
   return audioTemplate;
 }
@@ -33,7 +34,7 @@ export function playLauncherClick(): void {
   if (!template) return;
 
   const audio = template.cloneNode(true) as HTMLAudioElement;
-  audio.volume = template.volume;
+  audio.volume = LAUNCHER_CLICK_VOLUME;
   audio.currentTime = 0;
   void audio.play().catch(() => undefined);
 }

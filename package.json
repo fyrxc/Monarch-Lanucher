@@ -14,7 +14,8 @@
     "@tauri-apps/api": "^2",
     "next": "latest",
     "react": "latest",
-    "react-dom": "latest"
+    "react-dom": "latest",
+    "react-icons": "latest"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2",

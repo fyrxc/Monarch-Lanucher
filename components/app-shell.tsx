@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { IoSettingsOutline } from "react-icons/io5";
 import type { LauncherApi } from "../lib/api";
 import { tauriApi } from "../lib/api";
 import { filterServers, type ServerFilters } from "../lib/filters";
@@ -16,8 +17,8 @@ import { ModCard } from "./mod-card";
 import { Navigation, type LauncherView } from "./navigation";
 import { ServerFiltersPanel } from "./server-filters";
 import { ServerTable } from "./server-table";
+import { SlidePanel } from "./slide-panel";
 import { StatusBanner } from "./status-banner";
-import { UpdatePanel } from "./update-panel";
 
 const SERVER_PAGE_SIZE = 100;
 
@@ -50,6 +51,7 @@ function errorMessage(error: unknown): string {
 
 export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   const [activeView, setActiveView] = useState<LauncherView>("Servers");
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [servers, setServers] = useState<DayzServer[]>([]);
   const [favorites, setFavorites] = useState<DayzServer[]>([]);
   const [recent, setRecent] = useState<DayzServer[]>([]);
@@ -124,21 +126,23 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     if (activeView === "Mods") {
       void loadInstalledMods();
     }
+  }, [activeView, loadInstalledMods, loadRecent]);
 
-    if (activeView === "Settings") {
-      void Promise.all([api.getSettings(), api.getSystemStatus()])
-        .then(([nextSettings, status]) => {
-          const steamDefault = status.steamPersonaName?.trim() ?? "";
-          setSettings(
-            nextSettings.dayzName.trim() || !steamDefault
-              ? nextSettings
-              : { ...nextSettings, dayzName: steamDefault },
-          );
-          setSystemStatus(status);
-        })
-        .catch((error) => setActionError(errorMessage(error)));
-    }
-  }, [activeView, api, loadInstalledMods, loadRecent]);
+  useEffect(() => {
+    if (!settingsOpen) return;
+
+    void Promise.all([api.getSettings(), api.getSystemStatus()])
+      .then(([nextSettings, status]) => {
+        const steamDefault = status.steamPersonaName?.trim() ?? "";
+        setSettings(
+          nextSettings.dayzName.trim() || !steamDefault
+            ? nextSettings
+            : { ...nextSettings, dayzName: steamDefault },
+        );
+        setSystemStatus(status);
+      })
+      .catch((error) => setActionError(errorMessage(error)));
+  }, [api, settingsOpen]);
 
   const favoriteIds = useMemo(
     () => new Set(favorites.map((server) => serverIdentity(server))),
@@ -176,6 +180,11 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   const clearFilters = useCallback(() => {
     setFilters(emptyFilters);
     setServerPage(1);
+  }, []);
+
+  const selectView = useCallback((view: LauncherView) => {
+    setSettingsOpen(false);
+    setActiveView(view);
   }, []);
 
   const toggleFavorite = useCallback(
@@ -362,17 +371,20 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     );
   }
 
-  function renderCollection(title: "Favorites" | "Recent", collection: DayzServer[]) {
+  function renderCollection(kind: "Favorites" | "Recent", collection: DayzServer[]) {
+    const isRecent = kind === "Recent";
+    const title = isRecent ? "Played On" : "Favorite";
+
     return (
       <>
         <div className="view-toolbar">
           <div>
             <h1>{title}</h1>
-            <p>{title === "Favorites" ? "Servers you saved." : "Your latest successful joins."}</p>
+            <p>{isRecent ? "Servers you recently joined through Monarch." : "Servers you saved."}</p>
           </div>
-          {title === "Recent" && collection.length > 0 ? (
+          {isRecent && collection.length > 0 ? (
             <button className="ghost-button" onClick={() => void clearRecent()} type="button">
-              Clear Recent
+              Clear Played On
             </button>
           ) : null}
         </div>
@@ -429,97 +441,96 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
 
   function renderSettings() {
     return (
-      <>
-        <div className="view-toolbar">
-          <div>
-            <h1>Settings</h1>
-            <p>DayZ identity, launch options, install detection, and launcher updates.</p>
-          </div>
-        </div>
-        <div className="settings-grid">
-          <section className="settings-card">
-            <h2>DayZ</h2>
-            <label className="settings-label">
-              <span>Player Name</span>
-              <input
-                className="field"
-                onChange={(event) => setSettings({ ...settings, dayzName: event.target.value })}
-                placeholder="Steam public name"
-                value={settings.dayzName}
-              />
-            </label>
-            <label className="settings-label">
-              <span>Extra Launch Parameters</span>
-              <input
-                className="field"
-                onChange={(event) =>
-                  setSettings({ ...settings, extraLaunchParameters: event.target.value })
-                }
-                placeholder="-nosplash"
-                value={settings.extraLaunchParameters}
-              />
-            </label>
-            <button
-              className="join-button save-button"
-              disabled={savingSettings}
-              onClick={() => void saveSettings()}
-              type="button"
-            >
-              {savingSettings ? "SAVING..." : "SAVE SETTINGS"}
-            </button>
-          </section>
+      <div className="settings-drawer-content">
+        <section className="settings-card">
+          <h2>DayZ</h2>
+          <label className="settings-label">
+            <span>Player Name</span>
+            <input
+              className="field"
+              onChange={(event) => setSettings({ ...settings, dayzName: event.target.value })}
+              placeholder="Steam public name"
+              value={settings.dayzName}
+            />
+          </label>
+          <label className="settings-label">
+            <span>Extra Launch Parameters</span>
+            <input
+              className="field"
+              onChange={(event) =>
+                setSettings({ ...settings, extraLaunchParameters: event.target.value })
+              }
+              placeholder="-nosplash"
+              value={settings.extraLaunchParameters}
+            />
+          </label>
+          <button
+            className="join-button save-button"
+            disabled={savingSettings}
+            onClick={() => void saveSettings()}
+            type="button"
+          >
+            {savingSettings ? "SAVING..." : "SAVE SETTINGS"}
+          </button>
+        </section>
 
-          <section className="settings-card">
-            <h2>System</h2>
-            {systemStatus ? (
-              <dl className="system-list">
-                <div>
-                  <dt>Steam</dt>
-                  <dd>{systemStatus.steamFound ? "Detected" : "Not detected"}</dd>
-                </div>
-                <div>
-                  <dt>Steam Name</dt>
-                  <dd>{systemStatus.steamPersonaName ?? "--"}</dd>
-                </div>
-                <div>
-                  <dt>DayZ</dt>
-                  <dd>{systemStatus.dayzFound ? "Installed" : "Not installed"}</dd>
-                </div>
-                <div>
-                  <dt>Steam Path</dt>
-                  <dd>{systemStatus.steamPath ?? "--"}</dd>
-                </div>
-                <div>
-                  <dt>DayZ Path</dt>
-                  <dd>{systemStatus.dayzPath ?? "--"}</dd>
-                </div>
-              </dl>
-            ) : (
-              <div className="loading-state compact">Detecting Steam and DayZ...</div>
-            )}
-          </section>
-
-          <UpdatePanel api={api} />
-        </div>
-      </>
+        <section className="settings-card">
+          <h2>System</h2>
+          {systemStatus ? (
+            <dl className="system-list">
+              <div>
+                <dt>Steam</dt>
+                <dd>{systemStatus.steamFound ? "Detected" : "Not detected"}</dd>
+              </div>
+              <div>
+                <dt>Steam Name</dt>
+                <dd>{systemStatus.steamPersonaName ?? "--"}</dd>
+              </div>
+              <div>
+                <dt>DayZ</dt>
+                <dd>{systemStatus.dayzFound ? "Installed" : "Not installed"}</dd>
+              </div>
+              <div>
+                <dt>Steam Path</dt>
+                <dd>{systemStatus.steamPath ?? "--"}</dd>
+              </div>
+              <div>
+                <dt>DayZ Path</dt>
+                <dd>{systemStatus.dayzPath ?? "--"}</dd>
+              </div>
+            </dl>
+          ) : (
+            <div className="loading-state compact">Detecting Steam and DayZ...</div>
+          )}
+        </section>
+      </div>
     );
   }
 
   return (
     <div className="launcher-shell">
       <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-mark">M</div>
-          <div>
-            <strong>MONARCH</strong>
-            <span>DAYZ LAUNCHER</span>
-          </div>
+        <div aria-label="Monarch" className="brand">
+          <div aria-hidden="true" className="brand-mark">M</div>
+          <strong className="brand-word">ONARCH</strong>
         </div>
-        <Navigation active={activeView} onSelect={setActiveView} />
+        <Navigation active={activeView} onSelect={selectView} />
         <div className="sidebar-version">v0.4.0</div>
       </aside>
 
       <main className="main-panel">
+        <div className="app-topbar">
+          <button
+            aria-expanded={settingsOpen}
+            className="settings-trigger"
+            onClick={() => setSettingsOpen(true)}
+            type="button"
+          >
+            <IoSettingsOutline aria-hidden="true" />
+            <span>Settings</span>
+          </button>
+        </div>
+
         {actionError ? <StatusBanner tone="error">{actionError}</StatusBanner> : null}
         {actionMessage ? <StatusBanner tone="success">{actionMessage}</StatusBanner> : null}
 
@@ -527,8 +538,11 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
         {activeView === "Favorites" ? renderCollection("Favorites", favorites) : null}
         {activeView === "Recent" ? renderCollection("Recent", recent) : null}
         {activeView === "Mods" ? renderMods() : null}
-        {activeView === "Settings" ? renderSettings() : null}
       </main>
+
+      <SlidePanel open={settingsOpen} title="Settings" onClose={() => setSettingsOpen(false)}>
+        {renderSettings()}
+      </SlidePanel>
     </div>
   );
 }

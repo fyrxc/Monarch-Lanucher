@@ -1,9 +1,10 @@
 use crate::collections::CollectionsStore;
-use crate::launcher::build_dayz_launch_command_with_password;
+use crate::launcher::build_dayz_launch_command_with_options;
 use crate::models::{
     DayzServer, InstalledMod, LauncherSettings, ServerDirectoryResult, ServerLaunchPreflight,
     SystemStatus, WorkshopDownloadProgress, WorkshopMod,
 };
+use crate::process::{close_dayz_processes, is_dayz_running};
 use crate::servers::ServerDirectory;
 use crate::settings::SettingsStore;
 use crate::steam::discover_steam;
@@ -12,7 +13,7 @@ use crate::workshop::discovery::discover_from_roots;
 use crate::workshop::metadata::fetch_published_file_details;
 use crate::workshop::steamworks_ugc::{parse_workshop_id, SteamWorkshopService};
 use crate::workshop::sync::{build_launch_preflight, verify_required_mods};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
 use tauri::State;
@@ -54,6 +55,36 @@ pub async fn get_servers_from(
 
 pub fn get_installed_mods_from(roots: &[PathBuf]) -> Result<Vec<InstalledMod>, String> {
     discover_from_roots(roots)
+}
+
+fn configured_dayz_root(settings: &LauncherSettings, detected_root: Option<&Path>) -> Result<PathBuf, String> {
+    let configured = settings.dayz_path.trim();
+    let root = if configured.is_empty() {
+        detected_root
+            .map(Path::to_path_buf)
+            .ok_or_else(|| "DayZ_x64.exe was not found in the detected DayZ installation.".to_string())?
+    } else {
+        let path = PathBuf::from(configured);
+        if path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.eq_ignore_ascii_case("DayZ_x64.exe"))
+        {
+            path.parent()
+                .map(Path::to_path_buf)
+                .ok_or_else(|| "The configured DayZ path is invalid.".to_string())?
+        } else {
+            path
+        }
+    };
+
+    if !root.join("DayZ_x64.exe").is_file() {
+        return Err(format!(
+            "DayZ_x64.exe was not found at {}",
+            root.to_string_lossy()
+        ));
+    }
+    Ok(root)
 }
 
 #[tauri::command]
@@ -187,11 +218,12 @@ pub fn open_mod_folder(workshop_id: String) -> Result<(), String> {
 pub fn prepare_server_launch(server: DayzServer) -> Result<ServerLaunchPreflight, String> {
     let steam = discover_steam()?;
     let installed_mods = discover_from_roots(&steam.library_roots)?;
+    let running = is_dayz_running()?;
 
     Ok(build_launch_preflight(
         &server.required_workshop_ids,
         &installed_mods,
-        false,
+        running,
     ))
 }
 
@@ -224,41 +256,46 @@ pub async fn get_workshop_download_progress(
 }
 
 #[tauri::command]
+pub fn close_dayz() -> Result<(), String> {
+    close_dayz_processes()
+}
+
+#[tauri::command]
 pub fn launch_server(
     state: State<'_, LauncherState>,
     server: DayzServer,
     password: Option<String>,
 ) -> Result<(), String> {
-    let steam = discover_steam()?;
-    let dayz_root = steam.dayz_root.as_deref().ok_or_else(|| {
-        "DayZ_x64.exe was not found in the detected DayZ installation.".to_string()
-    })?;
-    if steam.dayz_exe.is_none() {
-        return Err("DayZ_x64.exe was not found in the detected DayZ installation.".to_string());
+    if is_dayz_running()? {
+        return Err("DayZ is already running.".to_string());
     }
-    if steam.dayz_be_exe.is_none() {
-        return Err("DayZ_BE.exe was not found in the detected DayZ installation.".to_string());
+
+    let steam = discover_steam()?;
+    let mut settings = state.settings().load()?;
+    let dayz_root = configured_dayz_root(&settings, steam.dayz_root.as_deref())?;
+    if !settings.skip_battleye && !dayz_root.join("DayZ_BE.exe").is_file() {
+        return Err("DayZ_BE.exe was not found in the configured DayZ installation.".to_string());
     }
 
     let installed_mods = discover_from_roots(&steam.library_roots)?;
     verify_required_mods(&server.required_workshop_ids, &installed_mods)?;
 
-    let mut settings = state.settings().load()?;
     let steam_persona_name = steam.steam_exe.parent().and_then(detect_persona_name);
     settings.dayz_name = resolve_player_name(&settings.dayz_name, steam_persona_name.as_deref());
-    let launch = build_dayz_launch_command_with_password(
+    let launch = build_dayz_launch_command_with_options(
         &server,
         &settings,
         &installed_mods,
-        dayz_root,
+        &dayz_root,
         password.as_deref(),
+        settings.skip_battleye,
     )?;
 
     Command::new(&launch.executable)
         .current_dir(&launch.working_directory)
         .args(&launch.args)
         .spawn()
-        .map_err(|error| format!("failed to launch DayZ BattlEye bootstrap: {error}"))?;
+        .map_err(|error| format!("failed to launch DayZ: {error}"))?;
 
     state.collections().record_recent(&server)
 }

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { AppShell } from "../components/app-shell";
 import type { DayzServer } from "../lib/models";
@@ -84,18 +84,24 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-it("starts on Servers with server-first navigation and real directory data", async () => {
+it("starts on Servers with the Monarch Figma navigation and a separate Settings slide-out", async () => {
   const api = createApi();
   render(<AppShell api={api} />);
 
   expect(screen.getByRole("heading", { name: "Servers" })).toBeInTheDocument();
-  for (const item of ["Servers", "Favorites", "Recent", "Mods", "Settings"]) {
-    expect(screen.getByRole("button", { name: item })).toBeInTheDocument();
+  const nav = screen.getByRole("navigation", { name: "Launcher navigation" });
+  expect(within(nav).getByRole("button", { name: "Servers" })).toHaveClass("active");
+  for (const item of ["Servers", "Favorite", "Played On", "Mods"]) {
+    expect(within(nav).getByRole("button", { name: item })).toBeInTheDocument();
   }
-  expect(screen.queryByRole("button", { name: "Home" })).not.toBeInTheDocument();
+  expect(within(nav).queryByRole("button", { name: "Settings" })).not.toBeInTheDocument();
+  expect(screen.queryByText("DAYZ LAUNCHER")).not.toBeInTheDocument();
 
   expect(await screen.findByText("Monarch Test Server")).toBeInTheDocument();
   expect(screen.getByText("42 / 100")).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+  expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
 });
 
 it("renders only 100 public servers at a time", async () => {

@@ -14,11 +14,13 @@ fn display_state(state: Option<&str>, context: Option<&str>) -> Option<String> {
 
     let state = state.unwrap_or("Browsing servers").trim();
     let context = context.unwrap_or("").trim();
-    Some(if context.is_empty() || context.eq_ignore_ascii_case("Monarch Launcher") {
-        state.to_string()
-    } else {
-        format!("{state} • {context}")
-    })
+    Some(
+        if context.is_empty() || context.eq_ignore_ascii_case("Monarch Launcher") {
+            state.to_string()
+        } else {
+            format!("{state} • {context}")
+        },
+    )
 }
 
 fn activity_payload(state: Option<&str>, context: Option<&str>) -> serde_json::Value {

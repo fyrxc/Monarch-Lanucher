@@ -55,6 +55,15 @@ function createApi() {
         isSubscribed: true,
       },
     ]),
+    getRequiredMods: vi.fn().mockResolvedValue([
+      {
+        workshopId: "1559212036",
+        name: "Community Framework",
+        previewUrl: "https://cdn.example/cf.jpg",
+        state: "installed" as const,
+      },
+    ]),
+    syncRequiredMods: vi.fn().mockResolvedValue(undefined),
     updateWorkshopMod: vi.fn().mockResolvedValue(undefined),
     unsubscribeWorkshopMod: vi.fn().mockResolvedValue(undefined),
     openModFolder: vi.fn().mockResolvedValue(undefined),
@@ -98,6 +107,15 @@ it("starts on Servers with server-first navigation and real directory data", asy
   expect(screen.getByText("42 / 100")).toBeInTheDocument();
 });
 
+it("shows a clean copyable IP and port without country text", async () => {
+  const api = createApi();
+  render(<AppShell api={api} />);
+
+  expect(await screen.findByText("1.2.3.4:2302")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Copy 1.2.3.4:2302" })).toBeInTheDocument();
+  expect(screen.queryByText(/^US$/)).not.toBeInTheDocument();
+});
+
 it("renders only 100 public servers at a time", async () => {
   const api = createApi();
   api.getServers.mockResolvedValue({
@@ -132,6 +150,89 @@ it("shows a real server-directory error and retries", async () => {
 
   await waitFor(() => expect(api.getServers).toHaveBeenCalledTimes(2));
   expect(await screen.findByText("Monarch Test Server")).toBeInTheDocument();
+});
+
+it("shows a key and requires a password before launching a locked server", async () => {
+  const api = createApi();
+  const lockedServer: DayzServer = {
+    ...server,
+    id: "locked-server",
+    name: "Locked Server",
+    isPassworded: true,
+    requiredWorkshopIds: [],
+  };
+  api.getServers.mockResolvedValue({ servers: [lockedServer], isPartial: false, warning: null });
+  api.getRequiredMods.mockResolvedValue([]);
+
+  render(<AppShell api={api} />);
+
+  expect(await screen.findByText("Locked Server")).toBeInTheDocument();
+  expect(screen.getByLabelText("Password protected")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "JOIN" }));
+
+  expect(await screen.findByRole("dialog", { name: "Join Locked Server" })).toBeInTheDocument();
+  expect(api.launchServer).not.toHaveBeenCalled();
+
+  fireEvent.change(screen.getByLabelText("Server Password"), { target: { value: "hunter2" } });
+  fireEvent.click(screen.getByRole("button", { name: "JOIN SERVER" }));
+
+  await waitFor(() => expect(api.launchServer).toHaveBeenCalledWith(lockedServer, "hunter2"));
+});
+
+it("shows installed required mods before joining a modded server", async () => {
+  const api = createApi();
+  render(<AppShell api={api} />);
+
+  expect(await screen.findByText("Monarch Test Server")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "JOIN" }));
+
+  expect(await screen.findByRole("dialog", { name: "Join Monarch Test Server" })).toBeInTheDocument();
+  expect(screen.getByText("Community Framework")).toBeInTheDocument();
+  expect(screen.getByText("Installed")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "JOIN SERVER" })).toBeEnabled();
+});
+
+it("shows missing required mods and hands setup to Steam", async () => {
+  const api = createApi();
+  api.getRequiredMods.mockResolvedValue([
+    {
+      workshopId: "1559212036",
+      name: "Community Framework",
+      previewUrl: null,
+      state: "missing" as const,
+    },
+  ]);
+
+  render(<AppShell api={api} />);
+
+  expect(await screen.findByText("Monarch Test Server")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "JOIN" }));
+
+  expect(await screen.findByText("Missing")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "SETUP MODS" }));
+
+  await waitFor(() => expect(api.syncRequiredMods).toHaveBeenCalledWith(server));
+  expect(api.launchServer).not.toHaveBeenCalled();
+});
+
+it("shows required mods that Steam is updating", async () => {
+  const api = createApi();
+  api.getRequiredMods.mockResolvedValue([
+    {
+      workshopId: "1559212036",
+      name: "Community Framework",
+      previewUrl: null,
+      state: "updating" as const,
+    },
+  ]);
+
+  render(<AppShell api={api} />);
+
+  expect(await screen.findByText("Monarch Test Server")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "JOIN" }));
+
+  expect(await screen.findByText("Updating")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "CHECK AGAIN" })).toBeInTheDocument();
 });
 
 it("renders Workshop metadata and mod-management actions", async () => {

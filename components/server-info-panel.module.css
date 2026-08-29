@@ -1,0 +1,165 @@
+.content {
+  display: grid;
+  gap: 16px;
+}
+
+.identity {
+  padding-bottom: 14px;
+  border-bottom: 1px solid #2d3742;
+}
+
+.nameRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nameRow h3 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: #f0f3f6;
+  font-size: 14px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nameRow svg {
+  flex: 0 0 auto;
+  color: #8d98a4;
+  font-size: 11px;
+}
+
+.addressRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 8px;
+  color: #8a96a2;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.iconButton {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+  border: 1px solid #35414d;
+  border-radius: 6px;
+  background: #1c252e;
+  color: #c4ccd4;
+  cursor: pointer;
+}
+
+.iconButton:hover {
+  background: #26313c;
+}
+
+.copied {
+  color: #b8c4ce;
+  font-size: 9px;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.stats div {
+  padding: 10px;
+  border: 1px solid #2e3944;
+  border-radius: 8px;
+  background: #171e26;
+}
+
+.stats dt {
+  color: #6f7b87;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.stats dd {
+  margin: 5px 0 0;
+  color: #d8dee4;
+  font-size: 11px;
+}
+
+.modsSection {
+  min-height: 0;
+}
+
+.sectionHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.sectionHeading h4 {
+  margin: 0;
+  color: #d9dfe5;
+  font-size: 11px;
+}
+
+.sectionHeading span {
+  color: #727e8a;
+  font-size: 9px;
+}
+
+.modList {
+  display: grid;
+  gap: 6px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.modRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid #2b3640;
+  border-radius: 7px;
+  background: #171e25;
+}
+
+.modRow span {
+  color: #cfd6dd;
+  font-size: 10px;
+}
+
+.modRow small,
+.vanilla {
+  color: #707c88;
+  font-size: 9px;
+}
+
+.vanilla {
+  padding: 12px;
+  border: 1px dashed #313d48;
+  border-radius: 7px;
+  text-align: center;
+}
+
+.joinButton {
+  height: 36px;
+  border: 1px solid #4c5967;
+  border-radius: 8px;
+  background: #e4e9ee;
+  color: #151a20;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.joinButton:hover {
+  background: #f5f7f9;
+}

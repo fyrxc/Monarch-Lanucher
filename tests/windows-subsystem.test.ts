@@ -8,3 +8,10 @@ it("builds release launcher as a Windows GUI app without a console window", () =
     '#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]',
   );
 });
+
+it("runs Steam registry detection without opening a console window", () => {
+  const steam = readFileSync("src-tauri/src/steam.rs", "utf8");
+
+  expect(steam).toContain("CREATE_NO_WINDOW");
+  expect(steam).toContain("creation_flags(CREATE_NO_WINDOW)");
+});

@@ -1,4 +1,4 @@
-use crate::models::{InstalledMod, ModSyncPlan};
+use crate::models::{InstalledMod, ModSyncPlan, ServerLaunchPreflight};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -23,6 +23,21 @@ pub fn build_sync_plan(required_ids: &[String], installed: &[InstalledMod]) -> M
         required: required_ids.to_vec(),
         installed: available,
         missing,
+    }
+}
+
+pub fn build_launch_preflight(
+    required_ids: &[String],
+    installed: &[InstalledMod],
+    dayz_running: bool,
+) -> ServerLaunchPreflight {
+    let plan = build_sync_plan(required_ids, installed);
+    let ready = plan.missing.is_empty() && !dayz_running;
+
+    ServerLaunchPreflight {
+        ready,
+        missing_workshop_ids: plan.missing,
+        dayz_running,
     }
 }
 

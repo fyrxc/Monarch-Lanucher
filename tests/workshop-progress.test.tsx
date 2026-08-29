@@ -78,6 +78,7 @@ function createApi(): LauncherApi {
           needsUpdate: false,
         },
       ]),
+    closeDayz: vi.fn().mockResolvedValue(undefined),
     launchServer: vi.fn().mockResolvedValue(undefined),
   };
 }

@@ -14,6 +14,15 @@ fn resolve_target(server: &DayzServer) -> Result<SocketAddr, String> {
         .ok_or_else(|| "server query address did not resolve".to_string())
 }
 
+fn is_unavailable_query_error(error: &std::io::Error) -> bool {
+    matches!(
+        error.kind(),
+        std::io::ErrorKind::WouldBlock
+            | std::io::ErrorKind::TimedOut
+            | std::io::ErrorKind::ConnectionReset
+    ) || error.raw_os_error() == Some(10054)
+}
+
 pub fn query_ping(server: &DayzServer) -> Result<Option<u32>, String> {
     query_ping_with_timeout(server, DEFAULT_TIMEOUT)
 }
@@ -52,12 +61,7 @@ pub fn query_ping_with_timeout(
             started.elapsed().as_millis().min(u32::MAX as u128) as u32,
         )),
         Ok(_) => Ok(None),
-        Err(error)
-            if error.kind() == std::io::ErrorKind::WouldBlock
-                || error.kind() == std::io::ErrorKind::TimedOut =>
-        {
-            Ok(None)
-        }
+        Err(error) if is_unavailable_query_error(&error) => Ok(None),
         Err(error) => Err(format!("failed to receive server query: {error}")),
     }
 }

@@ -70,36 +70,39 @@ jobs:
           "MONARCH_TAG=v$version" | Out-File -FilePath $env:GITHUB_ENV -Append
           Write-Host "Publishing Monarch Launcher $version"
 
-      - name: Configure release version and updater artifacts
-        shell: pwsh
-        run: |
-          $path = '.\src-tauri\tauri.conf.json'
-          $config = Get-Content $path -Raw | ConvertFrom-Json
-          $config.version = $env:MONARCH_VERSION
-          $config.bundle | Add-Member -NotePropertyName createUpdaterArtifacts -NotePropertyValue $true -Force
-          $config | ConvertTo-Json -Depth 20 | Set-Content $path -Encoding UTF8
-
-      - name: Validate updater signing configuration
+      - name: Detect optional updater signing
         shell: pwsh
         env:
           MONARCH_UPDATER_PUBLIC_KEY: ${{ vars.MONARCH_UPDATER_PUBLIC_KEY }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
-          if ([string]::IsNullOrWhiteSpace($env:MONARCH_UPDATER_PUBLIC_KEY)) {
-            throw 'Repository variable MONARCH_UPDATER_PUBLIC_KEY is required.'
-          }
-          if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY)) {
-            throw 'Repository secret TAURI_SIGNING_PRIVATE_KEY is required.'
-          }
-          if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD)) {
-            throw 'Repository secret TAURI_SIGNING_PRIVATE_KEY_PASSWORD is required.'
+          $configured = `
+            -not [string]::IsNullOrWhiteSpace($env:MONARCH_UPDATER_PUBLIC_KEY) -and `
+            -not [string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY) -and `
+            -not [string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD)
+          "MONARCH_SIGNING_CONFIGURED=$($configured.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_ENV -Append
+          if ($configured) {
+            Write-Host 'Signed Tauri updater artifacts are enabled.'
+          } else {
+            Write-Host 'Updater signing is not fully configured; publishing the GitHub installer fallback.'
           }
 
-      - name: Build signed NSIS installer and updater artifact
+      - name: Configure release version and updater artifacts
+        shell: pwsh
+        run: |
+          $path = '.\src-tauri\tauri.conf.json'
+          $config = Get-Content $path -Raw | ConvertFrom-Json
+          $config.version = $env:MONARCH_VERSION
+          $signed = $env:MONARCH_SIGNING_CONFIGURED -eq 'true'
+          $config.bundle | Add-Member -NotePropertyName createUpdaterArtifacts -NotePropertyValue $signed -Force
+          $config | ConvertTo-Json -Depth 20 | Set-Content $path -Encoding UTF8
+
+      - name: Build NSIS installer
         shell: pwsh
         env:
           MONARCH_UPDATER_PUBLIC_KEY: ${{ vars.MONARCH_UPDATER_PUBLIC_KEY }}
+          MONARCH_DISCORD_APP_ID: ${{ vars.MONARCH_DISCORD_APP_ID }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npm run tauri build -- --bundles nsis
@@ -110,14 +113,18 @@ jobs:
           $installer = Get-ChildItem '.\src-tauri\target\release\bundle\nsis\*-setup.exe' | Select-Object -First 1
           if (-not $installer) { throw 'NSIS setup executable was not produced.' }
 
-          $signaturePath = "$($installer.FullName).sig"
-          if (-not (Test-Path $signaturePath)) { throw 'Signed updater artifact was not produced.' }
-
           New-Item -ItemType Directory -Force '.\release' | Out-Null
           Copy-Item $installer.FullName '.\release\MonarchLauncher-Setup.exe' -Force
-          Copy-Item $signaturePath '.\release\MonarchLauncher-Setup.exe.sig' -Force
 
-          $signature = (Get-Content '.\release\MonarchLauncher-Setup.exe.sig' -Raw).Trim()
+          $signaturePath = "$($installer.FullName).sig"
+          $signature = ''
+          if (Test-Path $signaturePath) {
+            Copy-Item $signaturePath '.\release\MonarchLauncher-Setup.exe.sig' -Force
+            $signature = (Get-Content '.\release\MonarchLauncher-Setup.exe.sig' -Raw).Trim()
+          } elseif ($env:MONARCH_SIGNING_CONFIGURED -eq 'true') {
+            throw 'Updater signing was configured but the signed updater artifact was not produced.'
+          }
+
           "MONARCH_SIGNATURE=$signature" | Out-File -FilePath $env:GITHUB_ENV -Append
           "MONARCH_RELEASE_URL=https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:MONARCH_TAG/MonarchLauncher-Setup.exe" | Out-File -FilePath $env:GITHUB_ENV -Append
           "MONARCH_NOTES=Monarch Launcher $env:MONARCH_VERSION" | Out-File -FilePath $env:GITHUB_ENV -Append
@@ -128,11 +135,10 @@ jobs:
       - name: Verify release contents
         shell: pwsh
         run: |
-          $expected = @(
-            'MonarchLauncher-Setup.exe',
-            'MonarchLauncher-Setup.exe.sig',
-            'latest.json'
-          )
+          $expected = @('MonarchLauncher-Setup.exe', 'latest.json')
+          if ($env:MONARCH_SIGNING_CONFIGURED -eq 'true') {
+            $expected += 'MonarchLauncher-Setup.exe.sig'
+          }
           $actual = Get-ChildItem '.\release' -File | Select-Object -ExpandProperty Name | Sort-Object
           $missing = $expected | Where-Object { $_ -notin $actual }
           if ($missing) { throw "Missing release files: $($missing -join ', ')" }
@@ -143,11 +149,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create $env:MONARCH_TAG `
-            '.\release\MonarchLauncher-Setup.exe' `
-            '.\release\MonarchLauncher-Setup.exe.sig' `
-            '.\release\latest.json' `
-            --title $env:MONARCH_TAG `
-            --generate-notes `
-            --latest
+          $assets = @('.\release\MonarchLauncher-Setup.exe', '.\release\latest.json')
+          if (Test-Path '.\release\MonarchLauncher-Setup.exe.sig') {
+            $assets += '.\release\MonarchLauncher-Setup.exe.sig'
+          }
+          gh release create $env:MONARCH_TAG $assets --title $env:MONARCH_TAG --generate-notes --latest
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

@@ -399,6 +399,11 @@ button {
   opacity: 0.6;
 }
 
+.mods-list {
+  display: grid;
+  gap: 12px;
+}
+
 .empty-state,
 .loading-state {
   display: grid;

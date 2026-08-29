@@ -71,7 +71,8 @@ fn version_parts(version: &str) -> Option<Vec<u64>> {
 }
 
 pub fn is_newer_version(candidate: &str, current: &str) -> bool {
-    let (Some(mut candidate), Some(mut current)) = (version_parts(candidate), version_parts(current))
+    let (Some(mut candidate), Some(mut current)) =
+        (version_parts(candidate), version_parts(current))
     else {
         return candidate.trim() != current.trim();
     };

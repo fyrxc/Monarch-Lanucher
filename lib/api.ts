@@ -19,6 +19,7 @@ export interface LauncherApi {
   saveSettings(settings: LauncherSettings): Promise<void>;
   getSystemStatus(): Promise<SystemStatus>;
   getInstalledMods(): Promise<InstalledMod[]>;
+  getInstalledWorkshopIds?(): Promise<string[]>;
   installWorkshopMod?(workshopId: string): Promise<void>;
   getWorkshopDownloadStatus?(workshopId: string): Promise<WorkshopDownloadStatus>;
   updateWorkshopMod(workshopId: string): Promise<void>;
@@ -39,6 +40,7 @@ export const tauriApi: LauncherApi = {
   saveSettings: (settings) => invoke<void>("save_settings", { settings }),
   getSystemStatus: () => invoke<SystemStatus>("get_system_status"),
   getInstalledMods: () => invoke<InstalledMod[]>("get_installed_mods"),
+  getInstalledWorkshopIds: () => invoke<string[]>("get_installed_workshop_ids"),
   installWorkshopMod: (workshopId) =>
     invoke<void>("install_workshop_mod", { workshopId }),
   getWorkshopDownloadStatus: (workshopId) =>

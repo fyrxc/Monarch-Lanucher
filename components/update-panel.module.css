@@ -72,6 +72,72 @@
   color: #e7c3c8;
 }
 
+.compact {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+}
+
+.compactButton,
+.compactInstall {
+  display: flex;
+  width: 100%;
+  min-height: 30px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 0 9px;
+  border: 1px solid #27313b;
+  border-radius: 6px;
+  background: #151b22;
+  color: #aab4be;
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 650;
+  text-align: left;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.compactButton:hover:not(:disabled),
+.compactInstall:hover:not(:disabled) {
+  border-color: #394653;
+  background: #1a212b;
+  color: #f0f3f6;
+}
+
+.compactButton:disabled,
+.compactInstall:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.compactButton svg {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+}
+
+.compactInstall {
+  justify-content: center;
+  background: #202a35;
+  color: #e7edf2;
+}
+
+.compactStatus,
+.compactError {
+  padding: 1px 3px;
+  font-size: 8px;
+  line-height: 1.35;
+}
+
+.compactStatus {
+  color: #7e8995;
+}
+
+.compactError {
+  color: #d6aeb4;
+}
+
 @media (max-width: 760px) {
   .heading {
     align-items: stretch;

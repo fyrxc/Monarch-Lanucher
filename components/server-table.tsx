@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { FaRegStar, FaStar } from "react-icons/fa";
 import type { DayzServer } from "../lib/models";
 import { serverIdentity } from "../lib/server-id";
 
@@ -48,7 +49,7 @@ export const ServerTable = memo(function ServerTable({
                     onClick={() => onFavorite(server)}
                     type="button"
                   >
-                    {favorite ? "★" : "☆"}
+                    {favorite ? <FaStar aria-hidden="true" /> : <FaRegStar aria-hidden="true" />}
                   </button>
                 </td>
                 <td>

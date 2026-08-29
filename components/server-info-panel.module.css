@@ -130,15 +130,57 @@
   background: #171e25;
 }
 
-.modRow span {
-  color: #cfd6dd;
-  font-size: 10px;
+.modIdentity {
+  min-width: 0;
 }
 
-.modRow small,
+.modIdentity span {
+  display: block;
+  overflow: hidden;
+  color: #cfd6dd;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modIdentity small,
 .vanilla {
   color: #707c88;
   font-size: 9px;
+}
+
+.modIdentity small {
+  display: block;
+  margin-top: 3px;
+}
+
+.modStatus {
+  flex: 0 0 auto;
+  padding: 4px 6px;
+  border: 1px solid #3a4652;
+  border-radius: 999px;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.installed {
+  color: #b9d8c5;
+  border-color: #355244;
+  background: #192a22;
+}
+
+.missing {
+  color: #efaaa7;
+  border-color: #603b3b;
+  background: #2a1919;
+}
+
+.updating {
+  color: #c7d3e2;
+  border-color: #42556b;
+  background: #1c2937;
 }
 
 .vanilla {

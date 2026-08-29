@@ -1,26 +1,27 @@
 .card {
-  display: grid;
-  grid-template-columns: 210px minmax(0, 1fr);
-  min-height: 148px;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 15px;
-  background: #12171d;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: #121820;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
   transition:
-    transform 150ms ease,
-    border-color 150ms ease,
-    box-shadow 150ms ease;
+    transform 140ms ease,
+    border-color 140ms ease,
+    background 140ms ease;
 }
 
 .card:hover {
   transform: translateY(-1px);
-  border-color: rgba(255, 255, 255, 0.13);
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.24);
+  border-color: rgba(255, 255, 255, 0.16);
+  background: #151d26;
 }
 
-.previewButton,
-.titleButton {
+.detailsButton {
+  display: block;
+  width: 100%;
   min-width: 0;
   padding: 0;
   border: 0;
@@ -32,8 +33,8 @@
 
 .previewWrap {
   position: relative;
-  height: 100%;
-  min-height: 148px;
+  width: 100%;
+  aspect-ratio: 1 / 0.82;
   overflow: hidden;
   background: #0b0f13;
 }
@@ -42,7 +43,6 @@
   display: block;
   width: 100%;
   height: 100%;
-  min-height: 148px;
   object-fit: cover;
   transition:
     transform 180ms ease,
@@ -50,143 +50,65 @@
 }
 
 .previewFallbackImage {
-  padding: 30px;
+  padding: 22%;
   object-fit: contain;
-  opacity: 0.75;
-  background:
-    radial-gradient(circle at 50% 35%, rgba(255, 255, 255, 0.08), transparent 48%),
-    #0b0f13;
+  opacity: 0.92;
+  background: #1a212b;
 }
 
 .previewOverlay {
   position: absolute;
-  inset: auto 12px 12px;
-  display: inline-flex;
-  width: max-content;
-  padding: 6px 9px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  color: #eef2f6;
-  background: rgba(11, 15, 19, 0.82);
-  font-size: 10px;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #f1f3f5;
+  background: rgba(8, 11, 15, 0.58);
+  font-size: 9px;
   font-weight: 750;
   opacity: 0;
-  transform: translateY(4px);
-  transition:
-    opacity 150ms ease,
-    transform 150ms ease;
+  transition: opacity 140ms ease;
 }
 
-.previewButton:hover .preview,
-.previewButton:focus-visible .preview {
+.detailsButton:hover .preview,
+.detailsButton:focus-visible .preview {
   transform: scale(1.025);
-  opacity: 0.82;
+  opacity: 0.88;
 }
 
-.previewButton:hover .previewOverlay,
-.previewButton:focus-visible .previewOverlay {
+.detailsButton:hover .previewOverlay,
+.detailsButton:focus-visible .previewOverlay {
   opacity: 1;
-  transform: translateY(0);
 }
 
-.content {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 14px;
-  padding: 17px 18px;
-}
-
-.header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
-}
-
-.titleBlock {
-  min-width: 0;
-}
-
-.titleBlock strong {
+.modName {
   display: block;
   overflow: hidden;
-  color: #f2f5f8;
-  font-size: 16px;
-  font-weight: 760;
-  line-height: 1.3;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.titleBlock span {
-  display: block;
-  margin-top: 4px;
-  color: #737e89;
-  font-size: 11px;
-}
-
-.state {
-  flex: 0 0 auto;
-  padding: 5px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  color: #9ba5af;
-  background: rgba(255, 255, 255, 0.035);
-  font-size: 9px;
-  font-weight: 750;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
-.stateUpdate {
-  color: #f0f3f6;
-  border-color: rgba(255, 255, 255, 0.16);
-  background: #1a212b;
-}
-
-.location {
-  min-width: 0;
-}
-
-.location span {
-  display: block;
-  margin-bottom: 5px;
-  color: #66727e;
-  font-size: 9px;
-  font-weight: 750;
-  letter-spacing: 0.035em;
-  text-transform: uppercase;
-}
-
-.location code {
-  display: block;
-  overflow: hidden;
-  color: #aeb7c0;
-  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  padding: 8px 9px 7px;
+  color: #f1f3f5;
   font-size: 10px;
+  font-weight: 650;
+  line-height: 1.25;
+  text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-  margin-top: auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+  padding: 0 8px 8px;
 }
 
 .actions button {
   display: inline-flex;
+  min-width: 0;
   min-height: 31px;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 0 10px;
-  border-radius: 8px;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.035em;
+  padding: 0;
+  border-radius: 6px;
   cursor: pointer;
   transition:
     transform 120ms ease,
@@ -200,8 +122,8 @@
 }
 
 .actions button svg {
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
 }
 
 .actions button:disabled {
@@ -216,7 +138,7 @@
 }
 
 .secondaryButton:hover:not(:disabled) {
-  background: #1a212b;
+  background: #1f2832;
 }
 
 .primaryButton {
@@ -226,7 +148,7 @@
 }
 
 .primaryButton:hover:not(:disabled) {
-  background: #222b36;
+  background: #242e3a;
 }
 
 .dangerButton {
@@ -237,10 +159,4 @@
 
 .dangerButton:hover:not(:disabled) {
   background: rgba(126, 26, 26, 0.16);
-}
-
-@media (max-width: 900px) {
-  .card {
-    grid-template-columns: 150px minmax(0, 1fr);
-  }
 }

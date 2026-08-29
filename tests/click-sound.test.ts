@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { isClickableTarget, LAUNCHER_CLICK_SOUND_URL } from "../lib/click-sound";
+import {
+  isClickableTarget,
+  LAUNCHER_CLICK_SOUND_URL,
+  LAUNCHER_CLICK_VOLUME,
+} from "../lib/click-sound";
 
 describe("launcher click sound", () => {
   it("plays for action controls and nested icon targets but not text entry or disabled controls", () => {
@@ -25,7 +29,8 @@ describe("launcher click sound", () => {
     expect(isClickableTarget(plain)).toBe(false);
   });
 
-  it("uses the supplied Header_Click_UI MP4", () => {
+  it("uses the supplied Header_Click_UI MP4 at full launcher volume", () => {
     expect(LAUNCHER_CLICK_SOUND_URL).toBe("/sounds/Header_Click_UI.mp4");
+    expect(LAUNCHER_CLICK_VOLUME).toBe(1);
   });
 });

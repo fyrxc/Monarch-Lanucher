@@ -1,10 +1,9 @@
 "use client";
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
-import { IoSettingsOutline } from "react-icons/io5";
 import type { LauncherApi } from "../lib/api";
 import { tauriApi } from "../lib/api";
-import { MONARCH_LOGO_DATA_URL } from "../lib/branding";
+import { MONARCH_M_LOGO_DATA_URL } from "../lib/branding";
 import { filterServers, type ServerFilters } from "../lib/filters";
 import { reconcileServerCollection } from "../lib/live-server-collections";
 import type {
@@ -21,6 +20,7 @@ import { useGlobalClickSound } from "../lib/use-global-click-sound";
 import { useLauncherSession } from "../lib/use-launcher-session";
 import { useLiveServerPing } from "../lib/use-live-server-ping";
 import { DayzRunningDialog } from "./dayz-running-dialog";
+import { MonarchBrand } from "./monarch-brand";
 import { ModsView } from "./mods-view";
 import { Navigation, type LauncherView } from "./navigation";
 import { PasswordDialog } from "./password-dialog";
@@ -425,11 +425,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     const showEmptyError = serverError && servers.length === 0;
 
     return (
-      <>
-        <div className="view-toolbar">
-          <div><h1>Servers</h1><p>Public DayZ servers load automatically.</p></div>
-          <button className="ghost-button" onClick={() => void loadServers()} type="button">Refresh</button>
-        </div>
+      <div className="server-view">
         {warning ? <StatusBanner tone="warning">{warning}</StatusBanner> : null}
         {serverError ? (
           <StatusBanner action={<button className="banner-button" onClick={() => void loadServers()} type="button">Retry</button>} tone="error">
@@ -462,21 +458,20 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
             ) : null}
           </>
         )}
-      </>
+      </div>
     );
   }
 
   function renderCollection(kind: "Favorites" | "Recent", collection: DayzServer[]) {
     const isRecent = kind === "Recent";
     return (
-      <>
-        <div className="view-toolbar">
-          <div>
-            <h1>{isRecent ? "Played On" : "Favorite"}</h1>
-            <p>{isRecent ? "Servers you recently joined through Monarch." : "Servers you saved."}</p>
+      <div className="collection-view">
+        {isRecent && collection.length > 0 ? (
+          <div className="collection-toolbar">
+            <span>{collection.length} recently played</span>
+            <button className="monarch-text-button" onClick={() => void clearRecent()} type="button">Clear Played On</button>
           </div>
-          {isRecent && collection.length > 0 ? <button className="ghost-button" onClick={() => void clearRecent()} type="button">Clear Played On</button> : null}
-        </div>
+        ) : null}
         <ServerTable
           api={api}
           favoriteIds={favoriteIds}
@@ -485,7 +480,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
           onJoin={(server) => void requestJoin(server)}
           servers={collection}
         />
-      </>
+      </div>
     );
   }
 
@@ -494,18 +489,17 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   return (
     <div className="launcher-shell">
       <aside className="sidebar">
-        <div aria-label="Monarch" className="brand">
-          <img className="brand-logo" src={MONARCH_LOGO_DATA_URL} alt="Monarch" />
-        </div>
+        <MonarchBrand className="sidebar-brand" />
         <Navigation active={activeView} onSelect={(view) => { setSettingsOpen(false); setActiveView(view); }} />
         <SidebarUpdate api={api} />
-        <div className="sidebar-version">v0.4.0</div>
+        <div className="sidebar-version">v0.4.1</div>
       </aside>
 
       <main className="main-panel">
         <div className="app-topbar">
           <button aria-expanded={settingsOpen} className="settings-trigger" onClick={() => setSettingsOpen(true)} type="button">
-            <IoSettingsOutline aria-hidden="true" /><span>Settings</span>
+            <img aria-hidden="true" className="settings-trigger-logo" src={MONARCH_M_LOGO_DATA_URL} alt="" />
+            <span>Settings</span>
           </button>
         </div>
         {actionError ? <StatusBanner tone="error">{actionError}</StatusBanner> : null}

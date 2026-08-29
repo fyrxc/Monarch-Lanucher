@@ -74,6 +74,7 @@ export function ModInfoPanel({
               <h3>{mod.name}</h3>
               <p className={styles.workshopId}>Workshop ID {mod.workshopId}</p>
               <a
+                aria-label="Steam Workshop"
                 className={styles.steamLink}
                 href={`https://steamcommunity.com/sharedfiles/filedetails/?id=${mod.workshopId}`}
                 rel="noreferrer"

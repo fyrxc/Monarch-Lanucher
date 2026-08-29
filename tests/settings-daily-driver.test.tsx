@@ -12,7 +12,7 @@ function createApi(): LauncherApi {
     clearRecent: vi.fn().mockResolvedValue(undefined),
     getSettings: vi.fn().mockResolvedValue({
       dayzName: "MonarchPlayer",
-      dayzPath: "D:\\SteamLibrary\\steamapps\\common\\DayZ\\DayZ_x64.exe",
+      dayzPath: "D:\\SteamLibrary\\steamapps\\common\\DayZ",
       extraLaunchParameters: "",
       skipBattleye: false,
       discordPresence: true,
@@ -49,7 +49,7 @@ function createApi(): LauncherApi {
   };
 }
 
-it("shows all approved settings and migrates a saved DayZ executable path to the install folder", async () => {
+it("shows all approved settings and persists the normalized DayZ install folder", async () => {
   const api = createApi();
   render(<AppShell api={api} />);
   fireEvent.click(screen.getByRole("button", { name: "Settings" }));

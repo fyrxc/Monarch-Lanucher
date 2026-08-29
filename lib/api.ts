@@ -6,6 +6,7 @@ import type {
   ServerDirectoryResult,
   SystemStatus,
   UpdateInfo,
+  WorkshopDownloadStatus,
 } from "./models";
 
 export interface LauncherApi {
@@ -18,6 +19,8 @@ export interface LauncherApi {
   saveSettings(settings: LauncherSettings): Promise<void>;
   getSystemStatus(): Promise<SystemStatus>;
   getInstalledMods(): Promise<InstalledMod[]>;
+  installWorkshopMod?(workshopId: string): Promise<void>;
+  getWorkshopDownloadStatus?(workshopId: string): Promise<WorkshopDownloadStatus>;
   updateWorkshopMod(workshopId: string): Promise<void>;
   unsubscribeWorkshopMod(workshopId: string): Promise<void>;
   openModFolder(workshopId: string): Promise<void>;
@@ -36,6 +39,10 @@ export const tauriApi: LauncherApi = {
   saveSettings: (settings) => invoke<void>("save_settings", { settings }),
   getSystemStatus: () => invoke<SystemStatus>("get_system_status"),
   getInstalledMods: () => invoke<InstalledMod[]>("get_installed_mods"),
+  installWorkshopMod: (workshopId) =>
+    invoke<void>("install_workshop_mod", { workshopId }),
+  getWorkshopDownloadStatus: (workshopId) =>
+    invoke<WorkshopDownloadStatus>("get_workshop_download_status", { workshopId }),
   updateWorkshopMod: (workshopId) =>
     invoke<void>("update_workshop_mod", { workshopId }),
   unsubscribeWorkshopMod: (workshopId) =>

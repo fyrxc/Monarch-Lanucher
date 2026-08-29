@@ -40,6 +40,7 @@ function createApi() {
     getSystemStatus: vi.fn().mockResolvedValue({
       steamFound: true,
       steamPath: "C:\\Program Files (x86)\\Steam\\steam.exe",
+      steamPersonaName: "PublicSteamName",
       dayzFound: true,
       dayzPath: "D:\\SteamLibrary\\steamapps\\common\\DayZ\\DayZ_x64.exe",
     }),
@@ -135,4 +136,29 @@ it("loads installed Workshop mods on the Mods page", async () => {
   expect(await screen.findByText("Community Framework")).toBeInTheDocument();
   expect(screen.getByText("Workshop ID 1559212036")).toBeInTheDocument();
   expect(api.getInstalledMods).toHaveBeenCalledTimes(1);
+});
+
+it("defaults a blank DayZ name to the active Steam public name", async () => {
+  const api = createApi();
+  render(<AppShell api={api} />);
+
+  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+
+  const playerName = await screen.findByDisplayValue("PublicSteamName");
+  expect(playerName).toBeInTheDocument();
+  expect(screen.getByText("PublicSteamName")).toBeInTheDocument();
+});
+
+it("keeps a saved DayZ name instead of replacing it with Steam", async () => {
+  const api = createApi();
+  api.getSettings.mockResolvedValue({
+    dayzName: "CustomDayZName",
+    extraLaunchParameters: "",
+  });
+  render(<AppShell api={api} />);
+
+  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+
+  expect(await screen.findByDisplayValue("CustomDayZName")).toBeInTheDocument();
+  expect(screen.queryByDisplayValue("PublicSteamName")).not.toBeInTheDocument();
 });

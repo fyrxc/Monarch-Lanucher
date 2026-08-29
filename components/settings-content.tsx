@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { LauncherApi } from "../lib/api";
 import type { InstalledMod, LauncherSettings, SystemStatus } from "../lib/models";
 import { ConfirmDialog } from "./confirm-dialog";
@@ -44,9 +44,15 @@ export function SettingsContent({
 }) {
   const [busyAction, setBusyAction] = useState<"verify" | "uninstall" | null>(null);
   const [uninstallMods, setUninstallMods] = useState<InstalledMod[] | null>(null);
-  const dayzPathValue = settings.dayzPath?.trim()
-    ? settings.dayzPath
-    : detectedDayzDirectory(systemStatus?.dayzPath);
+  const configuredDayzDirectory = detectedDayzDirectory(settings.dayzPath);
+  const detectedDirectory = detectedDayzDirectory(systemStatus?.dayzPath);
+  const dayzPathValue = configuredDayzDirectory || detectedDirectory;
+
+  useEffect(() => {
+    const current = settings.dayzPath?.trim() ?? "";
+    if (!current || current === configuredDayzDirectory) return;
+    onChange({ ...settings, dayzPath: configuredDayzDirectory });
+  }, [configuredDayzDirectory, onChange, settings]);
 
   async function verifyMods() {
     setBusyAction("verify");
@@ -113,7 +119,7 @@ export function SettingsContent({
         <input
           aria-label="DayZ Path"
           className="field"
-          onChange={(event) => onChange({ ...settings, dayzPath: event.target.value })}
+          onChange={(event) => onChange({ ...settings, dayzPath: detectedDayzDirectory(event.target.value) })}
           placeholder="Auto-detected DayZ path"
           value={dayzPathValue}
         />

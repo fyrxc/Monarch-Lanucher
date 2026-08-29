@@ -10,6 +10,7 @@ import type {
   InstalledMod,
   LauncherSettings,
   SystemStatus,
+  WorkshopDownloadProgress,
 } from "../lib/models";
 import { paginate } from "../lib/pagination";
 import { serverIdentity } from "../lib/server-id";
@@ -23,6 +24,7 @@ import { SlidePanel } from "./slide-panel";
 import { StatusBanner } from "./status-banner";
 
 const SERVER_PAGE_SIZE = 100;
+const WORKSHOP_PROGRESS_POLL_MS = 1500;
 
 type ModAction = "update" | "uninstall" | "folder";
 type SetupBusy = "setup" | "check";
@@ -60,6 +62,8 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   const [setupMissingIds, setSetupMissingIds] = useState<string[]>([]);
   const [setupReady, setSetupReady] = useState(false);
   const [setupBusy, setSetupBusy] = useState<SetupBusy | null>(null);
+  const [setupMonitoring, setSetupMonitoring] = useState(false);
+  const [setupProgress, setSetupProgress] = useState<WorkshopDownloadProgress[]>([]);
   const [servers, setServers] = useState<DayzServer[]>([]);
   const [favorites, setFavorites] = useState<DayzServer[]>([]);
   const [recent, setRecent] = useState<DayzServer[]>([]);
@@ -152,6 +156,49 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
       .catch((error) => setActionError(errorMessage(error)));
   }, [api, settingsOpen]);
 
+  useEffect(() => {
+    if (!setupServer || !setupMonitoring || setupReady || setupMissingIds.length === 0) return;
+
+    let cancelled = false;
+    const workshopIds = [...setupMissingIds];
+
+    const refreshProgress = async () => {
+      try {
+        const progress = await api.getWorkshopDownloadProgress(workshopIds);
+        if (cancelled) return;
+        setSetupProgress(progress);
+
+        const allInstalled =
+          progress.length === workshopIds.length &&
+          progress.every(
+            (item) => item.isInstalled && !item.isDownloading && !item.needsUpdate,
+          );
+        if (!allInstalled) return;
+
+        const preflight = await api.prepareServerLaunch(setupServer);
+        if (cancelled) return;
+        setSetupMissingIds(preflight.missingWorkshopIds);
+        setSetupReady(preflight.ready);
+        if (preflight.ready) {
+          setSetupMonitoring(false);
+          setActionMessage("Required mods are ready. Press Join again when you are ready to play.");
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setActionError(errorMessage(error));
+          setSetupMonitoring(false);
+        }
+      }
+    };
+
+    void refreshProgress();
+    const interval = window.setInterval(() => void refreshProgress(), WORKSHOP_PROGRESS_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [api, setupMissingIds, setupMonitoring, setupReady, setupServer]);
+
   const favoriteIds = useMemo(
     () => new Set(favorites.map((server) => serverIdentity(server))),
     [favorites],
@@ -179,6 +226,23 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     () => paginate(visibleServers, serverPage, SERVER_PAGE_SIZE),
     [serverPage, visibleServers],
   );
+
+  const setupProgressSummary = useMemo(() => {
+    if (setupProgress.length === 0) {
+      return { percent: null as number | null, downloadedBytes: 0, totalBytes: 0 };
+    }
+
+    const downloadedBytes = setupProgress.reduce((sum, item) => sum + item.downloadedBytes, 0);
+    const totalBytes = setupProgress.reduce((sum, item) => sum + item.totalBytes, 0);
+    const percent =
+      totalBytes > 0
+        ? Math.max(0, Math.min(100, Math.round((downloadedBytes / totalBytes) * 100)))
+        : setupProgress.every((item) => item.isInstalled)
+          ? 100
+          : 0;
+
+    return { percent, downloadedBytes, totalBytes };
+  }, [setupProgress]);
 
   const updateFilters = useCallback((next: ServerFilters) => {
     setFilters(next);
@@ -246,6 +310,8 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
         if (preflight.missingWorkshopIds.length > 0) {
           setSetupServer(server);
           setSetupMissingIds(preflight.missingWorkshopIds);
+          setSetupProgress([]);
+          setSetupMonitoring(false);
           setSetupReady(false);
           return;
         }
@@ -269,9 +335,12 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     setActionError(null);
     try {
       await api.setupServerMods(setupMissingIds);
+      setSetupProgress([]);
+      setSetupMonitoring(true);
       setActionMessage("Steam is setting up the required server mods.");
     } catch (error) {
       setActionError(errorMessage(error));
+      setSetupMonitoring(false);
     } finally {
       setSetupBusy(null);
     }
@@ -286,6 +355,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
       setSetupMissingIds(preflight.missingWorkshopIds);
       setSetupReady(preflight.ready);
       if (preflight.ready) {
+        setSetupMonitoring(false);
         setActionMessage("Required mods are ready. Press Join again when you are ready to play.");
       }
     } catch (error) {
@@ -298,6 +368,8 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   const closeSetupMods = useCallback(() => {
     setSetupServer(null);
     setSetupMissingIds([]);
+    setSetupProgress([]);
+    setSetupMonitoring(false);
     setSetupReady(false);
     setSetupBusy(null);
   }, []);
@@ -626,12 +698,15 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
       {setupServer ? (
         <SetupModsDialog
           busy={setupBusy}
+          downloadedBytes={setupProgressSummary.downloadedBytes}
           missingWorkshopIds={setupMissingIds}
           onCheck={() => void checkRequiredMods()}
           onClose={closeSetupMods}
           onSetup={() => void setupRequiredMods()}
+          progressPercent={setupProgressSummary.percent}
           ready={setupReady}
           server={setupServer}
+          totalBytes={setupProgressSummary.totalBytes}
         />
       ) : null}
 

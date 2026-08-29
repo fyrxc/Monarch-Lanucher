@@ -1,8 +1,3 @@
-import {
-  MONARCH_M_LOGO_DATA_URL,
-  MONARCH_WORDMARK_DATA_URL,
-} from "../lib/branding";
-
 export function MonarchBrand({
   className = "",
   ariaLabel = "Monarch brand",
@@ -11,12 +6,9 @@ export function MonarchBrand({
   ariaLabel?: string;
 }) {
   return (
-    <div
-      aria-label={ariaLabel}
-      className={`monarch-brand ${className}`.trim()}
-    >
-      <img className="monarch-brand-m" src={MONARCH_M_LOGO_DATA_URL} alt="Monarch M" />
-      <img className="monarch-brand-word" src={MONARCH_WORDMARK_DATA_URL} alt="onarch" />
+    <div aria-label={ariaLabel} className={className}>
+      <img src="/branding/LogoWhite.svg" alt="Monarch M" />
+      <img src="/branding/onarch.svg" alt="onarch" />
     </div>
   );
 }

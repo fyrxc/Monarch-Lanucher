@@ -65,6 +65,7 @@ function apiWithMod(previewUrl: string | null = null) {
 beforeEach(() => {
   localStorage.clear();
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
 });
 
 it("marks the selected navigation tab as the current page", async () => {
@@ -95,6 +96,41 @@ it("shows UI Sounds in Settings enabled by default and persists the toggle", asy
   render(<AppShell api={apiWithMod()} />);
   fireEvent.click(screen.getByRole("button", { name: "Settings" }));
   expect(await screen.findByRole("checkbox", { name: /ui sounds/i })).not.toBeChecked();
+});
+
+it("plays the Monarch selection sound when UI Sounds are enabled", () => {
+  const play = vi.fn().mockResolvedValue(undefined);
+  const AudioMock = vi.fn().mockImplementation((src: string) => ({
+    src,
+    currentTime: 0,
+    volume: 1,
+    play,
+  }));
+  vi.stubGlobal("Audio", AudioMock);
+
+  render(<AppShell api={apiWithMod()} />);
+  fireEvent.click(screen.getByRole("button", { name: "Favorites" }));
+
+  expect(AudioMock).toHaveBeenCalledTimes(1);
+  expect(AudioMock.mock.calls[0]?.[0]).toMatch(/^data:audio\/ogg;base64,/);
+  expect(play).toHaveBeenCalledTimes(1);
+});
+
+it("does not play the selection sound when UI Sounds are disabled", () => {
+  localStorage.setItem("monarch.uiSoundsEnabled", "false");
+  const play = vi.fn().mockResolvedValue(undefined);
+  const AudioMock = vi.fn().mockImplementation(() => ({
+    currentTime: 0,
+    volume: 1,
+    play,
+  }));
+  vi.stubGlobal("Audio", AudioMock);
+
+  render(<AppShell api={apiWithMod()} />);
+  fireEvent.click(screen.getByRole("button", { name: "Favorites" }));
+
+  expect(AudioMock).not.toHaveBeenCalled();
+  expect(play).not.toHaveBeenCalled();
 });
 
 it("keeps Check for Updates visible in Settings", async () => {

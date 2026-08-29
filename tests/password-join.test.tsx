@@ -60,6 +60,7 @@ function createApi(): LauncherApi {
     }),
     setupServerMods: vi.fn().mockResolvedValue(undefined),
     getWorkshopDownloadProgress: vi.fn().mockResolvedValue([]),
+    closeDayz: vi.fn().mockResolvedValue(undefined),
     launchServer: vi.fn().mockResolvedValue(undefined),
   };
 }

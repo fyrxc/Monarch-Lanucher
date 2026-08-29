@@ -3,9 +3,11 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import type { LauncherApi } from "../lib/api";
 import { tauriApi } from "../lib/api";
-import { MONARCH_M_LOGO_DATA_URL } from "../lib/branding";
 import { filterServers, type ServerFilters } from "../lib/filters";
-import { reconcileServerCollection } from "../lib/live-server-collections";
+import {
+  reconcileServerCollection,
+  sortServersWithFavoritesFirst,
+} from "../lib/live-server-collections";
 import type {
   DayzServer,
   InstalledMod,
@@ -13,26 +15,23 @@ import type {
   SystemStatus,
   WorkshopDownloadProgress,
 } from "../lib/models";
-import { paginate } from "../lib/pagination";
 import { readServerCache, writeServerCache } from "../lib/server-cache";
 import { serverIdentity } from "../lib/server-id";
 import { useGlobalClickSound } from "../lib/use-global-click-sound";
 import { useLauncherSession } from "../lib/use-launcher-session";
 import { useLiveServerPing } from "../lib/use-live-server-ping";
 import { DayzRunningDialog } from "./dayz-running-dialog";
-import { MonarchBrand } from "./monarch-brand";
+import { MonarchDrawer } from "./monarch-drawer";
+import type { LauncherView } from "./monarch-navigation";
+import { MonarchServerFilters } from "./monarch-server-filters";
+import { MonarchServerList } from "./monarch-server-list";
+import { MonarchShell } from "./monarch-shell";
+import { MonarchStatus } from "./monarch-status";
 import { ModsView } from "./mods-view";
-import { Navigation, type LauncherView } from "./navigation";
 import { PasswordDialog } from "./password-dialog";
-import { ServerFiltersPanel } from "./server-filters";
-import { ServerTable } from "./server-table";
 import { SettingsContent } from "./settings-content";
 import { SetupModsDialog } from "./setup-mods-dialog";
-import { SidebarUpdate } from "./sidebar-update";
-import { SlidePanel } from "./slide-panel";
-import { StatusBanner } from "./status-banner";
 
-const SERVER_PAGE_SIZE = 100;
 const WORKSHOP_PROGRESS_POLL_MS = 1500;
 type SetupBusy = "setup" | "check";
 
@@ -88,7 +87,6 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   const [recent, setRecent] = useState<DayzServer[]>([]);
   const [installedMods, setInstalledMods] = useState<InstalledMod[]>([]);
   const [filters, setFilters] = useState<ServerFilters>(emptyFilters);
-  const [serverPage, setServerPage] = useState(1);
   const [settings, setSettings] = useState<LauncherSettings>(emptySettings);
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [loadingServers, setLoadingServers] = useState(initialServers.length === 0);
@@ -237,20 +235,16 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     () => filterServers(servers, { ...filters, search: deferredSearch }, favoriteIds),
     [deferredSearch, favoriteIds, filters, servers],
   );
-  const searchActive = deferredSearch.trim().length > 0;
-  const serverPageResult = useMemo(
-    () =>
-      searchActive
-        ? { items: visibleServers, page: 1, pageCount: 1, total: visibleServers.length }
-        : paginate(visibleServers, serverPage, SERVER_PAGE_SIZE),
-    [searchActive, serverPage, visibleServers],
+  const favoriteFirstServers = useMemo(
+    () => sortServersWithFavoritesFirst(visibleServers, favoriteIds),
+    [favoriteIds, visibleServers],
   );
   const pingTargets = useMemo(() => {
-    if (activeView === "Servers") return serverPageResult.items;
+    if (activeView === "Servers") return favoriteFirstServers;
     if (activeView === "Favorites") return liveFavorites;
     if (activeView === "Recent") return liveRecent;
     return [];
-  }, [activeView, liveFavorites, liveRecent, serverPageResult.items]);
+  }, [activeView, favoriteFirstServers, liveFavorites, liveRecent]);
 
   useLiveServerPing(api, pingTargets.length > 0, pingTargets, setServers);
 
@@ -425,54 +419,46 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     const showEmptyError = serverError && servers.length === 0;
 
     return (
-      <div className="server-view">
-        {warning ? <StatusBanner tone="warning">{warning}</StatusBanner> : null}
+      <>
+        {warning ? <MonarchStatus tone="warning">{warning}</MonarchStatus> : null}
         {serverError ? (
-          <StatusBanner action={<button className="banner-button" onClick={() => void loadServers()} type="button">Retry</button>} tone="error">
+          <MonarchStatus action={<button onClick={() => void loadServers()} type="button">Retry</button>} tone="error">
             {serverError}
-          </StatusBanner>
+          </MonarchStatus>
         ) : null}
-        {showInitialLoader ? <div className="loading-state">Loading public DayZ servers...</div> : showEmptyError ? null : (
+        {showInitialLoader ? (
+          <MonarchStatus>Loading servers...</MonarchStatus>
+        ) : showEmptyError ? null : (
           <>
-            <ServerFiltersPanel
+            <MonarchServerFilters
               filters={filters}
               maps={maps}
-              onChange={(next) => { setFilters(next); setServerPage(1); }}
-              onClear={() => { setFilters(emptyFilters); setServerPage(1); }}
-              resultCount={visibleServers.length}
+              onChange={setFilters}
+              onClear={() => setFilters(emptyFilters)}
             />
-            <ServerTable
+            <MonarchServerList
               api={api}
               favoriteIds={favoriteIds}
               joiningId={joiningId}
               onFavorite={toggleFavorite}
               onJoin={(server) => void requestJoin(server)}
-              servers={serverPageResult.items}
+              servers={favoriteFirstServers}
             />
-            {!searchActive && visibleServers.length > 0 ? (
-              <div className="server-pagination" aria-label="Server pages">
-                <button className="ghost-button" disabled={serverPageResult.page <= 1} onClick={() => setServerPage(serverPageResult.page - 1)} type="button">Previous</button>
-                <span>Page {serverPageResult.page} of {serverPageResult.pageCount} · {serverPageResult.total.toLocaleString()} servers</span>
-                <button className="ghost-button" disabled={serverPageResult.page >= serverPageResult.pageCount} onClick={() => setServerPage(serverPageResult.page + 1)} type="button">Next</button>
-              </div>
-            ) : null}
           </>
         )}
-      </div>
+      </>
     );
   }
 
   function renderCollection(kind: "Favorites" | "Recent", collection: DayzServer[]) {
-    const isRecent = kind === "Recent";
     return (
-      <div className="collection-view">
-        {isRecent && collection.length > 0 ? (
-          <div className="collection-toolbar">
-            <span>{collection.length} recently played</span>
-            <button className="monarch-text-button" onClick={() => void clearRecent()} type="button">Clear Played On</button>
-          </div>
+      <>
+        {kind === "Recent" && collection.length > 0 ? (
+          <MonarchStatus action={<button onClick={() => void clearRecent()} type="button">Clear Played On</button>}>
+            {collection.length} recently played
+          </MonarchStatus>
         ) : null}
-        <ServerTable
+        <MonarchServerList
           api={api}
           favoriteIds={favoriteIds}
           joiningId={joiningId}
@@ -480,30 +466,24 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
           onJoin={(server) => void requestJoin(server)}
           servers={collection}
         />
-      </div>
+      </>
     );
   }
 
   const visibleMessage = actionMessage ?? session.status;
 
   return (
-    <div className="launcher-shell">
-      <aside className="sidebar">
-        <MonarchBrand className="sidebar-brand" />
-        <Navigation active={activeView} onSelect={(view) => { setSettingsOpen(false); setActiveView(view); }} />
-        <SidebarUpdate api={api} />
-        <div className="sidebar-version">v0.4.1</div>
-      </aside>
-
-      <main className="main-panel">
-        <div className="app-topbar">
-          <button aria-expanded={settingsOpen} className="settings-trigger" onClick={() => setSettingsOpen(true)} type="button">
-            <img aria-hidden="true" className="settings-trigger-logo" src={MONARCH_M_LOGO_DATA_URL} alt="" />
-            <span>Settings</span>
-          </button>
-        </div>
-        {actionError ? <StatusBanner tone="error">{actionError}</StatusBanner> : null}
-        {visibleMessage ? <StatusBanner tone="success">{visibleMessage}</StatusBanner> : null}
+    <>
+      <MonarchShell
+        activeView={activeView}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onSelectView={(view) => {
+          setSettingsOpen(false);
+          setActiveView(view);
+        }}
+      >
+        {actionError ? <MonarchStatus tone="error">{actionError}</MonarchStatus> : null}
+        {visibleMessage ? <MonarchStatus tone="success">{visibleMessage}</MonarchStatus> : null}
         {activeView === "Servers" ? renderServerDirectory() : null}
         {activeView === "Favorites" ? renderCollection("Favorites", liveFavorites) : null}
         {activeView === "Recent" ? renderCollection("Recent", liveRecent) : null}
@@ -518,9 +498,16 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
             onRefresh={() => void loadInstalledMods()}
           />
         ) : null}
-      </main>
+      </MonarchShell>
 
-      {runningServer ? <DayzRunningDialog busy={closingDayz} onCancel={() => setRunningServer(null)} onCloseAndJoin={() => void closeDayzAndJoin()} server={runningServer} /> : null}
+      {runningServer ? (
+        <DayzRunningDialog
+          busy={closingDayz}
+          onCancel={() => setRunningServer(null)}
+          onCloseAndJoin={() => void closeDayzAndJoin()}
+          server={runningServer}
+        />
+      ) : null}
       {setupServer ? (
         <SetupModsDialog
           busy={setupBusy}
@@ -536,22 +523,32 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
         />
       ) : null}
       {passwordServer ? (
-        <PasswordDialog server={passwordServer} onJoin={(password) => { const server = passwordServer; setPasswordServer(null); void joinServer(server, password); }} />
+        <PasswordDialog
+          server={passwordServer}
+          onJoin={(password) => {
+            const server = passwordServer;
+            setPasswordServer(null);
+            void joinServer(server, password);
+          }}
+        />
       ) : null}
 
-      <SlidePanel open={settingsOpen} title="Settings" onClose={() => setSettingsOpen(false)}>
+      <MonarchDrawer label="Settings" onClose={() => setSettingsOpen(false)} open={settingsOpen}>
         <SettingsContent
           api={api}
           onChange={setSettings}
           onError={setActionError}
           onMessage={setActionMessage}
-          onRefresh={() => { void loadSettings(); void loadInstalledMods(); }}
+          onRefresh={() => {
+            void loadSettings();
+            void loadInstalledMods();
+          }}
           onSave={() => void saveSettings()}
           saving={savingSettings}
           settings={settings}
           systemStatus={systemStatus}
         />
-      </SlidePanel>
-    </div>
+      </MonarchDrawer>
+    </>
   );
 }

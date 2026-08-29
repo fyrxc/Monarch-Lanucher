@@ -1,0 +1,13 @@
+.preview,
+.fallback {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.fallback {
+  padding: 18%;
+  background: #1a212b;
+  object-fit: contain;
+}

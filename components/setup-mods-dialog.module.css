@@ -1,0 +1,136 @@
+.layer {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: grid;
+  place-items: center;
+}
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 8, 11, 0.76);
+  backdrop-filter: blur(3px);
+}
+
+.dialog {
+  position: relative;
+  width: min(430px, calc(100vw - 48px));
+  padding: 20px;
+  border: 1px solid #303b47;
+  border-radius: 12px;
+  background: #151b22;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.42);
+}
+
+.heading {
+  color: #f2f5f8;
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.serverName {
+  margin: 5px 0 16px;
+  overflow: hidden;
+  color: #7f8b97;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.copy {
+  margin: 0 0 16px;
+  color: #a9b3bd;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.ready {
+  margin: 0 0 16px;
+  color: #eef2f6;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.progressBlock {
+  padding: 12px;
+  border: 1px solid #28333e;
+  border-radius: 9px;
+  background: #10161d;
+}
+
+.progressMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  color: #8f9ba7;
+  font-size: 10px;
+}
+
+.progressMeta strong {
+  color: #eef2f6;
+  font-size: 12px;
+}
+
+.progressTrack {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #252f39;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: inherit;
+  background: #dce3e9;
+  transition: width 220ms ease;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.primary,
+.secondary {
+  min-height: 34px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.primary {
+  border: 1px solid #4c5967;
+  background: #e4e9ee;
+  color: #151a20;
+}
+
+.primary:hover:not(:disabled) {
+  background: #f5f7f9;
+}
+
+.secondary {
+  border: 1px solid #34414e;
+  background: #10161d;
+  color: #c9d1d9;
+}
+
+.secondary:hover:not(:disabled) {
+  background: #1a212b;
+}
+
+.primary:disabled,
+.secondary:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.close {
+  grid-column: 1 / -1;
+}

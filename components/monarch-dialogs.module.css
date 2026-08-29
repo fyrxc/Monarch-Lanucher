@@ -1,0 +1,105 @@
+.layer {
+  position: fixed;
+  inset: 0;
+  z-index: 170;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.42);
+}
+
+.dialog {
+  width: min(380px, calc(100vw - 40px));
+  padding: 20px;
+  border-radius: 7px;
+  background: #2d2d2d;
+  color: #ffffff;
+}
+
+.dialog h2 {
+  margin: 0 0 9px;
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.dialog p {
+  margin: 0 0 14px;
+  color: #c4c4c4;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.input {
+  width: 100%;
+  height: 31px;
+  margin-bottom: 14px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 5px;
+  outline: none;
+  background: #555555;
+  color: #ffffff;
+  font-size: 11px;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 7px;
+  margin-top: 15px;
+}
+
+.actions button {
+  min-width: 76px;
+  min-height: 29px;
+  border: 0;
+  border-radius: 4px;
+  background: #444444;
+  color: #ffffff;
+  font-size: 8px;
+  cursor: pointer;
+}
+
+.actions button:last-child {
+  background: #f0f0f0;
+  color: #111111;
+  font-weight: 700;
+}
+
+.actions button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.download {
+  display: grid;
+  gap: 7px;
+  margin: 12px 0 4px;
+  padding: 10px;
+  border-radius: 5px;
+  background: #242424;
+}
+
+.download > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+}
+
+.track {
+  width: 100%;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #151515;
+}
+
+.track span {
+  display: block;
+  height: 100%;
+  background: #f0f0f0;
+}
+
+.download small {
+  color: #9f9f9f;
+  font-size: 8px;
+}

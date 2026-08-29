@@ -1,27 +1,41 @@
 "use client";
 
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type { LauncherApi } from "../lib/api";
 import { tauriApi } from "../lib/api";
 import { filterServers, type ServerFilters } from "../lib/filters";
+import {
+  reconcileServerCollection,
+  sortServersWithFavoritesFirst,
+} from "../lib/live-server-collections";
 import type {
   DayzServer,
   InstalledMod,
   LauncherSettings,
   SystemStatus,
+  WorkshopDownloadProgress,
 } from "../lib/models";
-import { paginate } from "../lib/pagination";
+import { readServerCache, writeServerCache } from "../lib/server-cache";
 import { serverIdentity } from "../lib/server-id";
-import { ModCard } from "./mod-card";
-import { Navigation, type LauncherView } from "./navigation";
-import { ServerFiltersPanel } from "./server-filters";
-import { ServerTable } from "./server-table";
-import { StatusBanner } from "./status-banner";
-import { UpdatePanel } from "./update-panel";
+import { useGlobalClickSound } from "../lib/use-global-click-sound";
+import { useLauncherSession } from "../lib/use-launcher-session";
+import { useLiveServerPing } from "../lib/use-live-server-ping";
+import { DayzRunningDialog } from "./dayz-running-dialog";
+import { MonarchDrawer } from "./monarch-drawer";
+import { MonarchMods } from "./monarch-mods";
+import type { LauncherView } from "./monarch-navigation";
+import { MonarchServerFilters } from "./monarch-server-filters";
+import { MonarchServerList } from "./monarch-server-list";
+import { MonarchSettings } from "./monarch-settings";
+import { MonarchShell } from "./monarch-shell";
+import { MonarchStatus } from "./monarch-status";
+import { PasswordDialog } from "./password-dialog";
+import { SetupModsDialog } from "./setup-mods-dialog";
+import { SteamRequired } from "./steam-required";
 
-const SERVER_PAGE_SIZE = 100;
-
-type ModAction = "update" | "uninstall" | "folder";
+const WORKSHOP_PROGRESS_POLL_MS = 1500;
+const SETTINGS_SAVE_DELAY_MS = 180;
+type SetupBusy = "setup" | "check";
 
 const emptyFilters: ServerFilters = {
   search: "",
@@ -40,41 +54,61 @@ const emptyFilters: ServerFilters = {
 
 const emptySettings: LauncherSettings = {
   dayzName: "",
+  dayzPath: "",
   extraLaunchParameters: "",
+  skipBattleye: false,
+  discordPresence: true,
 };
 
 function errorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return String(error);
+  return error instanceof Error ? error.message : String(error);
+}
+
+function normalizeDetectedDayzPath(path: string | null): string {
+  if (!path) return "";
+  return path.replace(/[\\/]DayZ_x64\.exe$/i, "");
 }
 
 export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
+  useGlobalClickSound();
+
+  const initialServers = useMemo(() => readServerCache(), []);
   const [activeView, setActiveView] = useState<LauncherView>("Servers");
-  const [servers, setServers] = useState<DayzServer[]>([]);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [passwordServer, setPasswordServer] = useState<DayzServer | null>(null);
+  const [runningServer, setRunningServer] = useState<DayzServer | null>(null);
+  const [closingDayz, setClosingDayz] = useState(false);
+  const [setupServer, setSetupServer] = useState<DayzServer | null>(null);
+  const [setupMissingIds, setSetupMissingIds] = useState<string[]>([]);
+  const [setupReady, setSetupReady] = useState(false);
+  const [setupBusy, setSetupBusy] = useState<SetupBusy | null>(null);
+  const [setupMonitoring, setSetupMonitoring] = useState(false);
+  const [setupProgress, setSetupProgress] = useState<WorkshopDownloadProgress[]>([]);
+  const [servers, setServers] = useState<DayzServer[]>(initialServers);
   const [favorites, setFavorites] = useState<DayzServer[]>([]);
   const [recent, setRecent] = useState<DayzServer[]>([]);
   const [installedMods, setInstalledMods] = useState<InstalledMod[]>([]);
   const [filters, setFilters] = useState<ServerFilters>(emptyFilters);
-  const [serverPage, setServerPage] = useState(1);
   const [settings, setSettings] = useState<LauncherSettings>(emptySettings);
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
-  const [loadingServers, setLoadingServers] = useState(true);
+  const [checkingSteam, setCheckingSteam] = useState(true);
+  const [loadingServers, setLoadingServers] = useState(initialServers.length === 0);
   const [loadingMods, setLoadingMods] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [joiningId, setJoiningId] = useState<string | null>(null);
-  const [modBusy, setModBusy] = useState<{ id: string; action: ModAction } | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [savingSettings, setSavingSettings] = useState(false);
   const deferredSearch = useDeferredValue(filters.search);
+  const settingsRef = useRef<LauncherSettings>(emptySettings);
+  const settingsSaveTimer = useRef<number | null>(null);
 
   const loadServers = useCallback(async () => {
-    setLoadingServers(true);
     setServerError(null);
     try {
       const result = await api.getServers();
       setServers(result.servers);
+      writeServerCache(result.servers);
       setWarning(result.warning);
     } catch (error) {
       setServerError(errorMessage(error));
@@ -111,72 +145,144 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     }
   }, [api]);
 
+  const loadSettings = useCallback(async () => {
+    setCheckingSteam(true);
+    try {
+      const [nextSettings, status] = await Promise.all([api.getSettings(), api.getSystemStatus()]);
+      const steamDefault = status.steamPersonaName?.trim() ?? "";
+      const configuredPath = nextSettings.dayzPath?.trim() ?? "";
+      const normalized: LauncherSettings = {
+        ...emptySettings,
+        ...nextSettings,
+        dayzPath: configuredPath || normalizeDetectedDayzPath(status.dayzPath),
+        skipBattleye: nextSettings.skipBattleye ?? false,
+        discordPresence: nextSettings.discordPresence ?? true,
+      };
+      const resolved =
+        normalized.dayzName.trim() || !steamDefault
+          ? normalized
+          : { ...normalized, dayzName: steamDefault };
+      settingsRef.current = resolved;
+      setSettings(resolved);
+      setSystemStatus(status);
+    } catch (error) {
+      setActionError(errorMessage(error));
+    } finally {
+      setCheckingSteam(false);
+    }
+  }, [api]);
+
+  const steamReady = systemStatus
+    ? (systemStatus.steamRunning ?? systemStatus.steamFound)
+    : null;
+
+  const session = useLauncherSession(api, settings.discordPresence ?? true, loadRecent);
+
   useEffect(() => {
+    void loadSettings();
+  }, [loadSettings]);
+
+  useEffect(() => {
+    if (!steamReady) return;
     void loadServers();
     void loadFavorites();
-  }, [loadFavorites, loadServers]);
+    void loadInstalledMods();
+  }, [loadFavorites, loadInstalledMods, loadServers, steamReady]);
 
   useEffect(() => {
-    if (activeView === "Recent") {
-      void loadRecent();
-    }
+    if (steamReady && activeView === "Recent") void loadRecent();
+  }, [activeView, loadRecent, steamReady]);
 
-    if (activeView === "Mods") {
-      void loadInstalledMods();
-    }
+  useEffect(() => () => {
+    if (settingsSaveTimer.current !== null) window.clearTimeout(settingsSaveTimer.current);
+  }, []);
 
-    if (activeView === "Settings") {
-      void Promise.all([api.getSettings(), api.getSystemStatus()])
-        .then(([nextSettings, status]) => {
-          const steamDefault = status.steamPersonaName?.trim() ?? "";
-          setSettings(
-            nextSettings.dayzName.trim() || !steamDefault
-              ? nextSettings
-              : { ...nextSettings, dayzName: steamDefault },
-          );
-          setSystemStatus(status);
-        })
-        .catch((error) => setActionError(errorMessage(error)));
-    }
-  }, [activeView, api, loadInstalledMods, loadRecent]);
+  useEffect(() => {
+    if (!setupServer || !setupMonitoring || setupReady || setupMissingIds.length === 0) return;
+    let cancelled = false;
+    const workshopIds = [...setupMissingIds];
+
+    const refreshProgress = async () => {
+      try {
+        const progress = await api.getWorkshopDownloadProgress(workshopIds);
+        if (cancelled) return;
+        setSetupProgress(progress);
+        const allInstalled =
+          progress.length === workshopIds.length &&
+          progress.every((item) => item.isInstalled && !item.isDownloading && !item.needsUpdate);
+        if (!allInstalled) return;
+        const preflight = await api.prepareServerLaunch(setupServer);
+        if (cancelled) return;
+        setSetupMissingIds(preflight.missingWorkshopIds);
+        setSetupReady(preflight.ready);
+        if (preflight.ready) {
+          setSetupMonitoring(false);
+          setActionMessage("Ready — press Join again.");
+          void loadInstalledMods();
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setActionError(errorMessage(error));
+          setSetupMonitoring(false);
+        }
+      }
+    };
+
+    void refreshProgress();
+    const interval = window.setInterval(() => void refreshProgress(), WORKSHOP_PROGRESS_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [api, loadInstalledMods, setupMissingIds, setupMonitoring, setupReady, setupServer]);
 
   const favoriteIds = useMemo(
     () => new Set(favorites.map((server) => serverIdentity(server))),
     [favorites],
   );
-
+  const liveFavorites = useMemo(
+    () => reconcileServerCollection(favorites, servers),
+    [favorites, servers],
+  );
+  const liveRecent = useMemo(
+    () => reconcileServerCollection(recent, servers),
+    [recent, servers],
+  );
   const maps = useMemo(
-    () =>
-      Array.from(new Set(servers.map((server) => server.map).filter(Boolean))).sort((a, b) =>
-        a.localeCompare(b),
-      ),
+    () => Array.from(new Set(servers.map((server) => server.map).filter(Boolean))).sort(),
     [servers],
   );
-
-  const deferredFilters = useMemo(
-    () => ({ ...filters, search: deferredSearch }),
-    [deferredSearch, filters],
-  );
-
   const visibleServers = useMemo(
-    () => filterServers(servers, deferredFilters, favoriteIds),
-    [deferredFilters, favoriteIds, servers],
+    () => filterServers(servers, { ...filters, search: deferredSearch }, favoriteIds),
+    [deferredSearch, favoriteIds, filters, servers],
   );
-
-  const serverPageResult = useMemo(
-    () => paginate(visibleServers, serverPage, SERVER_PAGE_SIZE),
-    [serverPage, visibleServers],
+  const favoriteFirstServers = useMemo(
+    () => sortServersWithFavoritesFirst(visibleServers, favoriteIds),
+    [favoriteIds, visibleServers],
   );
+  const pingTargets = useMemo(() => {
+    if (activeView === "Servers") return favoriteFirstServers;
+    if (activeView === "Favorites") return liveFavorites;
+    if (activeView === "Recent") return liveRecent;
+    return [];
+  }, [activeView, favoriteFirstServers, liveFavorites, liveRecent]);
 
-  const updateFilters = useCallback((next: ServerFilters) => {
-    setFilters(next);
-    setServerPage(1);
-  }, []);
+  useLiveServerPing(api, Boolean(steamReady) && pingTargets.length > 0, pingTargets, setServers);
 
-  const clearFilters = useCallback(() => {
-    setFilters(emptyFilters);
-    setServerPage(1);
-  }, []);
+  const setupProgressSummary = useMemo(() => {
+    if (setupProgress.length === 0) {
+      return { percent: null as number | null, downloadedBytes: 0, totalBytes: 0 };
+    }
+    const downloadedBytes = setupProgress.reduce((sum, item) => sum + item.downloadedBytes, 0);
+    const totalBytes = setupProgress.reduce((sum, item) => sum + item.totalBytes, 0);
+    const percent =
+      totalBytes > 0
+        ? Math.max(0, Math.min(100, Math.round((downloadedBytes / totalBytes) * 100)))
+        : setupProgress.every((item) => item.isInstalled)
+          ? 100
+          : 0;
+    return { percent, downloadedBytes, totalBytes };
+  }, [setupProgress]);
 
   const toggleFavorite = useCallback(
     async (server: DayzServer) => {
@@ -192,14 +298,14 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   );
 
   const joinServer = useCallback(
-    async (server: DayzServer) => {
-      const identity = serverIdentity(server);
-      setJoiningId(identity);
+    async (server: DayzServer, password?: string) => {
+      setJoiningId(serverIdentity(server));
       setActionMessage(null);
       setActionError(null);
       try {
-        await api.launchServer(server);
-        setActionMessage(`Launching ${server.name}`);
+        if (password === undefined) await api.launchServer(server);
+        else await api.launchServer(server, password);
+        session.startSession(server);
         await loadRecent();
       } catch (error) {
         setActionError(errorMessage(error));
@@ -207,65 +313,120 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
         setJoiningId(null);
       }
     },
-    [api, loadRecent],
+    [api, loadRecent, session],
   );
 
-  const openModFolder = useCallback(
-    async (mod: InstalledMod) => {
-      setModBusy({ id: mod.workshopId, action: "folder" });
+  const requestJoin = useCallback(
+    async (server: DayzServer) => {
+      setJoiningId(serverIdentity(server));
       setActionMessage(null);
       setActionError(null);
       try {
-        await api.openModFolder(mod.workshopId);
+        const preflight = await api.prepareServerLaunch(server);
+        if (preflight.dayzRunning) {
+          setRunningServer(server);
+          return;
+        }
+        if (preflight.missingWorkshopIds.length > 0) {
+          setSetupServer(server);
+          setSetupMissingIds(preflight.missingWorkshopIds);
+          setSetupProgress([]);
+          setSetupMonitoring(false);
+          setSetupReady(false);
+          return;
+        }
+        if (server.isPassworded) {
+          setPasswordServer(server);
+          return;
+        }
+        await joinServer(server);
       } catch (error) {
         setActionError(errorMessage(error));
       } finally {
-        setModBusy(null);
+        setJoiningId(null);
       }
     },
-    [api],
+    [api, joinServer],
   );
 
-  const updateMod = useCallback(
-    async (mod: InstalledMod) => {
-      setModBusy({ id: mod.workshopId, action: "update" });
-      setActionMessage(null);
-      setActionError(null);
-      try {
-        await api.updateWorkshopMod(mod.workshopId);
-        setActionMessage(`Steam is checking/downloading the latest ${mod.name} update.`);
-        await loadInstalledMods();
-      } catch (error) {
-        setActionError(errorMessage(error));
-      } finally {
-        setModBusy(null);
-      }
-    },
-    [api, loadInstalledMods],
-  );
+  const closeDayzAndJoin = useCallback(async () => {
+    if (!runningServer) return;
+    const server = runningServer;
+    setClosingDayz(true);
+    setActionError(null);
+    try {
+      await api.closeDayz();
+      setRunningServer(null);
+      await requestJoin(server);
+    } catch (error) {
+      setActionError(errorMessage(error));
+    } finally {
+      setClosingDayz(false);
+    }
+  }, [api, requestJoin, runningServer]);
 
-  const uninstallMod = useCallback(
-    async (mod: InstalledMod) => {
-      setModBusy({ id: mod.workshopId, action: "uninstall" });
-      setActionMessage(null);
-      setActionError(null);
-      try {
-        await api.unsubscribeWorkshopMod(mod.workshopId);
-        setInstalledMods((current) =>
-          current.filter((item) => item.workshopId !== mod.workshopId),
-        );
-        setActionMessage(`Unsubscribed ${mod.name} through Steam.`);
-      } catch (error) {
-        setActionError(errorMessage(error));
-      } finally {
-        setModBusy(null);
+  const updateSettings = useCallback((patch: Partial<LauncherSettings>) => {
+    const next = { ...settingsRef.current, ...patch };
+    settingsRef.current = next;
+    setSettings(next);
+
+    if (settingsSaveTimer.current !== null) window.clearTimeout(settingsSaveTimer.current);
+    settingsSaveTimer.current = window.setTimeout(() => {
+      void api.saveSettings(next)
+        .then(async () => {
+          if (!(next.discordPresence ?? true) && api.clearDiscordPresence) {
+            await api.clearDiscordPresence().catch(() => false);
+          }
+        })
+        .catch((error) => setActionError(errorMessage(error)));
+    }, SETTINGS_SAVE_DELAY_MS);
+  }, [api]);
+
+  async function setupRequiredMods() {
+    if (!setupServer || setupMissingIds.length === 0) return;
+    setSetupBusy("setup");
+    setActionError(null);
+    try {
+      await api.setupServerMods(setupMissingIds);
+      setSetupProgress([]);
+      setSetupMonitoring(true);
+      setActionMessage("Steam is setting up the required server mods.");
+    } catch (error) {
+      setActionError(errorMessage(error));
+      setSetupMonitoring(false);
+    } finally {
+      setSetupBusy(null);
+    }
+  }
+
+  async function checkRequiredMods() {
+    if (!setupServer) return;
+    setSetupBusy("check");
+    try {
+      const preflight = await api.prepareServerLaunch(setupServer);
+      setSetupMissingIds(preflight.missingWorkshopIds);
+      setSetupReady(preflight.ready);
+      if (preflight.ready) {
+        setSetupMonitoring(false);
+        setActionMessage("Ready — press Join again.");
       }
-    },
-    [api],
-  );
+    } catch (error) {
+      setActionError(errorMessage(error));
+    } finally {
+      setSetupBusy(null);
+    }
+  }
+
+  function closeSetupMods() {
+    setSetupServer(null);
+    setSetupMissingIds([]);
+    setSetupProgress([]);
+    setSetupMonitoring(false);
+    setSetupReady(false);
+    setSetupBusy(null);
+  }
 
   async function clearRecent() {
-    setActionError(null);
     try {
       await api.clearRecent();
       setRecent([]);
@@ -274,261 +435,144 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     }
   }
 
-  async function saveSettings() {
-    setSavingSettings(true);
-    setActionError(null);
-    setActionMessage(null);
-    try {
-      await api.saveSettings(settings);
-      setActionMessage("Settings saved.");
-    } catch (error) {
-      setActionError(errorMessage(error));
-    } finally {
-      setSavingSettings(false);
-    }
-  }
+  function renderServerDirectory() {
+    const showInitialLoader = loadingServers && servers.length === 0;
+    const showEmptyError = serverError && servers.length === 0;
 
-  function renderServers() {
     return (
       <>
-        <div className="view-toolbar">
-          <div>
-            <h1>Servers</h1>
-            <p>Public DayZ servers load automatically.</p>
-          </div>
-          <button className="ghost-button" onClick={() => void loadServers()} type="button">
-            Refresh
-          </button>
-        </div>
-
-        {warning ? <StatusBanner tone="warning">{warning}</StatusBanner> : null}
+        {warning ? <MonarchStatus tone="warning">{warning}</MonarchStatus> : null}
         {serverError ? (
-          <StatusBanner
-            action={
-              <button className="banner-button" onClick={() => void loadServers()} type="button">
-                Retry
-              </button>
-            }
-            tone="error"
-          >
+          <MonarchStatus action={<button onClick={() => void loadServers()} type="button">Retry</button>} tone="error">
             {serverError}
-          </StatusBanner>
+          </MonarchStatus>
         ) : null}
-
-        {loadingServers ? (
-          <div className="loading-state">Loading public DayZ servers...</div>
-        ) : serverError ? null : (
+        {showInitialLoader ? (
+          <MonarchStatus>Loading servers...</MonarchStatus>
+        ) : showEmptyError ? null : (
           <>
-            <ServerFiltersPanel
+            <MonarchServerFilters
               filters={filters}
               maps={maps}
-              onChange={updateFilters}
-              onClear={clearFilters}
-              resultCount={visibleServers.length}
+              onChange={setFilters}
+              onClear={() => setFilters(emptyFilters)}
             />
-            <ServerTable
+            <MonarchServerList
+              api={api}
               favoriteIds={favoriteIds}
               joiningId={joiningId}
               onFavorite={toggleFavorite}
-              onJoin={joinServer}
-              servers={serverPageResult.items}
+              onJoin={(server) => void requestJoin(server)}
+              servers={favoriteFirstServers}
             />
-            {visibleServers.length > 0 ? (
-              <div className="server-pagination" aria-label="Server pages">
-                <button
-                  className="ghost-button"
-                  disabled={serverPageResult.page <= 1}
-                  onClick={() => setServerPage(serverPageResult.page - 1)}
-                  type="button"
-                >
-                  Previous
-                </button>
-                <span>
-                  Page {serverPageResult.page} of {serverPageResult.pageCount} · {serverPageResult.total.toLocaleString()} servers
-                </span>
-                <button
-                  className="ghost-button"
-                  disabled={serverPageResult.page >= serverPageResult.pageCount}
-                  onClick={() => setServerPage(serverPageResult.page + 1)}
-                  type="button"
-                >
-                  Next
-                </button>
-              </div>
-            ) : null}
           </>
         )}
       </>
     );
   }
 
-  function renderCollection(title: "Favorites" | "Recent", collection: DayzServer[]) {
+  function renderCollection(kind: "Favorites" | "Recent", collection: DayzServer[]) {
     return (
       <>
-        <div className="view-toolbar">
-          <div>
-            <h1>{title}</h1>
-            <p>{title === "Favorites" ? "Servers you saved." : "Your latest successful joins."}</p>
-          </div>
-          {title === "Recent" && collection.length > 0 ? (
-            <button className="ghost-button" onClick={() => void clearRecent()} type="button">
-              Clear Recent
-            </button>
-          ) : null}
-        </div>
-        <ServerTable
+        {kind === "Recent" && collection.length > 0 ? (
+          <MonarchStatus action={<button onClick={() => void clearRecent()} type="button">Clear Played On</button>}>
+            {collection.length} recently played
+          </MonarchStatus>
+        ) : null}
+        <MonarchServerList
+          api={api}
           favoriteIds={favoriteIds}
           joiningId={joiningId}
           onFavorite={toggleFavorite}
-          onJoin={joinServer}
+          onJoin={(server) => void requestJoin(server)}
           servers={collection}
         />
       </>
     );
   }
 
-  function renderMods() {
-    return (
-      <>
-        <div className="view-toolbar">
-          <div>
-            <h1>Mods</h1>
-            <p>Steam Workshop mods installed for DayZ.</p>
-          </div>
-          <button
-            className="ghost-button"
-            disabled={loadingMods}
-            onClick={() => void loadInstalledMods()}
-            type="button"
-          >
-            {loadingMods ? "Scanning..." : "Refresh"}
-          </button>
-        </div>
-
-        {loadingMods ? (
-          <div className="loading-state">Loading Steam Workshop mods...</div>
-        ) : installedMods.length === 0 ? (
-          <div className="empty-state">No installed DayZ Workshop mods were detected.</div>
-        ) : (
-          <div className="mods-list" aria-label="Installed DayZ Workshop mods">
-            {installedMods.map((mod) => (
-              <ModCard
-                busyAction={modBusy?.id === mod.workshopId ? modBusy.action : null}
-                key={mod.workshopId}
-                mod={mod}
-                onOpenFolder={(item) => void openModFolder(item)}
-                onUninstall={(item) => void uninstallMod(item)}
-                onUpdate={(item) => void updateMod(item)}
-              />
-            ))}
-          </div>
-        )}
-      </>
-    );
+  if (systemStatus && !steamReady) {
+    return <SteamRequired checking={checkingSteam} onRetry={() => void loadSettings()} />;
   }
 
-  function renderSettings() {
-    return (
-      <>
-        <div className="view-toolbar">
-          <div>
-            <h1>Settings</h1>
-            <p>DayZ identity, launch options, install detection, and launcher updates.</p>
-          </div>
-        </div>
-        <div className="settings-grid">
-          <section className="settings-card">
-            <h2>DayZ</h2>
-            <label className="settings-label">
-              <span>Player Name</span>
-              <input
-                className="field"
-                onChange={(event) => setSettings({ ...settings, dayzName: event.target.value })}
-                placeholder="Steam public name"
-                value={settings.dayzName}
-              />
-            </label>
-            <label className="settings-label">
-              <span>Extra Launch Parameters</span>
-              <input
-                className="field"
-                onChange={(event) =>
-                  setSettings({ ...settings, extraLaunchParameters: event.target.value })
-                }
-                placeholder="-nosplash"
-                value={settings.extraLaunchParameters}
-              />
-            </label>
-            <button
-              className="join-button save-button"
-              disabled={savingSettings}
-              onClick={() => void saveSettings()}
-              type="button"
-            >
-              {savingSettings ? "SAVING..." : "SAVE SETTINGS"}
-            </button>
-          </section>
-
-          <section className="settings-card">
-            <h2>System</h2>
-            {systemStatus ? (
-              <dl className="system-list">
-                <div>
-                  <dt>Steam</dt>
-                  <dd>{systemStatus.steamFound ? "Detected" : "Not detected"}</dd>
-                </div>
-                <div>
-                  <dt>Steam Name</dt>
-                  <dd>{systemStatus.steamPersonaName ?? "--"}</dd>
-                </div>
-                <div>
-                  <dt>DayZ</dt>
-                  <dd>{systemStatus.dayzFound ? "Installed" : "Not installed"}</dd>
-                </div>
-                <div>
-                  <dt>Steam Path</dt>
-                  <dd>{systemStatus.steamPath ?? "--"}</dd>
-                </div>
-                <div>
-                  <dt>DayZ Path</dt>
-                  <dd>{systemStatus.dayzPath ?? "--"}</dd>
-                </div>
-              </dl>
-            ) : (
-              <div className="loading-state compact">Detecting Steam and DayZ...</div>
-            )}
-          </section>
-
-          <UpdatePanel api={api} />
-        </div>
-      </>
-    );
-  }
+  const visibleMessage = actionMessage ?? session.status;
 
   return (
-    <div className="launcher-shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-mark">M</div>
-          <div>
-            <strong>MONARCH</strong>
-            <span>DAYZ LAUNCHER</span>
-          </div>
-        </div>
-        <Navigation active={activeView} onSelect={setActiveView} />
-        <div className="sidebar-version">v0.4.0</div>
-      </aside>
+    <>
+      <MonarchShell
+        activeView={activeView}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onSelectView={(view) => {
+          setSettingsOpen(false);
+          setActiveView(view);
+        }}
+      >
+        {systemStatus === null ? <MonarchStatus>Checking Steam...</MonarchStatus> : null}
+        {actionError ? <MonarchStatus tone="error">{actionError}</MonarchStatus> : null}
+        {visibleMessage ? <MonarchStatus tone="success">{visibleMessage}</MonarchStatus> : null}
+        {activeView === "Servers" ? renderServerDirectory() : null}
+        {activeView === "Favorites" ? renderCollection("Favorites", liveFavorites) : null}
+        {activeView === "Recent" ? renderCollection("Recent", liveRecent) : null}
+        {activeView === "Mods" ? (
+          <MonarchMods
+            api={api}
+            loading={loadingMods}
+            mods={installedMods}
+            onChange={setInstalledMods}
+            onError={setActionError}
+            onMessage={setActionMessage}
+            onRefresh={() => void loadInstalledMods()}
+          />
+        ) : null}
+      </MonarchShell>
 
-      <main className="main-panel">
-        {actionError ? <StatusBanner tone="error">{actionError}</StatusBanner> : null}
-        {actionMessage ? <StatusBanner tone="success">{actionMessage}</StatusBanner> : null}
+      {runningServer ? (
+        <DayzRunningDialog
+          busy={closingDayz}
+          onCancel={() => setRunningServer(null)}
+          onCloseAndJoin={() => void closeDayzAndJoin()}
+          server={runningServer}
+        />
+      ) : null}
+      {setupServer ? (
+        <SetupModsDialog
+          busy={setupBusy}
+          downloadedBytes={setupProgressSummary.downloadedBytes}
+          missingWorkshopIds={setupMissingIds}
+          onCheck={() => void checkRequiredMods()}
+          onClose={closeSetupMods}
+          onSetup={() => void setupRequiredMods()}
+          progressPercent={setupProgressSummary.percent}
+          ready={setupReady}
+          server={setupServer}
+          totalBytes={setupProgressSummary.totalBytes}
+        />
+      ) : null}
+      {passwordServer ? (
+        <PasswordDialog
+          server={passwordServer}
+          onJoin={(password) => {
+            const server = passwordServer;
+            setPasswordServer(null);
+            void joinServer(server, password);
+          }}
+        />
+      ) : null}
 
-        {activeView === "Servers" ? renderServers() : null}
-        {activeView === "Favorites" ? renderCollection("Favorites", favorites) : null}
-        {activeView === "Recent" ? renderCollection("Recent", recent) : null}
-        {activeView === "Mods" ? renderMods() : null}
-        {activeView === "Settings" ? renderSettings() : null}
-      </main>
-    </div>
+      <MonarchDrawer label="Settings" onClose={() => setSettingsOpen(false)} open={settingsOpen}>
+        <MonarchSettings
+          api={api}
+          onChange={updateSettings}
+          onError={setActionError}
+          onMessage={setActionMessage}
+          onRefresh={() => {
+            void loadSettings();
+            if (steamReady) void loadInstalledMods();
+          }}
+          settings={settings}
+          systemStatus={systemStatus}
+        />
+      </MonarchDrawer>
+    </>
   );
 }

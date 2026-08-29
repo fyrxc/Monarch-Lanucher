@@ -2,12 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const requiredVariables = [
-  "MONARCH_VERSION",
-  "MONARCH_RELEASE_URL",
-  "MONARCH_SIGNATURE",
-  "MONARCH_NOTES",
-];
+const requiredVariables = ["MONARCH_VERSION", "MONARCH_RELEASE_URL", "MONARCH_NOTES"];
 
 function required(env, name) {
   const value = env[name]?.trim();
@@ -20,16 +15,21 @@ function required(env, name) {
 export function createLatestMetadata(env, now = new Date()) {
   for (const name of requiredVariables) required(env, name);
 
+  const signature = env.MONARCH_SIGNATURE?.trim() ?? "";
+  const platforms = signature
+    ? {
+        "windows-x86_64": {
+          signature,
+          url: required(env, "MONARCH_RELEASE_URL"),
+        },
+      }
+    : {};
+
   return {
     version: required(env, "MONARCH_VERSION"),
     notes: required(env, "MONARCH_NOTES"),
     pub_date: now.toISOString(),
-    platforms: {
-      "windows-x86_64": {
-        signature: required(env, "MONARCH_SIGNATURE"),
-        url: required(env, "MONARCH_RELEASE_URL"),
-      },
-    },
+    platforms,
   };
 }
 

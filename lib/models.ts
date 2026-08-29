@@ -24,7 +24,10 @@ export interface ServerDirectoryResult {
 
 export interface LauncherSettings {
   dayzName: string;
+  dayzPath?: string;
   extraLaunchParameters: string;
+  skipBattleye?: boolean;
+  discordPresence?: boolean;
 }
 
 export interface InstalledMod {
@@ -32,13 +35,42 @@ export interface InstalledMod {
   name: string;
   path: string;
   previewUrl: string | null;
+  description?: string | null;
+  creator?: string | null;
+  fileSize?: number | null;
+  timeUpdated?: number | null;
   needsUpdate: boolean;
   isDownloading: boolean;
   isSubscribed: boolean;
 }
 
+export interface ServerModDetail {
+  workshopId: string;
+  name: string;
+  isInstalled: boolean;
+  isDownloading: boolean;
+  needsUpdate: boolean;
+}
+
+export interface ServerLaunchPreflight {
+  ready: boolean;
+  missingWorkshopIds: string[];
+  dayzRunning: boolean;
+}
+
+export interface WorkshopDownloadProgress {
+  workshopId: string;
+  downloadedBytes: number;
+  totalBytes: number;
+  isDownloading: boolean;
+  isInstalled: boolean;
+  isSubscribed: boolean;
+  needsUpdate: boolean;
+}
+
 export interface SystemStatus {
   steamFound: boolean;
+  steamRunning?: boolean;
   steamPath: string | null;
   steamPersonaName: string | null;
   dayzFound: boolean;

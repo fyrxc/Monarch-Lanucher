@@ -1,91 +1,56 @@
 import type { InstalledMod } from "../lib/models";
+import { ModPreview } from "./mod-preview";
 import styles from "./mod-card.module.css";
 
 interface ModCardProps {
   mod: InstalledMod;
-  busyAction: "update" | "uninstall" | "folder" | null;
-  onOpenFolder(mod: InstalledMod): void;
-  onUpdate(mod: InstalledMod): void;
-  onUninstall(mod: InstalledMod): void;
-}
-
-function stateLabel(mod: InstalledMod): string {
-  if (mod.isDownloading) return "Downloading";
-  if (mod.needsUpdate) return "Update available";
-  if (!mod.isSubscribed) return "Installed locally";
-  return "Installed";
+  updating: boolean;
+  progressPercent?: number | null;
+  onDetails(mod: InstalledMod): void;
 }
 
 export function ModCard({
   mod,
-  busyAction,
-  onOpenFolder,
-  onUpdate,
-  onUninstall,
+  updating,
+  progressPercent = null,
+  onDetails,
 }: ModCardProps) {
-  const busy = busyAction !== null;
+  const status = updating || mod.isDownloading
+    ? progressPercent !== null
+      ? `Downloading ${progressPercent}%`
+      : "Downloading"
+    : mod.needsUpdate
+      ? "Update available"
+      : null;
 
   return (
-    <article className={styles.card}>
+    <button
+      aria-label={`Open ${mod.name} details`}
+      className={styles.card}
+      onClick={() => onDetails(mod)}
+      type="button"
+    >
       <div className={styles.previewWrap}>
-        {mod.previewUrl ? (
-          <img className={styles.preview} src={mod.previewUrl} alt="" loading="lazy" />
-        ) : (
-          <div className={styles.previewFallback} aria-hidden="true">
-            M
+        <ModPreview
+          fallbackClassName={styles.previewFallback}
+          imageClassName={styles.preview}
+          previewUrl={mod.previewUrl}
+        />
+        {updating || mod.isDownloading ? (
+          <div className={styles.downloadOverlay}>
+            <span>{progressPercent !== null ? `${progressPercent}%` : "..."}</span>
           </div>
-        )}
-      </div>
-
-      <div className={styles.content}>
-        <div className={styles.header}>
-          <div className={styles.titleBlock}>
-            <strong>{mod.name}</strong>
-            <span>Workshop ID {mod.workshopId}</span>
+        ) : null}
+        {progressPercent !== null ? (
+          <div className={styles.progressTrack} aria-hidden="true">
+            <div className={styles.progressFill} style={{ width: `${progressPercent}%` }} />
           </div>
-          <span
-            className={`${styles.state} ${mod.needsUpdate ? styles.stateUpdate : ""}`}
-          >
-            {stateLabel(mod)}
-          </span>
-        </div>
-
-        <div className={styles.location}>
-          <span>Folder location</span>
-          <code title={mod.path}>{mod.path}</code>
-        </div>
-
-        <div className={styles.actions}>
-          <button
-            className={styles.secondaryButton}
-            disabled={busy}
-            onClick={() => onOpenFolder(mod)}
-            type="button"
-          >
-            {busyAction === "folder" ? "OPENING..." : "OPEN FOLDER"}
-          </button>
-          <button
-            className={styles.primaryButton}
-            disabled={busy || mod.isDownloading}
-            onClick={() => onUpdate(mod)}
-            type="button"
-          >
-            {busyAction === "update"
-              ? "UPDATING..."
-              : mod.needsUpdate
-                ? "UPDATE"
-                : "CHECK / UPDATE"}
-          </button>
-          <button
-            className={styles.dangerButton}
-            disabled={busy}
-            onClick={() => onUninstall(mod)}
-            type="button"
-          >
-            {busyAction === "uninstall" ? "UNINSTALLING..." : "UNINSTALL"}
-          </button>
-        </div>
+        ) : null}
       </div>
-    </article>
+      <div className={styles.caption}>
+        <strong title={mod.name}>{mod.name}</strong>
+        {status ? <span>{status}</span> : null}
+      </div>
+    </button>
   );
 }

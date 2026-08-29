@@ -1,5 +1,6 @@
 use monarch_launcher::launcher::{
-    build_dayz_launch_command, build_launch_args, build_launch_args_with_mods,
+    build_dayz_launch_command, build_dayz_launch_command_with_options,
+    build_dayz_launch_command_with_password, build_launch_args, build_launch_args_with_mods,
 };
 use monarch_launcher::models::{DayzServer, InstalledMod, LauncherSettings};
 use std::path::PathBuf;
@@ -37,6 +38,7 @@ fn builds_separate_safe_steam_launch_arguments() {
     let settings = LauncherSettings {
         dayz_name: "Crash Out".to_string(),
         extra_launch_parameters: "-nosplash -skipIntro".to_string(),
+        ..LauncherSettings::default()
     };
 
     let args = build_launch_args(&server(), &settings).expect("build launch args");
@@ -51,16 +53,54 @@ fn builds_separate_safe_steam_launch_arguments() {
 }
 
 #[test]
-fn builds_battleye_bootstrap_command() {
+fn builds_official_battleye_bootstrap_command_without_legacy_prefix() {
     let root = PathBuf::from(r"C:\Steam\steamapps\common\DayZ");
     let command = build_dayz_launch_command(&server(), &LauncherSettings::default(), &[], &root)
         .expect("build BattlEye command");
 
     assert_eq!(command.executable, root.join("DayZ_BE.exe"));
     assert_eq!(command.working_directory, root);
-    assert_eq!(&command.args[0..5], ["0", "1", "1", "-exe", "DayZ_x64.exe"]);
+    assert_eq!(&command.args[0..2], ["-exe", "DayZ_x64.exe"]);
+    assert!(!command.args.iter().any(|arg| arg == "0"));
     assert!(command.args.iter().any(|arg| arg == "-connect=1.2.3.4"));
     assert!(command.args.iter().any(|arg| arg == "-port=2302"));
+}
+
+#[test]
+fn skip_battleye_launches_dayz_x64_directly() {
+    let root = PathBuf::from(r"C:\Steam\steamapps\common\DayZ");
+    let command = build_dayz_launch_command_with_options(
+        &server(),
+        &LauncherSettings::default(),
+        &[],
+        &root,
+        None,
+        true,
+    )
+    .expect("build direct DayZ command");
+
+    assert_eq!(command.executable, root.join("DayZ_x64.exe"));
+    assert_eq!(command.working_directory, root);
+    assert!(!command.args.iter().any(|arg| arg == "-exe"));
+    assert!(command.args.iter().any(|arg| arg == "-connect=1.2.3.4"));
+}
+
+#[test]
+fn password_is_added_as_one_dayz_launch_argument() {
+    let root = PathBuf::from(r"C:\Steam\steamapps\common\DayZ");
+    let command = build_dayz_launch_command_with_password(
+        &server(),
+        &LauncherSettings::default(),
+        &[],
+        &root,
+        Some("secret pass"),
+    )
+    .expect("build passworded BattlEye command");
+
+    assert!(command
+        .args
+        .iter()
+        .any(|arg| arg == "-password=secret pass"));
 }
 
 #[test]
@@ -95,6 +135,7 @@ fn rejects_control_characters_in_extra_launch_parameters() {
     let settings = LauncherSettings {
         dayz_name: "Crash Out".to_string(),
         extra_launch_parameters: "-nosplash\n-deleteStuff".to_string(),
+        ..LauncherSettings::default()
     };
 
     let error = build_launch_args(&server(), &settings).expect_err("reject newline");

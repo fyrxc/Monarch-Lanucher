@@ -7,7 +7,11 @@ const PUBLISHED_FILE_DETAILS_URL: &str =
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorkshopMetadata {
     pub title: String,
+    pub creator: Option<String>,
     pub preview_url: Option<String>,
+    pub description: Option<String>,
+    pub file_size: Option<u64>,
+    pub time_updated: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -22,13 +26,53 @@ struct PublishedFileDetailsResponse {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum NumberOrString {
+    Number(u64),
+    Text(String),
+}
+
+impl NumberOrString {
+    fn as_u64(&self) -> Option<u64> {
+        match self {
+            Self::Number(value) => Some(*value),
+            Self::Text(value) => value.trim().parse::<u64>().ok(),
+        }
+    }
+
+    fn as_text(&self) -> Option<String> {
+        match self {
+            Self::Number(value) => Some(value.to_string()),
+            Self::Text(value) => {
+                let value = value.trim();
+                (!value.is_empty()).then(|| value.to_string())
+            }
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
 struct PublishedFileDetail {
     publishedfileid: String,
     result: u32,
     #[serde(default)]
     title: String,
     #[serde(default)]
+    creator: Option<NumberOrString>,
+    #[serde(default)]
     preview_url: Option<String>,
+    #[serde(default)]
+    description: Option<String>,
+    #[serde(default)]
+    file_size: Option<NumberOrString>,
+    #[serde(default)]
+    time_updated: Option<u64>,
+}
+
+fn normalize_optional_text(value: Option<String>) -> Option<String> {
+    value
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
 }
 
 pub fn parse_published_file_details(
@@ -52,10 +96,11 @@ pub fn parse_published_file_details(
             detail.publishedfileid,
             WorkshopMetadata {
                 title: title.to_string(),
-                preview_url: detail
-                    .preview_url
-                    .map(|value| value.trim().to_string())
-                    .filter(|value| !value.is_empty()),
+                creator: detail.creator.as_ref().and_then(NumberOrString::as_text),
+                preview_url: normalize_optional_text(detail.preview_url),
+                description: normalize_optional_text(detail.description),
+                file_size: detail.file_size.as_ref().and_then(NumberOrString::as_u64),
+                time_updated: detail.time_updated,
             },
         );
     }

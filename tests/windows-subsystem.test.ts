@@ -8,3 +8,13 @@ it("builds release launcher as a Windows GUI app without a console window", () =
     '#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]',
   );
 });
+
+it("runs Windows background helper commands without flashing console windows", () => {
+  const steam = readFileSync("src-tauri/src/steam.rs", "utf8");
+  const process = readFileSync("src-tauri/src/process.rs", "utf8");
+
+  expect(steam).toContain("CREATE_NO_WINDOW");
+  expect(process).toContain("CREATE_NO_WINDOW");
+  expect(steam).toMatch(/creation_flags\(CREATE_NO_WINDOW\)/);
+  expect(process).toMatch(/creation_flags\(CREATE_NO_WINDOW\)/);
+});

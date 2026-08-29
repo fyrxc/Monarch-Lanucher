@@ -13,6 +13,9 @@ concurrency:
   group: rewrite-verify-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  MONARCH_DISCORD_APP_ID: '1543377507770826762'
+
 jobs:
   verify:
     runs-on: windows-latest
@@ -64,6 +67,8 @@ jobs:
         run: cargo test --manifest-path src-tauri/Cargo.toml
 
       - name: Build Tauri Windows installer
+        env:
+          MONARCH_UPDATER_PUBLIC_KEY: ${{ vars.MONARCH_UPDATER_PUBLIC_KEY }}
         run: npm run tauri build -- --bundles nsis
 
       - name: Smoke test launcher startup

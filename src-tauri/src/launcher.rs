@@ -22,7 +22,12 @@ pub fn build_launch_args_with_mods(
     installed_mods: &[InstalledMod],
 ) -> Result<Vec<String>, String> {
     let mut args = vec!["-applaunch".to_string(), "221100".to_string()];
-    args.extend(build_dayz_args_with_mods(server, settings, installed_mods)?);
+    args.extend(build_dayz_args_with_mods(
+        server,
+        settings,
+        installed_mods,
+        None,
+    )?);
     Ok(args)
 }
 
@@ -32,17 +37,52 @@ pub fn build_dayz_launch_command(
     installed_mods: &[InstalledMod],
     dayz_root: &Path,
 ) -> Result<DayzLaunchCommand, String> {
-    let mut args = vec![
-        "0".to_string(),
-        "1".to_string(),
-        "1".to_string(),
-        "-exe".to_string(),
-        "DayZ_x64.exe".to_string(),
-    ];
-    args.extend(build_dayz_args_with_mods(server, settings, installed_mods)?);
+    build_dayz_launch_command_with_options(server, settings, installed_mods, dayz_root, None, false)
+}
+
+pub fn build_dayz_launch_command_with_password(
+    server: &DayzServer,
+    settings: &LauncherSettings,
+    installed_mods: &[InstalledMod],
+    dayz_root: &Path,
+    password: Option<&str>,
+) -> Result<DayzLaunchCommand, String> {
+    build_dayz_launch_command_with_options(
+        server,
+        settings,
+        installed_mods,
+        dayz_root,
+        password,
+        false,
+    )
+}
+
+pub fn build_dayz_launch_command_with_options(
+    server: &DayzServer,
+    settings: &LauncherSettings,
+    installed_mods: &[InstalledMod],
+    dayz_root: &Path,
+    password: Option<&str>,
+    skip_battleye: bool,
+) -> Result<DayzLaunchCommand, String> {
+    let mut args = Vec::new();
+    let executable = if skip_battleye {
+        dayz_root.join("DayZ_x64.exe")
+    } else {
+        args.push("-exe".to_string());
+        args.push("DayZ_x64.exe".to_string());
+        dayz_root.join("DayZ_BE.exe")
+    };
+
+    args.extend(build_dayz_args_with_mods(
+        server,
+        settings,
+        installed_mods,
+        password,
+    )?);
 
     Ok(DayzLaunchCommand {
-        executable: dayz_root.join("DayZ_BE.exe"),
+        executable,
         working_directory: dayz_root.to_path_buf(),
         args,
     })
@@ -52,6 +92,7 @@ fn build_dayz_args_with_mods(
     server: &DayzServer,
     settings: &LauncherSettings,
     installed_mods: &[InstalledMod],
+    password: Option<&str>,
 ) -> Result<Vec<String>, String> {
     let mut args = vec![
         format!("-connect={}", server.ip),
@@ -64,6 +105,13 @@ fn build_dayz_args_with_mods(
             return Err("invalid DayZ player name".to_string());
         }
         args.push(format!("-name={player_name}"));
+    }
+
+    if let Some(password) = password.filter(|value| !value.is_empty()) {
+        if contains_control_characters(password) {
+            return Err("invalid server password".to_string());
+        }
+        args.push(format!("-password={password}"));
     }
 
     if !server.required_workshop_ids.is_empty() {

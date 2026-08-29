@@ -1,6 +1,11 @@
-export type LauncherView = "Servers" | "Favorites" | "Recent" | "Mods" | "Settings";
+export type LauncherView = "Servers" | "Favorites" | "Recent" | "Mods";
 
-const items: LauncherView[] = ["Servers", "Favorites", "Recent", "Mods", "Settings"];
+const items: Array<{ view: LauncherView; label: string }> = [
+  { view: "Servers", label: "Servers" },
+  { view: "Favorites", label: "Favorite" },
+  { view: "Recent", label: "Played On" },
+  { view: "Mods", label: "Mods" },
+];
 
 export function Navigation({
   active,
@@ -11,14 +16,14 @@ export function Navigation({
 }) {
   return (
     <nav className="nav-list" aria-label="Launcher navigation">
-      {items.map((item) => (
+      {items.map(({ view, label }) => (
         <button
-          className={active === item ? "nav-item active" : "nav-item"}
-          key={item}
-          onClick={() => onSelect(item)}
+          className={active === view ? "nav-item active" : "nav-item"}
+          key={view}
+          onClick={() => onSelect(view)}
           type="button"
         >
-          {item}
+          {label}
         </button>
       ))}
     </nav>

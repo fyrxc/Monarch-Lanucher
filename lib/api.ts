@@ -4,8 +4,11 @@ import type {
   InstalledMod,
   LauncherSettings,
   ServerDirectoryResult,
+  ServerLaunchPreflight,
+  ServerModDetail,
   SystemStatus,
   UpdateInfo,
+  WorkshopDownloadProgress,
 } from "./models";
 
 export interface LauncherApi {
@@ -23,7 +26,16 @@ export interface LauncherApi {
   openModFolder(workshopId: string): Promise<void>;
   checkForUpdate(): Promise<UpdateInfo>;
   installUpdate(): Promise<void>;
-  launchServer(server: DayzServer): Promise<void>;
+  prepareServerLaunch(server: DayzServer): Promise<ServerLaunchPreflight>;
+  setupServerMods(workshopIds: string[]): Promise<void>;
+  getWorkshopDownloadProgress(workshopIds: string[]): Promise<WorkshopDownloadProgress[]>;
+  getServerModDetails?(workshopIds: string[]): Promise<ServerModDetail[]>;
+  pingServer?(server: DayzServer): Promise<number | null>;
+  getDayzRunning?(): Promise<boolean>;
+  setDiscordPresence?(state: string, details?: string | null): Promise<boolean>;
+  clearDiscordPresence?(): Promise<boolean>;
+  closeDayz(): Promise<void>;
+  launchServer(server: DayzServer, password?: string | null): Promise<void>;
 }
 
 export const tauriApi: LauncherApi = {
@@ -43,5 +55,19 @@ export const tauriApi: LauncherApi = {
   openModFolder: (workshopId) => invoke<void>("open_mod_folder", { workshopId }),
   checkForUpdate: () => invoke<UpdateInfo>("check_for_update"),
   installUpdate: () => invoke<void>("install_update"),
-  launchServer: (server) => invoke<void>("launch_server", { server }),
+  prepareServerLaunch: (server) =>
+    invoke<ServerLaunchPreflight>("prepare_server_launch", { server }),
+  setupServerMods: (workshopIds) => invoke<void>("setup_server_mods", { workshopIds }),
+  getWorkshopDownloadProgress: (workshopIds) =>
+    invoke<WorkshopDownloadProgress[]>("get_workshop_download_progress", { workshopIds }),
+  getServerModDetails: (workshopIds) =>
+    invoke<ServerModDetail[]>("get_server_mod_details", { workshopIds }),
+  pingServer: (server) => invoke<number | null>("ping_server", { server }),
+  getDayzRunning: () => invoke<boolean>("get_dayz_running"),
+  setDiscordPresence: (state, details = null) =>
+    invoke<boolean>("set_discord_presence", { state, details }),
+  clearDiscordPresence: () => invoke<boolean>("clear_discord_presence"),
+  closeDayz: () => invoke<void>("close_dayz"),
+  launchServer: (server, password = null) =>
+    invoke<void>("launch_server", { server, password }),
 };

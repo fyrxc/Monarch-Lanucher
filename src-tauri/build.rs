@@ -4,14 +4,18 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 fn main() {
+    println!("cargo:rerun-if-changed=icons/icon.ico.b64");
+    println!("cargo:rerun-if-env-changed=MONARCH_UPDATER_PUBLIC_KEY");
+    println!("cargo:rerun-if-env-changed=MONARCH_DISCORD_APP_ID");
+
     let icon_path = Path::new("icons/icon.ico");
-    if !icon_path.exists() {
-        fs::create_dir_all("icons").expect("failed to create Tauri icon directory");
-        let encoded =
-            fs::read_to_string("icons/icon.ico.b64").expect("failed to read embedded Monarch icon");
-        let bytes = STANDARD
-            .decode(encoded.trim())
-            .expect("failed to decode embedded Monarch icon");
+    fs::create_dir_all("icons").expect("failed to create Tauri icon directory");
+    let encoded =
+        fs::read_to_string("icons/icon.ico.b64").expect("failed to read embedded Monarch icon");
+    let bytes = STANDARD
+        .decode(encoded.trim())
+        .expect("failed to decode embedded Monarch icon");
+    if fs::read(icon_path).ok().as_deref() != Some(bytes.as_slice()) {
         fs::write(icon_path, bytes).expect("failed to write Tauri Windows icon");
     }
 

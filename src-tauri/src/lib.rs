@@ -2,6 +2,10 @@ pub mod collections;
 pub mod commands;
 pub mod launcher;
 pub mod models;
+pub mod ping;
+pub mod presence;
+pub mod process;
+pub mod server_mods;
 pub mod servers;
 pub mod settings;
 pub mod steam;
@@ -37,7 +41,16 @@ pub fn run() {
             commands::update_workshop_mod,
             commands::unsubscribe_workshop_mod,
             commands::open_mod_folder,
+            commands::prepare_server_launch,
+            commands::setup_server_mods,
+            commands::get_workshop_download_progress,
+            commands::close_dayz,
             commands::launch_server,
+            ping::ping_server,
+            presence::set_discord_presence,
+            presence::clear_discord_presence,
+            process::get_dayz_running,
+            server_mods::get_server_mod_details,
             updates::check_for_update,
             updates::install_update,
         ])

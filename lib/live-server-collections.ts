@@ -13,3 +13,20 @@ export function reconcileServerCollection(
 
   return saved.map((server) => liveByIdentity.get(serverIdentity(server)) ?? server);
 }
+
+export function sortServersWithFavoritesFirst(
+  servers: DayzServer[],
+  favoriteIds: ReadonlySet<string>,
+): DayzServer[] {
+  if (servers.length < 2 || favoriteIds.size === 0) return servers;
+
+  const favorites: DayzServer[] = [];
+  const others: DayzServer[] = [];
+
+  for (const server of servers) {
+    if (favoriteIds.has(serverIdentity(server))) favorites.push(server);
+    else others.push(server);
+  }
+
+  return [...favorites, ...others];
+}

@@ -43,3 +43,15 @@
   color: #edf2f7;
   background: #1a212b;
 }
+
+.button + :global(.sidebar-version) {
+  margin-top: 0;
+}
+
+:global(.brand-logo) {
+  display: block;
+  width: 150px;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+}

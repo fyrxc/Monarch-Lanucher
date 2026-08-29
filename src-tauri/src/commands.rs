@@ -4,7 +4,7 @@ use crate::models::{
     DayzServer, InstalledMod, LauncherSettings, ServerDirectoryResult, ServerLaunchPreflight,
     SystemStatus, WorkshopDownloadProgress, WorkshopMod,
 };
-use crate::process::{close_dayz_processes, is_dayz_running};
+use crate::process::{close_dayz_processes, is_dayz_running, is_steam_running};
 use crate::servers::ServerDirectory;
 use crate::settings::SettingsStore;
 use crate::steam::discover_steam;
@@ -46,6 +46,14 @@ pub fn default_data_root() -> PathBuf {
         .map(PathBuf::from)
         .unwrap_or_else(std::env::temp_dir)
         .join("Monarch Lanucher")
+}
+
+fn require_steam_running() -> Result<(), String> {
+    match is_steam_running() {
+        Ok(true) => Ok(()),
+        Ok(false) => Err("Steam must be open and signed in before using Monarch.".to_string()),
+        Err(error) => Err(format!("Unable to verify the Steam client: {error}")),
+    }
 }
 
 pub async fn get_servers_from(
@@ -147,10 +155,16 @@ pub fn clear_recent(state: State<'_, LauncherState>) -> Result<(), String> {
 pub fn get_system_status() -> SystemStatus {
     match discover_steam() {
         Ok(paths) => {
-            let steam_persona_name = paths.steam_exe.parent().and_then(detect_persona_name);
+            let steam_running = is_steam_running().unwrap_or(false);
+            let steam_persona_name = if steam_running {
+                paths.steam_exe.parent().and_then(detect_persona_name)
+            } else {
+                None
+            };
 
             SystemStatus {
                 steam_found: true,
+                steam_running,
                 steam_path: Some(paths.steam_exe.to_string_lossy().into_owned()),
                 steam_persona_name,
                 dayz_found: paths.dayz_exe.is_some(),
@@ -165,6 +179,7 @@ pub fn get_system_status() -> SystemStatus {
 
 #[tauri::command]
 pub async fn get_installed_mods() -> Result<Vec<WorkshopMod>, String> {
+    require_steam_running()?;
     let steam = discover_steam()?;
     let local_mods = get_installed_mods_from(&steam.library_roots)?;
     let steamworks = SteamWorkshopService::initialize().ok();
@@ -205,6 +220,7 @@ pub async fn get_installed_mods() -> Result<Vec<WorkshopMod>, String> {
                 path: local.map(|value| value.path.clone()).unwrap_or_default(),
                 preview_url: details.and_then(|value| value.preview_url.clone()),
                 description: details.and_then(|value| value.description.clone()),
+                creator: details.and_then(|value| value.creator.clone()),
                 file_size: details.and_then(|value| value.file_size),
                 time_updated: details.and_then(|value| value.time_updated),
                 needs_update: status.needs_update,
@@ -217,11 +233,13 @@ pub async fn get_installed_mods() -> Result<Vec<WorkshopMod>, String> {
 
 #[tauri::command]
 pub fn update_workshop_mod(workshop_id: String) -> Result<(), String> {
+    require_steam_running()?;
     SteamWorkshopService::initialize()?.request_update(&workshop_id)
 }
 
 #[tauri::command]
 pub fn unsubscribe_workshop_mod(workshop_id: String) -> Result<(), String> {
+    require_steam_running()?;
     SteamWorkshopService::initialize()?.unsubscribe(&workshop_id)
 }
 
@@ -244,6 +262,7 @@ pub fn open_mod_folder(workshop_id: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn prepare_server_launch(server: DayzServer) -> Result<ServerLaunchPreflight, String> {
+    require_steam_running()?;
     let steam = discover_steam()?;
     let installed_mods = discover_from_roots(&steam.library_roots)?;
     let running = is_dayz_running()?;
@@ -257,6 +276,7 @@ pub fn prepare_server_launch(server: DayzServer) -> Result<ServerLaunchPreflight
 
 #[tauri::command]
 pub async fn setup_server_mods(workshop_ids: Vec<String>) -> Result<(), String> {
+    require_steam_running()?;
     tauri::async_runtime::spawn_blocking(move || {
         let steamworks = SteamWorkshopService::initialize()?;
         for workshop_id in workshop_ids {
@@ -272,6 +292,7 @@ pub async fn setup_server_mods(workshop_ids: Vec<String>) -> Result<(), String> 
 pub async fn get_workshop_download_progress(
     workshop_ids: Vec<String>,
 ) -> Result<Vec<WorkshopDownloadProgress>, String> {
+    require_steam_running()?;
     tauri::async_runtime::spawn_blocking(move || {
         let steamworks = SteamWorkshopService::initialize()?;
         workshop_ids
@@ -294,6 +315,7 @@ pub fn launch_server(
     server: DayzServer,
     password: Option<String>,
 ) -> Result<(), String> {
+    require_steam_running()?;
     if is_dayz_running()? {
         return Err("DayZ is already running.".to_string());
     }

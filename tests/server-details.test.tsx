@@ -56,12 +56,28 @@ function createApi(): LauncherApi {
     }),
     setupServerMods: vi.fn().mockResolvedValue(undefined),
     getWorkshopDownloadProgress: vi.fn().mockResolvedValue([]),
+    getServerModDetails: vi.fn().mockResolvedValue([
+      {
+        workshopId: "111",
+        name: "Community Framework",
+        isInstalled: true,
+        isDownloading: false,
+        needsUpdate: false,
+      },
+      {
+        workshopId: "222",
+        name: "Monarch Server Pack",
+        isInstalled: false,
+        isDownloading: false,
+        needsUpdate: false,
+      },
+    ]),
     closeDayz: vi.fn().mockResolvedValue(undefined),
     launchServer: vi.fn().mockResolvedValue(undefined),
   };
 }
 
-it("opens server info, copies the address, shows required mods, and joins from the panel", async () => {
+it("opens server info, copies the address, shows required mod names/status, and joins", async () => {
   const api = createApi();
   const writeText = vi.fn().mockResolvedValue(undefined);
   Object.defineProperty(navigator, "clipboard", {
@@ -80,8 +96,11 @@ it("opens server info, copies the address, shows required mods, and joins from t
   expect(within(panel).getByText("namalsk")).toBeInTheDocument();
   expect(within(panel).getByText("45 / 60")).toBeInTheDocument();
   expect(within(panel).getByText("28 ms")).toBeInTheDocument();
-  expect(within(panel).getByText("Workshop 111")).toBeInTheDocument();
-  expect(within(panel).getByText("Workshop 222")).toBeInTheDocument();
+  expect(await within(panel).findByText("Community Framework")).toBeInTheDocument();
+  expect(within(panel).getByText("Monarch Server Pack")).toBeInTheDocument();
+  expect(within(panel).getByText("Installed")).toBeInTheDocument();
+  expect(within(panel).getByText("Missing")).toBeInTheDocument();
+  expect(api.getServerModDetails).toHaveBeenCalledWith(["111", "222"]);
 
   fireEvent.click(within(panel).getByRole("button", { name: "Copy server address" }));
   await waitFor(() => expect(writeText).toHaveBeenCalledWith("10.0.0.10:2302"));

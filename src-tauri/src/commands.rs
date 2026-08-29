@@ -1,7 +1,8 @@
 use crate::collections::CollectionsStore;
 use crate::launcher::build_dayz_launch_command_with_password;
 use crate::models::{
-    DayzServer, InstalledMod, LauncherSettings, ServerDirectoryResult, SystemStatus, WorkshopMod,
+    DayzServer, InstalledMod, LauncherSettings, ServerDirectoryResult, ServerLaunchPreflight,
+    SystemStatus, WorkshopMod,
 };
 use crate::servers::ServerDirectory;
 use crate::settings::SettingsStore;
@@ -10,7 +11,7 @@ use crate::steam_profile::{detect_persona_name, resolve_player_name};
 use crate::workshop::discovery::discover_from_roots;
 use crate::workshop::metadata::fetch_published_file_details;
 use crate::workshop::steamworks_ugc::{parse_workshop_id, SteamWorkshopService};
-use crate::workshop::sync::verify_required_mods;
+use crate::workshop::sync::{build_launch_preflight, verify_required_mods};
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Arc;
@@ -180,6 +181,31 @@ pub fn open_mod_folder(workshop_id: String) -> Result<(), String> {
         .spawn()
         .map_err(|error| format!("failed to open Workshop mod folder: {error}"))?;
     Ok(())
+}
+
+#[tauri::command]
+pub fn prepare_server_launch(server: DayzServer) -> Result<ServerLaunchPreflight, String> {
+    let steam = discover_steam()?;
+    let installed_mods = discover_from_roots(&steam.library_roots)?;
+
+    Ok(build_launch_preflight(
+        &server.required_workshop_ids,
+        &installed_mods,
+        false,
+    ))
+}
+
+#[tauri::command]
+pub async fn setup_server_mods(workshop_ids: Vec<String>) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let steamworks = SteamWorkshopService::initialize()?;
+        for workshop_id in workshop_ids {
+            steamworks.subscribe_and_download(&workshop_id)?;
+        }
+        Ok::<(), String>(())
+    })
+    .await
+    .map_err(|error| format!("Steam Workshop setup task failed: {error}"))?
 }
 
 #[tauri::command]

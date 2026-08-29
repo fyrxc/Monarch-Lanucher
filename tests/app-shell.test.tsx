@@ -61,6 +61,17 @@ function createApi() {
   };
 }
 
+function generatedServer(index: number): DayzServer {
+  return {
+    ...server,
+    id: `server-${index}`,
+    name: `Server ${index}`,
+    ip: `10.0.${Math.floor(index / 255)}.${index % 255}`,
+    gamePort: 2302 + (index % 20),
+    queryPort: 2402 + (index % 20),
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -77,6 +88,27 @@ it("starts on Servers with server-first navigation and real directory data", asy
 
   expect(await screen.findByText("Monarch Test Server")).toBeInTheDocument();
   expect(screen.getByText("42 / 100")).toBeInTheDocument();
+});
+
+it("renders only 100 public servers at a time", async () => {
+  const api = createApi();
+  api.getServers.mockResolvedValue({
+    servers: Array.from({ length: 205 }, (_, index) => generatedServer(index + 1)),
+    isPartial: false,
+    warning: null,
+  });
+
+  render(<AppShell api={api} />);
+
+  expect(await screen.findByText("Server 1")).toBeInTheDocument();
+  await waitFor(() => expect(screen.getAllByRole("button", { name: "JOIN" })).toHaveLength(100));
+  expect(screen.getByText("Page 1 of 3 · 205 servers")).toBeInTheDocument();
+  expect(screen.queryByText("Server 101")).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+  expect(await screen.findByText("Server 101")).toBeInTheDocument();
+  expect(screen.getByText("Page 2 of 3 · 205 servers")).toBeInTheDocument();
 });
 
 it("shows a real server-directory error and retries", async () => {

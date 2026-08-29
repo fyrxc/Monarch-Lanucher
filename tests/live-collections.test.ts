@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { reconcileServerCollection } from "../lib/live-server-collections";
+import {
+  reconcileServerCollection,
+  sortServersWithFavoritesFirst,
+} from "../lib/live-server-collections";
 import type { DayzServer } from "../lib/models";
+import { serverIdentity } from "../lib/server-id";
 
 function server(overrides: Partial<DayzServer> = {}): DayzServer {
   return {
@@ -44,5 +48,25 @@ describe("reconcileServerCollection", () => {
     const unrelated = server({ id: "different-server", players: 45 });
 
     expect(reconcileServerCollection([saved], [unrelated])).toEqual([saved]);
+  });
+});
+
+describe("sortServersWithFavoritesFirst", () => {
+  it("moves favorites to the top without changing order inside either group", () => {
+    const first = server({ id: "first", name: "First" });
+    const favoriteOne = server({ id: "fav-1", name: "Favorite One" });
+    const middle = server({ id: "middle", name: "Middle" });
+    const favoriteTwo = server({ id: "fav-2", name: "Favorite Two" });
+    const favorites = new Set([
+      serverIdentity(favoriteOne),
+      serverIdentity(favoriteTwo),
+    ]);
+
+    expect(
+      sortServersWithFavoritesFirst(
+        [first, favoriteOne, middle, favoriteTwo],
+        favorites,
+      ).map((item) => item.name),
+    ).toEqual(["Favorite One", "Favorite Two", "First", "Middle"]);
   });
 });

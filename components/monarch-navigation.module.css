@@ -1,0 +1,30 @@
+.nav {
+  display: grid;
+  gap: 6px;
+  margin-top: 18px;
+}
+
+.item {
+  width: 100%;
+  min-height: 28px;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #d2d2d2;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  text-align: left;
+  cursor: pointer;
+}
+
+.item:hover {
+  background: #242424;
+  color: #ffffff;
+}
+
+.active {
+  background: #2c2c2c;
+  color: #ffffff;
+}

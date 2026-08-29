@@ -81,7 +81,6 @@ export function ModCard({
 
         <div className={styles.actions}>
           <button
-            aria-label={`Open files for ${mod.name}`}
             className={styles.secondaryButton}
             disabled={busy}
             onClick={() => onOpenFolder(mod)}
@@ -89,10 +88,9 @@ export function ModCard({
             type="button"
           >
             <VscFiles aria-hidden="true" />
-            <span>{busyAction === "folder" ? "OPENING..." : "FILES"}</span>
+            <span>{busyAction === "folder" ? "OPENING..." : "OPEN FOLDER"}</span>
           </button>
           <button
-            aria-label={`Update ${mod.name}`}
             className={styles.primaryButton}
             disabled={busy || mod.isDownloading}
             onClick={() => onUpdate(mod)}
@@ -105,11 +103,10 @@ export function ModCard({
                 ? "UPDATING..."
                 : mod.needsUpdate
                   ? "UPDATE"
-                  : "CHECK"}
+                  : "CHECK / UPDATE"}
             </span>
           </button>
           <button
-            aria-label={`Uninstall ${mod.name}`}
             className={styles.dangerButton}
             disabled={busy}
             onClick={() => onUninstall(mod)}
@@ -117,7 +114,7 @@ export function ModCard({
             type="button"
           >
             <FaTrashCan aria-hidden="true" />
-            <span>{busyAction === "uninstall" ? "REMOVING..." : "REMOVE"}</span>
+            <span>{busyAction === "uninstall" ? "UNINSTALLING..." : "UNINSTALL"}</span>
           </button>
         </div>
       </div>

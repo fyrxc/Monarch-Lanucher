@@ -48,6 +48,30 @@ pub fn build_dayz_launch_command(
     })
 }
 
+pub fn build_dayz_launcher_command(
+    server: &DayzServer,
+    settings: &LauncherSettings,
+    installed_mods: &[InstalledMod],
+    dayz_root: &Path,
+) -> Result<DayzLaunchCommand, String> {
+    let forwarded = build_dayz_args_with_mods(server, settings, installed_mods)?;
+    let mut args = vec![
+        format!("-connect={}:{}", server.ip, server.game_port),
+        "-nolauncher".to_string(),
+    ];
+
+    // The standard DayZ arguments always begin with -connect and -port. The official
+    // launcher accepts the endpoint as one -connect=ip:port relay argument, then
+    // forwards the remaining player/mod/extra arguments to the game.
+    args.extend(forwarded.into_iter().skip(2));
+
+    Ok(DayzLaunchCommand {
+        executable: dayz_root.join("DayZLauncher.exe"),
+        working_directory: dayz_root.to_path_buf(),
+        args,
+    })
+}
+
 fn build_dayz_args_with_mods(
     server: &DayzServer,
     settings: &LauncherSettings,

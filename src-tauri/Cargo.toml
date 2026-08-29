@@ -1,6 +1,6 @@
 [package]
 name = "monarch_launcher"
-version = "0.4.0"
+version = "0.4.1"
 description = "Monarch DayZ launcher"
 authors = ["Monarch"]
 edition = "2021"

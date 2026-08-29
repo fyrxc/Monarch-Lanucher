@@ -39,6 +39,7 @@ pub fn run() {
             commands::open_mod_folder,
             commands::prepare_server_launch,
             commands::setup_server_mods,
+            commands::get_workshop_download_progress,
             commands::launch_server,
             updates::check_for_update,
             updates::install_update,

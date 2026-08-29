@@ -173,7 +173,8 @@ it("keeps cards clean and moves Workshop metadata/actions into Mod Info", async 
 
   fireEvent.click(within(info).getByRole("button", { name: "Update mod" }));
   await waitFor(() => expect(api.updateWorkshopMod).toHaveBeenCalledWith("1559212036"));
-  expect(api.getInstalledMods).toHaveBeenCalledTimes(1);
+  expect(screen.getByText("Community Framework")).toBeInTheDocument();
+  await waitFor(() => expect(within(info).getByText(/Updating/)).toBeInTheDocument());
 
   fireEvent.click(within(info).getByRole("button", { name: "Uninstall mod" }));
   const confirm = await screen.findByRole("dialog", { name: "Uninstall mod" });

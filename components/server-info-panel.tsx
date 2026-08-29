@@ -66,11 +66,10 @@ export function ServerInfoPanel({
     };
   }, [api, open, server]);
 
-  if (!server) {
-    return null;
-  }
+  if (!server) return null;
 
   const address = `${server.ip}:${server.gamePort}`;
+  const online = server.status.toLocaleLowerCase() === "online";
 
   async function copyAddress() {
     try {
@@ -85,13 +84,18 @@ export function ServerInfoPanel({
   return (
     <SlidePanel open={open} title="Server Info" onClose={onClose}>
       <div className={styles.content}>
-        <div className={styles.identity}>
-          <div className={styles.nameRow}>
-            <h3>{server.name}</h3>
-            {server.isPassworded ? <FaKey aria-label="Password protected" /> : null}
+        <section className={styles.hero}>
+          <div className={styles.badges}>
+            <span className={online ? styles.online : styles.offline}>{online ? "ONLINE" : server.status || "UNKNOWN"}</span>
+            <span>{server.isOfficial ? "OFFICIAL" : "COMMUNITY"}</span>
+            {server.isPassworded ? <span className={styles.locked}><FaKey aria-hidden="true" /> LOCKED</span> : null}
           </div>
+          <h3>{server.name}</h3>
           <div className={styles.addressRow}>
-            <span>{address}</span>
+            <div>
+              <strong>{address}</strong>
+              <small>Query port {server.queryPort}</small>
+            </div>
             <button
               aria-label="Copy server address"
               className={styles.iconButton}
@@ -102,41 +106,34 @@ export function ServerInfoPanel({
             </button>
             {copied ? <span className={styles.copied}>Copied</span> : null}
           </div>
-        </div>
+        </section>
 
         <dl className={styles.stats}>
-          <div>
-            <dt>Map</dt>
-            <dd>{server.map || "--"}</dd>
-          </div>
-          <div>
-            <dt>Players</dt>
-            <dd>{server.players} / {server.capacity}</dd>
-          </div>
-          <div>
-            <dt>Ping</dt>
-            <dd>{server.ping === null ? "--" : `${server.ping} ms`}</dd>
-          </div>
-          <div>
-            <dt>View</dt>
-            <dd>{server.firstPersonOnly ? "1PP" : "3PP"}</dd>
-          </div>
+          <div><dt>Map</dt><dd>{server.map || "--"}</dd></div>
+          <div><dt>Players</dt><dd>{server.players} / {server.capacity}</dd></div>
+          <div><dt>Ping</dt><dd>{server.ping === null ? "--" : `${server.ping} ms`}</dd></div>
+          <div><dt>Perspective</dt><dd>{server.firstPersonOnly ? "1PP" : "1PP / 3PP"}</dd></div>
+          <div><dt>Region</dt><dd>{server.country || "--"}</dd></div>
+          <div><dt>Type</dt><dd>{server.isOfficial ? "Official" : "Community"}</dd></div>
         </dl>
 
         <section className={styles.modsSection}>
           <div className={styles.sectionHeading}>
-            <h4>Required Mods</h4>
-            <span>{loadingMods ? "Checking..." : server.requiredWorkshopIds.length}</span>
+            <div>
+              <h4>Required Mods</h4>
+              <p>Steam Workshop requirements for this server.</p>
+            </div>
+            <span>{loadingMods ? "Checking..." : `${server.requiredWorkshopIds.length} MOD${server.requiredWorkshopIds.length === 1 ? "" : "S"}`}</span>
           </div>
           {server.requiredWorkshopIds.length === 0 ? (
-            <div className={styles.vanilla}>Vanilla server</div>
+            <div className={styles.vanilla}>No Workshop mods required.</div>
           ) : (
             <div className={styles.modList}>
               {modDetails.map((mod) => (
                 <div className={styles.modRow} key={mod.workshopId}>
                   <div className={styles.modIdentity}>
                     <span>{mod.name}</span>
-                    <small>{mod.workshopId}</small>
+                    <small>Workshop {mod.workshopId}</small>
                   </div>
                   <strong className={`${styles.modStatus} ${styles[statusLabel(mod).toLowerCase()]}`}>
                     {statusLabel(mod)}
@@ -147,13 +144,15 @@ export function ServerInfoPanel({
           )}
         </section>
 
-        <button
-          className={styles.joinButton}
-          onClick={() => onJoin(server)}
-          type="button"
-        >
-          JOIN SERVER
-        </button>
+        <div className={styles.joinArea}>
+          <div>
+            <strong>{server.players} / {server.capacity}</strong>
+            <span>{server.ping === null ? "Ping checking..." : `${server.ping} ms`}</span>
+          </div>
+          <button className={styles.joinButton} onClick={() => onJoin(server)} type="button">
+            JOIN SERVER
+          </button>
+        </div>
       </div>
     </SlidePanel>
   );

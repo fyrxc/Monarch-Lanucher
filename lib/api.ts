@@ -5,6 +5,7 @@ import type {
   LauncherSettings,
   ServerDirectoryResult,
   ServerLaunchPreflight,
+  ServerModDetail,
   SystemStatus,
   UpdateInfo,
   WorkshopDownloadProgress,
@@ -28,6 +29,9 @@ export interface LauncherApi {
   prepareServerLaunch(server: DayzServer): Promise<ServerLaunchPreflight>;
   setupServerMods(workshopIds: string[]): Promise<void>;
   getWorkshopDownloadProgress(workshopIds: string[]): Promise<WorkshopDownloadProgress[]>;
+  getServerModDetails?(workshopIds: string[]): Promise<ServerModDetail[]>;
+  pingServer?(server: DayzServer): Promise<number | null>;
+  getDayzRunning?(): Promise<boolean>;
   closeDayz(): Promise<void>;
   launchServer(server: DayzServer, password?: string | null): Promise<void>;
 }
@@ -54,6 +58,10 @@ export const tauriApi: LauncherApi = {
   setupServerMods: (workshopIds) => invoke<void>("setup_server_mods", { workshopIds }),
   getWorkshopDownloadProgress: (workshopIds) =>
     invoke<WorkshopDownloadProgress[]>("get_workshop_download_progress", { workshopIds }),
+  getServerModDetails: (workshopIds) =>
+    invoke<ServerModDetail[]>("get_server_mod_details", { workshopIds }),
+  pingServer: (server) => invoke<number | null>("ping_server", { server }),
+  getDayzRunning: () => invoke<boolean>("get_dayz_running"),
   closeDayz: () => invoke<void>("close_dayz"),
   launchServer: (server, password = null) =>
     invoke<void>("launch_server", { server, password }),

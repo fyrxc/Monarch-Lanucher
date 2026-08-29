@@ -50,6 +50,9 @@ function createApi() {
         name: "Community Framework",
         path: "D:\\SteamLibrary\\steamapps\\workshop\\content\\221100\\1559212036",
         previewUrl: "https://cdn.example/cf.jpg",
+        description: "Community Framework description",
+        fileSize: 1024,
+        timeUpdated: 1787947200,
         needsUpdate: true,
         isDownloading: false,
         isSubscribed: true,
@@ -148,27 +151,34 @@ it("shows a real server-directory error and retries", async () => {
   expect(await screen.findByText("Monarch Test Server")).toBeInTheDocument();
 });
 
-it("renders Workshop metadata and mod-management actions", async () => {
+it("keeps cards clean and moves Workshop metadata/actions into Mod Info", async () => {
   const api = createApi();
   const { container } = render(<AppShell api={api} />);
 
   fireEvent.click(screen.getByRole("button", { name: "Mods" }));
 
   expect(await screen.findByText("Community Framework")).toBeInTheDocument();
-  expect(screen.getByText("Workshop ID 1559212036")).toBeInTheDocument();
   expect(screen.getByText("Update available")).toBeInTheDocument();
   expect(container.querySelector('img[src="https://cdn.example/cf.jpg"]')).toBeInTheDocument();
-  expect(screen.getByText(/steamapps\\workshop\\content\\221100\\1559212036/i)).toBeInTheDocument();
+  expect(screen.queryByText("Workshop ID 1559212036")).not.toBeInTheDocument();
+  expect(screen.queryByText(/steamapps\\workshop\\content\\221100\\1559212036/i)).not.toBeInTheDocument();
 
-  fireEvent.click(screen.getByRole("button", { name: "OPEN FOLDER" }));
+  fireEvent.click(screen.getByRole("button", { name: "Open Community Framework details" }));
+  const info = await screen.findByRole("dialog", { name: "Mod Info" });
+  expect(within(info).getByText("Workshop ID 1559212036")).toBeInTheDocument();
+  expect(within(info).getByText("Community Framework description")).toBeInTheDocument();
+
+  fireEvent.click(within(info).getByRole("button", { name: "Open mod folder" }));
   await waitFor(() => expect(api.openModFolder).toHaveBeenCalledWith("1559212036"));
 
-  fireEvent.click(screen.getByRole("button", { name: "UPDATE" }));
+  fireEvent.click(within(info).getByRole("button", { name: "Update mod" }));
   await waitFor(() => expect(api.updateWorkshopMod).toHaveBeenCalledWith("1559212036"));
+  expect(api.getInstalledMods).toHaveBeenCalledTimes(1);
 
-  fireEvent.click(screen.getByRole("button", { name: "UNINSTALL" }));
+  fireEvent.click(within(info).getByRole("button", { name: "Uninstall mod" }));
+  const confirm = await screen.findByRole("dialog", { name: "Uninstall mod" });
+  fireEvent.click(within(confirm).getByRole("button", { name: "UNINSTALL" }));
   await waitFor(() => expect(api.unsubscribeWorkshopMod).toHaveBeenCalledWith("1559212036"));
-  await waitFor(() => expect(screen.queryByText("Community Framework")).not.toBeInTheDocument());
 });
 
 it("defaults a blank DayZ name to the active Steam public name", async () => {
@@ -179,7 +189,6 @@ it("defaults a blank DayZ name to the active Steam public name", async () => {
 
   const playerName = await screen.findByDisplayValue("PublicSteamName");
   expect(playerName).toBeInTheDocument();
-  expect(screen.getByText("PublicSteamName")).toBeInTheDocument();
 });
 
 it("keeps a saved DayZ name instead of replacing it with Steam", async () => {

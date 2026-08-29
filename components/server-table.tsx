@@ -1,6 +1,14 @@
 import { memo } from "react";
+import { FiCopy, FiKey, FiStar } from "react-icons/fi";
+import { FaStar } from "react-icons/fa";
 import type { DayzServer } from "../lib/models";
 import { serverIdentity } from "../lib/server-id";
+
+function copyAddress(address: string) {
+  if (typeof navigator !== "undefined" && navigator.clipboard) {
+    void navigator.clipboard.writeText(address);
+  }
+}
 
 export const ServerTable = memo(function ServerTable({
   servers,
@@ -39,6 +47,7 @@ export const ServerTable = memo(function ServerTable({
             const identity = serverIdentity(server);
             const favorite = favoriteIds.has(identity);
             const joining = joiningId === identity;
+            const address = `${server.ip}:${server.gamePort}`;
             return (
               <tr key={identity}>
                 <td className="favorite-cell">
@@ -48,13 +57,29 @@ export const ServerTable = memo(function ServerTable({
                     onClick={() => onFavorite(server)}
                     type="button"
                   >
-                    {favorite ? "★" : "☆"}
+                    {favorite ? <FaStar aria-hidden /> : <FiStar aria-hidden />}
                   </button>
                 </td>
                 <td>
-                  <div className="server-name">{server.name}</div>
-                  <div className="server-address">
-                    {server.country || "--"} · {server.ip}:{server.gamePort}
+                  <div className="server-name-line">
+                    <div className="server-name">{server.name}</div>
+                    {server.isPassworded ? (
+                      <span className="server-lock" aria-label="Password protected" title="Password protected">
+                        <FiKey aria-hidden />
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="server-address-line">
+                    <span className="server-address">{address}</span>
+                    <button
+                      aria-label={`Copy ${address}`}
+                      className="server-copy-button"
+                      onClick={() => copyAddress(address)}
+                      title={`Copy ${address}`}
+                      type="button"
+                    >
+                      <FiCopy aria-hidden />
+                    </button>
                   </div>
                 </td>
                 <td>{server.map}</td>

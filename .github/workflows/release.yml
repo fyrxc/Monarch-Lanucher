@@ -72,11 +72,14 @@ jobs:
 
       - name: Configure release version and updater artifacts
         shell: pwsh
+        env:
+          MONARCH_UPDATER_PUBLIC_KEY: ${{ vars.MONARCH_UPDATER_PUBLIC_KEY }}
         run: |
           $path = '.\src-tauri\tauri.conf.json'
           $config = Get-Content $path -Raw | ConvertFrom-Json
           $config.version = $env:MONARCH_VERSION
           $config.bundle | Add-Member -NotePropertyName createUpdaterArtifacts -NotePropertyValue $true -Force
+          $config.plugins.updater.pubkey = $env:MONARCH_UPDATER_PUBLIC_KEY
           $config | ConvertTo-Json -Depth 20 | Set-Content $path -Encoding UTF8
 
       - name: Validate updater signing configuration

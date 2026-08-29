@@ -6,6 +6,29 @@ fn configured_app_id() -> Option<&'static str> {
         .filter(|value| !value.is_empty())
 }
 
+fn activity_payload(state: Option<&str>, context: Option<&str>) -> serde_json::Value {
+    if state.is_none() && context.is_none() {
+        return serde_json::Value::Null;
+    }
+
+    let state = state.unwrap_or("Browsing servers").trim();
+    let context = context.unwrap_or("").trim();
+    let display_state = if context.is_empty() || context.eq_ignore_ascii_case("Monarch Launcher") {
+        state.to_string()
+    } else {
+        format!("{state} • {context}")
+    };
+
+    json!({
+        "details": "Monarch Launcher",
+        "state": display_state,
+        "assets": {
+            "large_image": "monarch_m",
+            "large_text": "Monarch Launcher"
+        }
+    })
+}
+
 #[cfg(windows)]
 fn send_presence(state: Option<&str>, details: Option<&str>) -> Result<bool, String> {
     use std::fs::{File, OpenOptions};
@@ -44,13 +67,7 @@ fn send_presence(state: Option<&str>, details: Option<&str>) -> Result<bool, Str
         .unwrap_or_default()
         .as_nanos()
         .to_string();
-    let activity = match (state, details) {
-        (None, None) => serde_json::Value::Null,
-        _ => json!({
-            "state": state.unwrap_or("Monarch Launcher"),
-            "details": details.unwrap_or("DayZ"),
-        }),
-    };
+    let activity = activity_payload(state, details);
     frame(
         &mut pipe,
         1,
@@ -92,7 +109,15 @@ mod tests {
     fn presence_activity_uses_monarch_m_branding() {
         let activity = activity_payload(Some("Browsing servers"), Some("Monarch Launcher"));
         assert_eq!(activity["details"], "Monarch Launcher");
+        assert_eq!(activity["state"], "Browsing servers");
         assert_eq!(activity["assets"]["large_image"], "monarch_m");
         assert_eq!(activity["assets"]["large_text"], "Monarch Launcher");
+    }
+
+    #[test]
+    fn presence_keeps_server_context_below_launcher_title() {
+        let activity = activity_payload(Some("Playing DayZ"), Some("Crashout PVP"));
+        assert_eq!(activity["details"], "Monarch Launcher");
+        assert_eq!(activity["state"], "Playing DayZ • Crashout PVP");
     }
 }

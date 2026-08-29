@@ -1,6 +1,7 @@
 use crate::models::UpdateInfo;
-use reqwest::Url;
+use reqwest::{Client, Url};
 use serde::Deserialize;
+use std::cmp::Ordering;
 use std::fs;
 use std::process::Command;
 use tauri::AppHandle;
@@ -10,6 +11,8 @@ const UPDATE_ENDPOINT: &str =
     "https://github.com/fyrxc/Monarch-Lanucher/releases/latest/download/latest.json";
 const FALLBACK_INSTALLER_URL: &str =
     "https://github.com/fyrxc/Monarch-Lanucher/releases/latest/download/MonarchLauncher-Setup.exe";
+const LATEST_RELEASE_API: &str =
+    "https://api.github.com/repos/fyrxc/Monarch-Lanucher/releases/latest";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UpdateCandidate {
@@ -22,6 +25,21 @@ struct LatestManifest {
     version: String,
     #[serde(default)]
     notes: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GithubRelease {
+    tag_name: String,
+    #[serde(default)]
+    body: Option<String>,
+    #[serde(default)]
+    assets: Vec<GithubAsset>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GithubAsset {
+    name: String,
+    browser_download_url: String,
 }
 
 pub fn summarize_update(current_version: &str, candidate: Option<UpdateCandidate>) -> UpdateInfo {
@@ -39,6 +57,28 @@ pub fn summarize_update(current_version: &str, candidate: Option<UpdateCandidate
             notes: None,
         },
     }
+}
+
+fn version_parts(version: &str) -> Option<Vec<u64>> {
+    let trimmed = version.trim().trim_start_matches(['v', 'V']);
+    if trimmed.is_empty() {
+        return None;
+    }
+    trimmed
+        .split('.')
+        .map(|part| part.parse::<u64>().ok())
+        .collect()
+}
+
+pub fn is_newer_version(candidate: &str, current: &str) -> bool {
+    let (Some(mut candidate), Some(mut current)) = (version_parts(candidate), version_parts(current))
+    else {
+        return candidate.trim() != current.trim();
+    };
+    let width = candidate.len().max(current.len());
+    candidate.resize(width, 0);
+    current.resize(width, 0);
+    candidate.cmp(&current) == Ordering::Greater
 }
 
 fn signing_public_key() -> Option<&'static str> {
@@ -59,33 +99,86 @@ fn configured_updater(app: &AppHandle, public_key: &str) -> Result<Updater, Stri
         .map_err(|error| format!("failed to initialize updater: {error}"))
 }
 
-async fn fallback_candidate(current_version: &str) -> Result<Option<UpdateCandidate>, String> {
-    let response = reqwest::get(UPDATE_ENDPOINT)
+fn github_client() -> Result<Client, String> {
+    Client::builder()
+        .user_agent("MonarchLauncher/0.4")
+        .build()
+        .map_err(|error| format!("failed to initialize GitHub updater client: {error}"))
+}
+
+async fn github_release_fallback(
+    client: &Client,
+    current_version: &str,
+) -> Result<(Option<UpdateCandidate>, Option<String>), String> {
+    let response = client
+        .get(LATEST_RELEASE_API)
+        .send()
         .await
         .map_err(|error| format!("failed to check GitHub Releases for updates: {error}"))?;
     if !response.status().is_success() {
         return Err(format!(
-            "GitHub update metadata request failed with HTTP {}",
+            "GitHub Releases request failed with HTTP {}",
             response.status()
         ));
     }
-    let body = response
-        .text()
+
+    let release = response
+        .json::<GithubRelease>()
         .await
-        .map_err(|error| format!("failed to read GitHub update metadata: {error}"))?;
-    let manifest: LatestManifest = serde_json::from_str(&body)
-        .map_err(|error| format!("invalid GitHub update metadata: {error}"))?;
-    if manifest.version.trim() == current_version.trim() {
-        return Ok(None);
+        .map_err(|error| format!("invalid GitHub release response: {error}"))?;
+    let version = release.tag_name.trim().trim_start_matches(['v', 'V']);
+    if !is_newer_version(version, current_version) {
+        return Ok((None, None));
     }
-    Ok(Some(UpdateCandidate {
-        version: manifest.version,
-        notes: manifest.notes,
-    }))
+
+    let installer_url = release
+        .assets
+        .iter()
+        .find(|asset| asset.name.eq_ignore_ascii_case("MonarchLauncher-Setup.exe"))
+        .map(|asset| asset.browser_download_url.clone());
+    Ok((
+        Some(UpdateCandidate {
+            version: version.to_string(),
+            notes: release.body.filter(|value| !value.trim().is_empty()),
+        }),
+        installer_url,
+    ))
 }
 
-async fn install_fallback(app: &AppHandle) -> Result<(), String> {
-    let response = reqwest::get(FALLBACK_INSTALLER_URL)
+async fn fallback_release(
+    current_version: &str,
+) -> Result<(Option<UpdateCandidate>, Option<String>), String> {
+    let client = github_client()?;
+    let response = client
+        .get(UPDATE_ENDPOINT)
+        .send()
+        .await
+        .map_err(|error| format!("failed to check GitHub Releases for updates: {error}"))?;
+
+    if response.status().is_success() {
+        let manifest = response
+            .json::<LatestManifest>()
+            .await
+            .map_err(|error| format!("invalid GitHub update metadata: {error}"))?;
+        if !is_newer_version(&manifest.version, current_version) {
+            return Ok((None, None));
+        }
+        return Ok((
+            Some(UpdateCandidate {
+                version: manifest.version,
+                notes: manifest.notes,
+            }),
+            Some(FALLBACK_INSTALLER_URL.to_string()),
+        ));
+    }
+
+    github_release_fallback(&client, current_version).await
+}
+
+async fn install_fallback(app: &AppHandle, installer_url: &str) -> Result<(), String> {
+    let response = github_client()?
+        .get(installer_url)
+        .send()
         .await
         .map_err(|error| format!("failed to download Monarch Launcher update: {error}"))?;
     if !response.status().is_success() {
@@ -126,7 +219,7 @@ pub async fn check_for_update(app: AppHandle) -> Result<UpdateInfo, String> {
                 notes: update.body,
             })
     } else {
-        fallback_candidate(&current_version).await?
+        fallback_release(&current_version).await?.0
     };
 
     Ok(summarize_update(&current_version, candidate))
@@ -148,8 +241,12 @@ pub async fn install_update(app: AppHandle) -> Result<(), String> {
     }
 
     let current_version = app.package_info().version.to_string();
-    if fallback_candidate(&current_version).await?.is_none() {
+    let (candidate, installer_url) = fallback_release(&current_version).await?;
+    if candidate.is_none() {
         return Err("No newer Monarch Launcher update is available.".to_string());
     }
-    install_fallback(&app).await
+    let installer_url = installer_url.ok_or_else(|| {
+        "The latest Monarch release does not include a Windows setup executable yet.".to_string()
+    })?;
+    install_fallback(&app, &installer_url).await
 }

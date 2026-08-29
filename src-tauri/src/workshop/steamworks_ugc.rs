@@ -12,6 +12,7 @@ pub struct WorkshopItemStatus {
     pub needs_update: bool,
     pub is_downloading: bool,
     pub is_subscribed: bool,
+    pub is_installed: bool,
 }
 
 pub struct SteamWorkshopService {
@@ -34,6 +35,7 @@ impl SteamWorkshopService {
             is_downloading: state.contains(ItemState::DOWNLOADING)
                 || state.contains(ItemState::DOWNLOAD_PENDING),
             is_subscribed: state.contains(ItemState::SUBSCRIBED),
+            is_installed: state.contains(ItemState::INSTALLED),
         })
     }
 
@@ -44,6 +46,32 @@ impl SteamWorkshopService {
         } else {
             Err(format!(
                 "Steam did not accept the update request for Workshop mod {workshop_id}"
+            ))
+        }
+    }
+
+    pub fn subscribe_and_download(&self, workshop_id: &str) -> Result<(), String> {
+        let id = parse_workshop_id(workshop_id)?;
+        let state = self.client.ugc().item_state(id);
+
+        if !state.contains(ItemState::SUBSCRIBED) {
+            let (sender, receiver) = mpsc::channel::<Result<(), String>>();
+            self.client.ugc().subscribe_item(id, move |result| {
+                let _ = sender.send(result.map_err(|error| {
+                    format!("Steam failed to subscribe Workshop mod: {error}")
+                }));
+            });
+            self.wait_for_callback(
+                receiver,
+                format!("Steam timed out while subscribing Workshop mod {workshop_id}"),
+            )?;
+        }
+
+        if self.client.ugc().download_item(id, true) {
+            Ok(())
+        } else {
+            Err(format!(
+                "Steam did not accept the download request for Workshop mod {workshop_id}"
             ))
         }
     }
@@ -59,21 +87,30 @@ impl SteamWorkshopService {
             );
         });
 
+        self.wait_for_callback(
+            receiver,
+            format!("Steam timed out while unsubscribing Workshop mod {workshop_id}"),
+        )
+    }
+
+    fn wait_for_callback(
+        &self,
+        receiver: mpsc::Receiver<Result<(), String>>,
+        timeout_message: String,
+    ) -> Result<(), String> {
         let deadline = Instant::now() + CALLBACK_TIMEOUT;
         loop {
             self.client.run_callbacks();
             match receiver.try_recv() {
                 Ok(result) => return result,
                 Err(mpsc::TryRecvError::Disconnected) => {
-                    return Err("Steam Workshop unsubscribe callback disconnected".to_string())
+                    return Err("Steam Workshop callback disconnected".to_string())
                 }
                 Err(mpsc::TryRecvError::Empty) => {}
             }
 
             if Instant::now() >= deadline {
-                return Err(format!(
-                    "Steam timed out while unsubscribing Workshop mod {workshop_id}"
-                ));
+                return Err(timeout_message);
             }
             thread::sleep(CALLBACK_POLL_INTERVAL);
         }

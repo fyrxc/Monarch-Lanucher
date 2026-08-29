@@ -15,25 +15,39 @@ pub fn tasklist_contains_dayz(output: &str) -> bool {
         .any(|name| lower.contains(&name.to_ascii_lowercase()))
 }
 
-pub fn is_dayz_running() -> Result<bool, String> {
+pub fn tasklist_contains_steam(output: &str) -> bool {
+    output.lines().any(|line| {
+        line.trim_start()
+            .to_ascii_lowercase()
+            .starts_with("\"steam.exe\"")
+    })
+}
+
+fn tasklist_output() -> Result<String, String> {
     let mut command = Command::new("tasklist");
     command.args(["/NH", "/FO", "CSV"]);
     #[cfg(windows)]
     command.creation_flags(CREATE_NO_WINDOW);
     let output = command
         .output()
-        .map_err(|error| format!("failed to check running DayZ processes: {error}"))?;
+        .map_err(|error| format!("failed to check running processes: {error}"))?;
 
     if !output.status.success() {
         return Err(format!(
-            "Windows tasklist failed while checking DayZ: {}",
+            "Windows tasklist failed while checking processes: {}",
             String::from_utf8_lossy(&output.stderr).trim()
         ));
     }
 
-    Ok(tasklist_contains_dayz(&String::from_utf8_lossy(
-        &output.stdout,
-    )))
+    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
+pub fn is_steam_running() -> Result<bool, String> {
+    Ok(tasklist_contains_steam(&tasklist_output()?))
+}
+
+pub fn is_dayz_running() -> Result<bool, String> {
+    Ok(tasklist_contains_dayz(&tasklist_output()?))
 }
 
 #[tauri::command]

@@ -1,7 +1,8 @@
 use crate::collections::CollectionsStore;
 use crate::launcher::build_dayz_launch_command;
 use crate::models::{
-    DayzServer, InstalledMod, LauncherSettings, ServerDirectoryResult, SystemStatus, WorkshopMod,
+    DayzServer, InstalledMod, LauncherSettings, ServerDirectoryResult, SystemStatus,
+    WorkshopDownloadStatus, WorkshopMod,
 };
 use crate::servers::ServerDirectory;
 use crate::settings::SettingsStore;
@@ -153,6 +154,18 @@ pub async fn get_installed_mods() -> Result<Vec<WorkshopMod>, String> {
             }
         })
         .collect())
+}
+
+#[tauri::command]
+pub fn install_workshop_mod(workshop_id: String) -> Result<(), String> {
+    SteamWorkshopService::initialize()?.subscribe_and_download(&workshop_id)
+}
+
+#[tauri::command]
+pub fn get_workshop_download_status(
+    workshop_id: String,
+) -> Result<WorkshopDownloadStatus, String> {
+    SteamWorkshopService::initialize()?.download_status(&workshop_id)
 }
 
 #[tauri::command]

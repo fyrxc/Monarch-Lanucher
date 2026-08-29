@@ -72,7 +72,7 @@ it("opens server details from the arrow next to JOIN and shows copyable IP plus 
   render(<AppShell api={createApi()} />);
   await screen.findByText("Crashout DayZ");
 
-  const details = screen.getByRole("button", { name: /view crashout dayz server info/i });
+  const details = screen.getByRole("button", { name: /open crashout dayz server info/i });
   fireEvent.click(details);
 
   const drawer = await screen.findByRole("dialog", { name: /crashout dayz server info/i });

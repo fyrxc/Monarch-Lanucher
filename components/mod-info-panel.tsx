@@ -39,6 +39,8 @@ export function ModInfoPanel({
   onUpdate: (mod: InstalledMod) => void;
   onUninstall: (mod: InstalledMod) => void;
 }) {
+  const commandBusy = busyAction === "folder" || busyAction === "uninstall";
+
   return (
     <SlidePanel open={mod !== null} title="Mod Info" onClose={onClose}>
       {mod ? (
@@ -98,7 +100,7 @@ export function ModInfoPanel({
           <div className={styles.actions}>
             <button
               aria-label="Open mod folder"
-              disabled={busyAction !== null}
+              disabled={commandBusy}
               onClick={() => onOpenFolder(mod)}
               type="button"
             >
@@ -116,7 +118,7 @@ export function ModInfoPanel({
             </button>
             <button
               aria-label="Uninstall mod"
-              disabled={busyAction !== null}
+              disabled={commandBusy}
               onClick={() => onUninstall(mod)}
               type="button"
             >

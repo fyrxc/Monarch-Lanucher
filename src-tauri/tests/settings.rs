@@ -59,10 +59,7 @@ fn legacy_dayz_executable_path_is_migrated_to_install_directory() {
 
     let actual = store.load().expect("load legacy settings");
 
-    assert_eq!(
-        actual.dayz_path,
-        r"D:\SteamLibrary\steamapps\common\DayZ"
-    );
+    assert_eq!(actual.dayz_path, r"D:\SteamLibrary\steamapps\common\DayZ");
     let _ = fs::remove_dir_all(root);
 }
 

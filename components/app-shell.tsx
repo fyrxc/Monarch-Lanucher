@@ -14,6 +14,7 @@ import type {
 } from "../lib/models";
 import { paginate } from "../lib/pagination";
 import { serverIdentity } from "../lib/server-id";
+import { DayzRunningDialog } from "./dayz-running-dialog";
 import { ModCard } from "./mod-card";
 import { Navigation, type LauncherView } from "./navigation";
 import { PasswordDialog } from "./password-dialog";
@@ -46,7 +47,10 @@ const emptyFilters: ServerFilters = {
 
 const emptySettings: LauncherSettings = {
   dayzName: "",
+  dayzPath: "",
   extraLaunchParameters: "",
+  skipBattleye: false,
+  discordPresence: true,
 };
 
 function errorMessage(error: unknown): string {
@@ -58,6 +62,8 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   const [activeView, setActiveView] = useState<LauncherView>("Servers");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [passwordServer, setPasswordServer] = useState<DayzServer | null>(null);
+  const [runningServer, setRunningServer] = useState<DayzServer | null>(null);
+  const [closingDayz, setClosingDayz] = useState(false);
   const [setupServer, setSetupServer] = useState<DayzServer | null>(null);
   const [setupMissingIds, setSetupMissingIds] = useState<string[]>([]);
   const [setupReady, setSetupReady] = useState(false);
@@ -146,10 +152,17 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     void Promise.all([api.getSettings(), api.getSystemStatus()])
       .then(([nextSettings, status]) => {
         const steamDefault = status.steamPersonaName?.trim() ?? "";
+        const normalized: LauncherSettings = {
+          ...emptySettings,
+          ...nextSettings,
+          dayzPath: nextSettings.dayzPath ?? status.dayzPath ?? "",
+          skipBattleye: nextSettings.skipBattleye ?? false,
+          discordPresence: nextSettings.discordPresence ?? true,
+        };
         setSettings(
-          nextSettings.dayzName.trim() || !steamDefault
-            ? nextSettings
-            : { ...nextSettings, dayzName: steamDefault },
+          normalized.dayzName.trim() || !steamDefault
+            ? normalized
+            : { ...normalized, dayzName: steamDefault },
         );
         setSystemStatus(status);
       })
@@ -304,7 +317,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
       try {
         const preflight = await api.prepareServerLaunch(server);
         if (preflight.dayzRunning) {
-          setActionError("DayZ is already running. Close it before joining another server.");
+          setRunningServer(server);
           return;
         }
         if (preflight.missingWorkshopIds.length > 0) {
@@ -328,6 +341,22 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     },
     [api, joinServer],
   );
+
+  const closeDayzAndJoin = useCallback(async () => {
+    if (!runningServer) return;
+    const server = runningServer;
+    setClosingDayz(true);
+    setActionError(null);
+    try {
+      await api.closeDayz();
+      setRunningServer(null);
+      await requestJoin(server);
+    } catch (error) {
+      setActionError(errorMessage(error));
+    } finally {
+      setClosingDayz(false);
+    }
+  }, [api, requestJoin, runningServer]);
 
   const setupRequiredMods = useCallback(async () => {
     if (!setupServer || setupMissingIds.length === 0) return;
@@ -694,6 +723,15 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
         {activeView === "Recent" ? renderCollection("Recent", recent) : null}
         {activeView === "Mods" ? renderMods() : null}
       </main>
+
+      {runningServer ? (
+        <DayzRunningDialog
+          busy={closingDayz}
+          onCancel={() => setRunningServer(null)}
+          onCloseAndJoin={() => void closeDayzAndJoin()}
+          server={runningServer}
+        />
+      ) : null}
 
       {setupServer ? (
         <SetupModsDialog

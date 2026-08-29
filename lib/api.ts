@@ -32,6 +32,8 @@ export interface LauncherApi {
   getServerModDetails?(workshopIds: string[]): Promise<ServerModDetail[]>;
   pingServer?(server: DayzServer): Promise<number | null>;
   getDayzRunning?(): Promise<boolean>;
+  setDiscordPresence?(state: string, details?: string | null): Promise<boolean>;
+  clearDiscordPresence?(): Promise<boolean>;
   closeDayz(): Promise<void>;
   launchServer(server: DayzServer, password?: string | null): Promise<void>;
 }
@@ -62,6 +64,9 @@ export const tauriApi: LauncherApi = {
     invoke<ServerModDetail[]>("get_server_mod_details", { workshopIds }),
   pingServer: (server) => invoke<number | null>("ping_server", { server }),
   getDayzRunning: () => invoke<boolean>("get_dayz_running"),
+  setDiscordPresence: (state, details = null) =>
+    invoke<boolean>("set_discord_presence", { state, details }),
+  clearDiscordPresence: () => invoke<boolean>("clear_discord_presence"),
   closeDayz: () => invoke<void>("close_dayz"),
   launchServer: (server, password = null) =>
     invoke<void>("launch_server", { server, password }),

@@ -37,6 +37,8 @@ pub fn run() {
             commands::update_workshop_mod,
             commands::unsubscribe_workshop_mod,
             commands::open_mod_folder,
+            commands::prepare_server_launch,
+            commands::setup_server_mods,
             commands::launch_server,
             updates::check_for_update,
             updates::install_update,

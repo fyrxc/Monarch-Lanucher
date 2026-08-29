@@ -3,6 +3,7 @@ pub mod commands;
 pub mod launcher;
 pub mod models;
 pub mod ping;
+pub mod presence;
 pub mod process;
 pub mod server_mods;
 pub mod servers;
@@ -46,6 +47,8 @@ pub fn run() {
             commands::close_dayz,
             commands::launch_server,
             ping::ping_server,
+            presence::set_discord_presence,
+            presence::clear_discord_presence,
             process::get_dayz_running,
             server_mods::get_server_mod_details,
             updates::check_for_update,

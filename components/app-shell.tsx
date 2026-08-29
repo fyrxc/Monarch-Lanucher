@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { FaTrashCan } from "react-icons/fa6";
+import { FiCopy } from "react-icons/fi";
 import { HiOutlineSpeakerWave } from "react-icons/hi2";
 import { IoClose } from "react-icons/io5";
 import { RxUpdate } from "react-icons/rx";
@@ -66,6 +67,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   const [recent, setRecent] = useState<DayzServer[]>([]);
   const [installedMods, setInstalledMods] = useState<InstalledMod[]>([]);
   const [selectedMod, setSelectedMod] = useState<InstalledMod | null>(null);
+  const [selectedServer, setSelectedServer] = useState<DayzServer | null>(null);
   const [filters, setFilters] = useState<ServerFilters>(emptyFilters);
   const [serverPage, setServerPage] = useState(1);
   const [settings, setSettings] = useState<LauncherSettings>(emptySettings);
@@ -185,6 +187,10 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     () => new Set(favorites.map((server) => serverIdentity(server))),
     [favorites],
   );
+  const installedModById = useMemo(
+    () => new Map(installedMods.map((mod) => [mod.workshopId, mod])),
+    [installedMods],
+  );
   const maps = useMemo(
     () => Array.from(new Set(servers.map((server) => server.map).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
     [servers],
@@ -200,8 +206,16 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
 
   const selectView = useCallback((view: LauncherView) => {
     setSelectedMod(null);
+    setSelectedServer(null);
     setActiveView(view);
   }, []);
+
+  const openServerDetails = useCallback((server: DayzServer) => {
+    setSelectedServer(server);
+    void api.getInstalledMods()
+      .then(setInstalledMods)
+      .catch(() => undefined);
+  }, [api]);
 
   const toggleFavorite = useCallback(async (server: DayzServer) => {
     try {
@@ -226,6 +240,17 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
       setJoiningId(null);
     }
   }, [api, loadRecent]);
+
+  const copyServerAddress = useCallback(async (server: DayzServer) => {
+    const address = `${server.ip}:${server.gamePort}`;
+    try {
+      if (!navigator.clipboard) throw new Error("Clipboard is unavailable");
+      await navigator.clipboard.writeText(address);
+      setActionMessage(`Copied ${address}`);
+    } catch (error) {
+      setActionError(errorMessage(error));
+    }
+  }, []);
 
   const openModFolder = useCallback(async (mod: InstalledMod) => {
     setModBusy({ id: mod.workshopId, action: "folder" });
@@ -318,7 +343,14 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
               onClear={() => { setFilters(emptyFilters); setServerPage(1); }}
               resultCount={visibleServers.length}
             />
-            <ServerTable favoriteIds={favoriteIds} joiningId={joiningId} onFavorite={toggleFavorite} onJoin={joinServer} servers={serverPageResult.items} />
+            <ServerTable
+              favoriteIds={favoriteIds}
+              joiningId={joiningId}
+              onDetails={openServerDetails}
+              onFavorite={toggleFavorite}
+              onJoin={joinServer}
+              servers={serverPageResult.items}
+            />
             {visibleServers.length > 0 ? (
               <div className="server-pagination" aria-label="Server pages">
                 <button className="ghost-button" disabled={serverPageResult.page <= 1} onClick={() => setServerPage(serverPageResult.page - 1)} type="button">Previous</button>
@@ -339,7 +371,14 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
           <div><h1>{title}</h1><p>{title === "Favorites" ? "Servers you saved." : "Your latest successful joins."}</p></div>
           {title === "Recent" && collection.length > 0 ? <button className="ghost-button" onClick={() => void clearRecent()} type="button">Clear Recent</button> : null}
         </div>
-        <ServerTable favoriteIds={favoriteIds} joiningId={joiningId} onFavorite={toggleFavorite} onJoin={joinServer} servers={collection} />
+        <ServerTable
+          favoriteIds={favoriteIds}
+          joiningId={joiningId}
+          onDetails={openServerDetails}
+          onFavorite={toggleFavorite}
+          onJoin={joinServer}
+          servers={collection}
+        />
       </div>
     );
   }
@@ -403,6 +442,67 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     );
   }
 
+  function renderServerDrawer() {
+    if (!selectedServer) return null;
+    const address = `${selectedServer.ip}:${selectedServer.gamePort}`;
+    return (
+      <div className="drawer-scrim server-info-scrim" data-ui-click onMouseDown={() => setSelectedServer(null)}>
+        <aside
+          aria-label={`${selectedServer.name} server info`}
+          aria-modal="true"
+          className="server-info-drawer"
+          onMouseDown={(event) => event.stopPropagation()}
+          role="dialog"
+        >
+          <div className="drawer-header server-info-header">
+            <div><span className="eyebrow">SERVER INFO</span><h2>{selectedServer.name}</h2></div>
+            <button aria-label="Close server info" className="drawer-close" onClick={() => setSelectedServer(null)} type="button"><IoClose aria-hidden="true" /></button>
+          </div>
+
+          <div className="server-info-address-row">
+            <div><span>Server IP</span><strong>{address}</strong></div>
+            <button aria-label="Copy server IP" className="server-copy-button" onClick={() => void copyServerAddress(selectedServer)} type="button"><FiCopy aria-hidden="true" /></button>
+          </div>
+
+          <dl className="server-info-grid">
+            <div><dt>Map</dt><dd>{selectedServer.map || "--"}</dd></div>
+            <div><dt>Players</dt><dd>{selectedServer.players} / {selectedServer.capacity}</dd></div>
+            <div><dt>Ping</dt><dd>{selectedServer.ping === null ? "--" : `${selectedServer.ping} ms`}</dd></div>
+            <div><dt>Perspective</dt><dd>{selectedServer.firstPersonOnly ? "1PP" : "3PP"}</dd></div>
+            <div><dt>Status</dt><dd>{selectedServer.status}</dd></div>
+            <div><dt>Password</dt><dd>{selectedServer.isPassworded ? "Required" : "No"}</dd></div>
+          </dl>
+
+          <section className="server-required-mods">
+            <div className="server-required-mods-heading">
+              <span className="eyebrow">REQUIRED MODS</span>
+              <strong>{selectedServer.requiredWorkshopIds.length}</strong>
+            </div>
+            {selectedServer.requiredWorkshopIds.length === 0 ? (
+              <div className="server-mod-empty">Vanilla server — no Workshop mods required.</div>
+            ) : (
+              <div className="server-mod-list">
+                {selectedServer.requiredWorkshopIds.map((workshopId) => {
+                  const installed = installedModById.get(workshopId);
+                  return (
+                    <div className="server-mod-row" key={workshopId}>
+                      <div><strong>{installed?.name ?? `Workshop ${workshopId}`}</strong><span>{workshopId}</span></div>
+                      <span className={installed ? "server-mod-installed" : "server-mod-missing"}>{installed ? "Installed" : "Required"}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          <button className="join-button server-info-join" disabled={joiningId === serverIdentity(selectedServer)} onClick={() => void joinServer(selectedServer)} type="button">
+            {joiningId === serverIdentity(selectedServer) ? "JOINING..." : "JOIN"}
+          </button>
+        </aside>
+      </div>
+    );
+  }
+
   function renderModDrawer() {
     if (!selectedMod) return null;
     return (
@@ -446,6 +546,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
         {activeView === "Mods" ? renderMods() : null}
       </main>
       {renderSettingsDrawer()}
+      {renderServerDrawer()}
       {renderModDrawer()}
     </div>
   );

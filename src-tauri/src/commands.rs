@@ -57,12 +57,15 @@ pub fn get_installed_mods_from(roots: &[PathBuf]) -> Result<Vec<InstalledMod>, S
     discover_from_roots(roots)
 }
 
-fn configured_dayz_root(settings: &LauncherSettings, detected_root: Option<&Path>) -> Result<PathBuf, String> {
+fn configured_dayz_root(
+    settings: &LauncherSettings,
+    detected_root: Option<&Path>,
+) -> Result<PathBuf, String> {
     let configured = settings.dayz_path.trim();
     let root = if configured.is_empty() {
-        detected_root
-            .map(Path::to_path_buf)
-            .ok_or_else(|| "DayZ_x64.exe was not found in the detected DayZ installation.".to_string())?
+        detected_root.map(Path::to_path_buf).ok_or_else(|| {
+            "DayZ_x64.exe was not found in the detected DayZ installation.".to_string()
+        })?
     } else {
         let path = PathBuf::from(configured);
         if path
@@ -179,6 +182,9 @@ pub async fn get_installed_mods() -> Result<Vec<WorkshopMod>, String> {
                     .unwrap_or(item.name),
                 path: item.path,
                 preview_url: details.and_then(|value| value.preview_url.clone()),
+                description: details.and_then(|value| value.description.clone()),
+                file_size: details.and_then(|value| value.file_size),
+                time_updated: details.and_then(|value| value.time_updated),
                 needs_update: status.needs_update,
                 is_downloading: status.is_downloading,
                 is_subscribed: status.is_subscribed,

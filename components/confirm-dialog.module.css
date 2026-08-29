@@ -1,0 +1,71 @@
+.layer {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: grid;
+  place-items: center;
+}
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 8, 11, 0.78);
+  backdrop-filter: blur(3px);
+}
+
+.dialog {
+  position: relative;
+  width: min(410px, calc(100vw - 48px));
+  padding: 20px;
+  border: 1px solid #303b47;
+  border-radius: 12px;
+  background: #151b22;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.48);
+}
+
+.dialog h2 {
+  margin: 0;
+  color: #f2f5f8;
+  font-size: 15px;
+}
+
+.copy {
+  margin: 10px 0 18px;
+  color: #9da8b3;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.secondary,
+.danger {
+  min-height: 36px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.secondary {
+  border: 1px solid #34414e;
+  background: #10161d;
+  color: #c9d1d9;
+}
+
+.danger {
+  border: 1px solid #6c373d;
+  background: #402126;
+  color: #ffd9dd;
+}
+
+.secondary:disabled,
+.danger:disabled {
+  cursor: default;
+  opacity: 0.55;
+}

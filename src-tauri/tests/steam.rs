@@ -49,7 +49,10 @@ fn discovers_dayz_and_battleye_from_a_steam_library() {
     let (detected_root, dayz_exe, battleye_exe) = find_dayz_install(&[PathBuf::from(&root)]);
 
     assert_eq!(detected_root.as_deref(), Some(dayz_root.as_path()));
-    assert_eq!(dayz_exe.as_deref(), Some(dayz_root.join("DayZ_x64.exe").as_path()));
+    assert_eq!(
+        dayz_exe.as_deref(),
+        Some(dayz_root.join("DayZ_x64.exe").as_path())
+    );
     assert_eq!(
         battleye_exe.as_deref(),
         Some(dayz_root.join("DayZ_BE.exe").as_path())

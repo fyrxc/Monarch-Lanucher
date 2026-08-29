@@ -85,7 +85,7 @@ export const ServerTable = memo(function ServerTable({
                   <td>{server.map || "Unknown"}</td>
                   <td className={styles.numeric}>{server.players}/{server.capacity}</td>
                   <td className={`${styles.numeric} ${pingTone(server.ping)}`}>
-                    {server.ping === null ? "--" : server.ping}
+                    {server.ping === null ? "--" : `${server.ping} ms`}
                   </td>
                   <td className={styles.numeric}>{server.requiredWorkshopIds.length || "0"}</td>
                   <td>{server.firstPersonOnly ? "1PP" : "3PP"}</td>

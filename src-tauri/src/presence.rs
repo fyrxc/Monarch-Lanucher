@@ -83,3 +83,16 @@ pub async fn clear_discord_presence() -> Result<bool, String> {
         .await
         .map_err(|error| format!("Discord presence task failed: {error}"))?
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn presence_activity_uses_monarch_m_branding() {
+        let activity = activity_payload(Some("Browsing servers"), Some("Monarch Launcher"));
+        assert_eq!(activity["details"], "Monarch Launcher");
+        assert_eq!(activity["assets"]["large_image"], "monarch_m");
+        assert_eq!(activity["assets"]["large_text"], "Monarch Launcher");
+    }
+}

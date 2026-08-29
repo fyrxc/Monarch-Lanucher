@@ -43,6 +43,14 @@ export interface InstalledMod {
   isSubscribed: boolean;
 }
 
+export interface ServerModDetail {
+  workshopId: string;
+  name: string;
+  isInstalled: boolean;
+  isDownloading: boolean;
+  needsUpdate: boolean;
+}
+
 export interface ServerLaunchPreflight {
   ready: boolean;
   missingWorkshopIds: string[];

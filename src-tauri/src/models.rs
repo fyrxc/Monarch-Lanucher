@@ -40,6 +40,7 @@ pub struct LauncherSettings {
 pub struct SystemStatus {
     pub steam_found: bool,
     pub steam_path: Option<String>,
+    pub steam_persona_name: Option<String>,
     pub dayz_found: bool,
     pub dayz_path: Option<String>,
 }

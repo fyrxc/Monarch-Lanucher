@@ -98,7 +98,7 @@ it("searches installed mods, opens rich Mod Info, updates in place, and confirms
 
   fireEvent.click(within(info).getByRole("button", { name: "Update mod" }));
   await waitFor(() => expect(api.updateWorkshopMod).toHaveBeenCalledWith("111"));
-  expect(screen.getByText("CUT Server Pack")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Open CUT Server Pack details" })).toBeInTheDocument();
   await waitFor(() => expect(within(info).getByText(/Updating/)).toBeInTheDocument());
 
   fireEvent.click(within(info).getByRole("button", { name: "Uninstall mod" }));

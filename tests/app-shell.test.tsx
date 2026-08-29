@@ -95,11 +95,15 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-it("starts on Servers with the Monarch Figma navigation and a separate Settings slide-out", async () => {
+it("starts on Servers with the user Monarch navigation and a separate Settings slide-out", async () => {
   const api = createApi();
   render(<AppShell api={api} />);
 
-  expect(screen.getByRole("heading", { name: "Servers" })).toBeInTheDocument();
+  const brand = screen.getByLabelText("Monarch brand");
+  expect(within(brand).getByRole("img", { name: "Monarch M" })).toBeInTheDocument();
+  expect(within(brand).getByRole("img", { name: "onarch" })).toBeInTheDocument();
+  expect(screen.queryByRole("heading", { name: "Servers" })).not.toBeInTheDocument();
+
   const nav = screen.getByRole("navigation", { name: "Launcher navigation" });
   expect(within(nav).getByRole("button", { name: "Servers" })).toHaveClass("active");
   for (const item of ["Servers", "Favorite", "Played On", "Mods"]) {
@@ -109,7 +113,7 @@ it("starts on Servers with the Monarch Figma navigation and a separate Settings 
   expect(screen.queryByText("DAYZ LAUNCHER")).not.toBeInTheDocument();
 
   expect(await screen.findByText("Monarch Test Server")).toBeInTheDocument();
-  expect(screen.getByText("42 / 100")).toBeInTheDocument();
+  expect(screen.getByText("42/100")).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole("button", { name: "Settings" }));
   expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();

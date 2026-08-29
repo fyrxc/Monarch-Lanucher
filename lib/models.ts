@@ -35,6 +35,9 @@ export interface InstalledMod {
   name: string;
   path: string;
   previewUrl: string | null;
+  description?: string | null;
+  fileSize?: number | null;
+  timeUpdated?: number | null;
   needsUpdate: boolean;
   isDownloading: boolean;
   isSubscribed: boolean;

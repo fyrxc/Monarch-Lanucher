@@ -31,6 +31,10 @@ export interface InstalledMod {
   workshopId: string;
   name: string;
   path: string;
+  previewUrl: string | null;
+  needsUpdate: boolean;
+  isDownloading: boolean;
+  isSubscribed: boolean;
 }
 
 export interface SystemStatus {

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { AppShell } from "../components/app-shell";
 import type { DayzServer } from "../lib/models";
@@ -79,6 +79,18 @@ it("marks the selected navigation tab as the current page", async () => {
   expect(servers).not.toHaveAttribute("aria-current");
 });
 
+it("uses the Figma M plus onarch wordmark and keeps updates in the sidebar footer", () => {
+  render(<AppShell api={apiWithMod()} />);
+
+  const sidebar = screen.getByRole("complementary", { name: /monarch launcher/i });
+  const wordmark = within(sidebar).getByTestId("monarch-wordmark");
+
+  expect(wordmark).toHaveTextContent("onarch");
+  expect(within(wordmark).getByRole("img", { name: /monarch m/i })).toBeInTheDocument();
+  expect(screen.queryByText("DAYZ LAUNCHER")).not.toBeInTheDocument();
+  expect(within(sidebar).getByRole("button", { name: /check for updates/i })).toBeInTheDocument();
+});
+
 it("shows UI Sounds in Settings enabled by default and persists the toggle", async () => {
   const api = apiWithMod();
   const { unmount } = render(<AppShell api={api} />);
@@ -140,13 +152,6 @@ it("does not play the selection sound when UI Sounds are disabled", () => {
 
   expect(AudioMock).not.toHaveBeenCalled();
   expect(play).not.toHaveBeenCalled();
-});
-
-it("keeps Check for Updates visible in Settings", async () => {
-  render(<AppShell api={apiWithMod()} />);
-  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-
-  expect(await screen.findByRole("button", { name: /check for updates/i })).toBeInTheDocument();
 });
 
 it("opens the selected mod in a details panel with live mod data", async () => {

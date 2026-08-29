@@ -173,12 +173,10 @@ pub async fn get_required_mods(server: DayzServer) -> Result<Vec<RequiredMod>, S
         .iter()
         .map(|item| (item.workshop_id.as_str(), item))
         .collect();
-    let metadata = fetch_published_file_details(
-        &reqwest::Client::new(),
-        &server.required_workshop_ids,
-    )
-    .await
-    .unwrap_or_default();
+    let metadata =
+        fetch_published_file_details(&reqwest::Client::new(), &server.required_workshop_ids)
+            .await
+            .unwrap_or_default();
     let steamworks = SteamWorkshopService::initialize().ok();
 
     Ok(server
@@ -277,7 +275,13 @@ pub fn launch_server(
     server: DayzServer,
     password: Option<String>,
 ) -> Result<(), String> {
-    if server.is_passworded && password.as_deref().map(str::trim).unwrap_or_default().is_empty() {
+    if server.is_passworded
+        && password
+            .as_deref()
+            .map(str::trim)
+            .unwrap_or_default()
+            .is_empty()
+    {
         return Err("this server requires a password".to_string());
     }
 

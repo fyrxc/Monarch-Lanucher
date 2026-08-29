@@ -64,6 +64,21 @@ pub fn find_dayz_install(roots: &[PathBuf]) -> (Option<PathBuf>, Option<PathBuf>
     (None, None, None)
 }
 
+pub fn find_dayz_launcher(roots: &[PathBuf]) -> Option<PathBuf> {
+    for root in roots {
+        let launcher = root
+            .join("steamapps")
+            .join("common")
+            .join("DayZ")
+            .join("DayZLauncher.exe");
+        if launcher.is_file() {
+            return Some(launcher);
+        }
+    }
+
+    None
+}
+
 pub fn discover_steam() -> Result<SteamPaths, String> {
     let registry_exe = registry_value("SteamExe").map(PathBuf::from);
     let registry_root = registry_value("SteamPath").map(PathBuf::from);

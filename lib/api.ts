@@ -3,6 +3,7 @@ import type {
   DayzServer,
   InstalledMod,
   LauncherSettings,
+  RequiredMod,
   ServerDirectoryResult,
   SystemStatus,
   UpdateInfo,
@@ -18,12 +19,14 @@ export interface LauncherApi {
   saveSettings(settings: LauncherSettings): Promise<void>;
   getSystemStatus(): Promise<SystemStatus>;
   getInstalledMods(): Promise<InstalledMod[]>;
+  getRequiredMods(server: DayzServer): Promise<RequiredMod[]>;
+  syncRequiredMods(server: DayzServer): Promise<void>;
   updateWorkshopMod(workshopId: string): Promise<void>;
   unsubscribeWorkshopMod(workshopId: string): Promise<void>;
   openModFolder(workshopId: string): Promise<void>;
   checkForUpdate(): Promise<UpdateInfo>;
   installUpdate(): Promise<void>;
-  launchServer(server: DayzServer): Promise<void>;
+  launchServer(server: DayzServer, password?: string): Promise<void>;
 }
 
 export const tauriApi: LauncherApi = {
@@ -36,6 +39,8 @@ export const tauriApi: LauncherApi = {
   saveSettings: (settings) => invoke<void>("save_settings", { settings }),
   getSystemStatus: () => invoke<SystemStatus>("get_system_status"),
   getInstalledMods: () => invoke<InstalledMod[]>("get_installed_mods"),
+  getRequiredMods: (server) => invoke<RequiredMod[]>("get_required_mods", { server }),
+  syncRequiredMods: (server) => invoke<void>("sync_required_mods", { server }),
   updateWorkshopMod: (workshopId) =>
     invoke<void>("update_workshop_mod", { workshopId }),
   unsubscribeWorkshopMod: (workshopId) =>
@@ -43,5 +48,6 @@ export const tauriApi: LauncherApi = {
   openModFolder: (workshopId) => invoke<void>("open_mod_folder", { workshopId }),
   checkForUpdate: () => invoke<UpdateInfo>("check_for_update"),
   installUpdate: () => invoke<void>("install_update"),
-  launchServer: (server) => invoke<void>("launch_server", { server }),
+  launchServer: (server, password) =>
+    invoke<void>("launch_server", { server, password: password ?? null }),
 };

@@ -28,7 +28,7 @@ pub struct ServerDirectoryResult {
     pub warning: Option<String>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default, rename_all = "camelCase")]
 pub struct LauncherSettings {
     pub dayz_name: String,
@@ -36,6 +36,18 @@ pub struct LauncherSettings {
     pub extra_launch_parameters: String,
     pub skip_battleye: bool,
     pub discord_presence: bool,
+}
+
+impl Default for LauncherSettings {
+    fn default() -> Self {
+        Self {
+            dayz_name: String::new(),
+            dayz_path: String::new(),
+            extra_launch_parameters: String::new(),
+            skip_battleye: false,
+            discord_presence: true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]

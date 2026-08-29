@@ -107,6 +107,72 @@
   height: 39px;
 }
 
+.server-main-cell {
+  padding: 0 !important;
+}
+
+.server-details-hitbox {
+  display: flex;
+  width: 100%;
+  min-height: 39px;
+  align-items: flex-start;
+  justify-content: center;
+  flex-direction: column;
+  padding: 5px 9px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.server-details-hitbox:hover,
+.server-details-hitbox:focus-visible {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.server-details-hitbox .server-name,
+.server-details-hitbox .server-address {
+  display: block;
+}
+
+.server-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.server-info-button,
+.server-copy-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 6px;
+  background: #171e26;
+  color: #cbd1d7;
+  cursor: pointer;
+}
+
+.server-info-button {
+  width: 34px;
+  min-width: 34px;
+  height: 31px;
+}
+
+.server-info-button:hover,
+.server-copy-button:hover {
+  background: #1f2934;
+}
+
+.server-info-button svg,
+.server-copy-button svg {
+  width: 14px;
+  height: 14px;
+}
+
 .figma-mods-view .mods-scroll-shell {
   max-height: calc(100vh - 68px);
   padding-bottom: 50px;
@@ -117,12 +183,14 @@
   gap: 14px;
 }
 
-.settings-scrim {
+.settings-scrim,
+.server-info-scrim {
   justify-content: flex-end;
   background: rgba(7, 9, 12, 0.2);
 }
 
-.settings-drawer {
+.settings-drawer,
+.server-info-drawer {
   position: absolute;
   top: 0;
   right: 0;
@@ -135,6 +203,12 @@
   background: #2a2a2a;
   box-shadow: -18px 0 42px rgba(0, 0, 0, 0.28);
   animation: figmaSettingsIn 220ms cubic-bezier(0.2, 0.72, 0.2, 1) both;
+}
+
+.server-info-drawer {
+  width: clamp(390px, 35vw, 470px);
+  background: #242a31;
+  border-left-color: #3a424b;
 }
 
 @keyframes figmaSettingsIn {
@@ -222,10 +296,10 @@
 
 .settings-wide-button {
   width: 100%;
-  min-height: 31px;
+  min-height: 36px;
   margin-top: 8px;
   border: 1px solid #494949;
-  border-radius: 6px;
+  border-radius: 7px;
   background: #3b3b3b;
   color: #dedede;
   cursor: pointer;
@@ -243,12 +317,176 @@
   transform: translateY(1px);
 }
 
+.server-info-header {
+  margin-bottom: 18px;
+}
+
+.server-info-address-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #3a424b;
+  border-radius: 8px;
+  background: #1b2128;
+}
+
+.server-info-address-row div {
+  min-width: 0;
+}
+
+.server-info-address-row span {
+  display: block;
+  margin-bottom: 4px;
+  color: #7e8994;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.server-info-address-row strong {
+  display: block;
+  overflow: hidden;
+  color: #eef1f4;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.server-copy-button {
+  width: 38px;
+  min-width: 38px;
+  height: 38px;
+}
+
+.server-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 14px 0 18px;
+}
+
+.server-info-grid div {
+  padding: 10px 11px;
+  border: 1px solid #353e47;
+  border-radius: 7px;
+  background: #1f252c;
+}
+
+.server-info-grid dt,
+.server-info-grid dd {
+  margin: 0;
+}
+
+.server-info-grid dt {
+  margin-bottom: 4px;
+  color: #78838e;
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.server-info-grid dd {
+  color: #e6eaee;
+  font-size: 11px;
+  font-weight: 620;
+}
+
+.server-required-mods-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.server-required-mods-heading strong {
+  color: #dbe1e6;
+  font-size: 10px;
+}
+
+.server-mod-list {
+  display: grid;
+  gap: 6px;
+  max-height: 310px;
+  overflow-y: auto;
+}
+
+.server-mod-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 10px;
+  border: 1px solid #343d46;
+  border-radius: 7px;
+  background: #1e242b;
+}
+
+.server-mod-row div {
+  min-width: 0;
+}
+
+.server-mod-row strong,
+.server-mod-row span {
+  display: block;
+}
+
+.server-mod-row strong {
+  overflow: hidden;
+  color: #e2e7eb;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.server-mod-row div span {
+  margin-top: 3px;
+  color: #717c87;
+  font-size: 8px;
+}
+
+.server-mod-installed,
+.server-mod-missing {
+  flex: 0 0 auto;
+  padding: 4px 6px;
+  border-radius: 5px;
+  font-size: 8px;
+  font-weight: 750;
+}
+
+.server-mod-installed {
+  color: #b9c8bb;
+  background: rgba(79, 117, 83, 0.16);
+}
+
+.server-mod-missing {
+  color: #d6b6b6;
+  background: rgba(124, 64, 64, 0.16);
+}
+
+.server-mod-empty {
+  padding: 11px;
+  border: 1px dashed #3a424b;
+  border-radius: 7px;
+  color: #8c969f;
+  font-size: 9px;
+}
+
+.server-info-join {
+  width: 100%;
+  min-height: 38px;
+  margin-top: 16px;
+}
+
 @media (max-width: 980px) {
   .figma-shell {
     grid-template-columns: 104px minmax(0, 1fr);
   }
 
-  .settings-drawer {
-    width: min(420px, 46vw);
+  .settings-drawer,
+  .server-info-drawer {
+    width: min(430px, 48vw);
   }
 }

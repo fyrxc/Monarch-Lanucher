@@ -171,9 +171,7 @@ pub fn install_workshop_mod(workshop_id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn get_workshop_download_status(
-    workshop_id: String,
-) -> Result<WorkshopDownloadStatus, String> {
+pub fn get_workshop_download_status(workshop_id: String) -> Result<WorkshopDownloadStatus, String> {
     SteamWorkshopService::initialize()?.download_status(&workshop_id)
 }
 

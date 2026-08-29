@@ -56,7 +56,7 @@ export function ModCard({
 
       <div className={styles.content}>
         <button
-          aria-label={`View details for ${mod.name}`}
+          aria-label={`Open details for ${mod.name}`}
           className={styles.titleButton}
           onClick={() => onSelect(mod)}
           type="button"

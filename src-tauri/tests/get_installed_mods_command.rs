@@ -1,4 +1,5 @@
-use monarch_launcher::commands::get_installed_mods_from;
+use monarch_launcher::commands::{get_installed_mods_from, merge_workshop_ids};
+use monarch_launcher::models::InstalledMod;
 use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -28,4 +29,19 @@ fn installed_mod_command_helper_scans_supplied_steam_roots() {
     assert_eq!(mods.len(), 1);
     assert_eq!(mods[0].workshop_id, "1559212036");
     let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn workshop_catalog_keeps_local_order_and_adds_pending_subscriptions_once() {
+    let local = vec![InstalledMod {
+        workshop_id: "111".to_string(),
+        name: "Installed".to_string(),
+        path: "C:/Workshop/111".to_string(),
+    }];
+    let subscribed = vec!["111".to_string(), "222".to_string(), "333".to_string()];
+
+    assert_eq!(
+        merge_workshop_ids(&local, &subscribed),
+        vec!["111".to_string(), "222".to_string(), "333".to_string()]
+    );
 }

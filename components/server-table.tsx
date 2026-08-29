@@ -84,7 +84,7 @@ export const ServerTable = memo(function ServerTable({
                       {joining ? "JOINING..." : "JOIN"}
                     </button>
                     <button
-                      aria-label={`View ${server.name} server info`}
+                      aria-label={`Open ${server.name} server info`}
                       className="server-info-button"
                       onClick={() => onDetails(server)}
                       type="button"

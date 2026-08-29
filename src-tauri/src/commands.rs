@@ -2,7 +2,7 @@ use crate::collections::CollectionsStore;
 use crate::launcher::build_dayz_launch_command_with_password;
 use crate::models::{
     DayzServer, InstalledMod, LauncherSettings, ServerDirectoryResult, ServerLaunchPreflight,
-    SystemStatus, WorkshopMod,
+    SystemStatus, WorkshopDownloadProgress, WorkshopMod,
 };
 use crate::servers::ServerDirectory;
 use crate::settings::SettingsStore;
@@ -206,6 +206,21 @@ pub async fn setup_server_mods(workshop_ids: Vec<String>) -> Result<(), String> 
     })
     .await
     .map_err(|error| format!("Steam Workshop setup task failed: {error}"))?
+}
+
+#[tauri::command]
+pub async fn get_workshop_download_progress(
+    workshop_ids: Vec<String>,
+) -> Result<Vec<WorkshopDownloadProgress>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let steamworks = SteamWorkshopService::initialize()?;
+        workshop_ids
+            .iter()
+            .map(|workshop_id| steamworks.download_progress(workshop_id))
+            .collect::<Result<Vec<_>, _>>()
+    })
+    .await
+    .map_err(|error| format!("Steam Workshop progress task failed: {error}"))?
 }
 
 #[tauri::command]

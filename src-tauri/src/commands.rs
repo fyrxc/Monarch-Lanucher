@@ -1,13 +1,15 @@
 use crate::collections::CollectionsStore;
 use crate::launcher::build_dayz_launch_command;
 use crate::models::{
-    DayzServer, InstalledMod, LauncherSettings, ServerDirectoryResult, SystemStatus,
+    DayzServer, InstalledMod, LauncherSettings, ServerDirectoryResult, SystemStatus, WorkshopMod,
 };
 use crate::servers::ServerDirectory;
 use crate::settings::SettingsStore;
 use crate::steam::discover_steam;
 use crate::steam_profile::{detect_persona_name, resolve_player_name};
 use crate::workshop::discovery::discover_from_roots;
+use crate::workshop::metadata::fetch_published_file_details;
+use crate::workshop::steamworks_ugc::{parse_workshop_id, SteamWorkshopService};
 use crate::workshop::sync::verify_required_mods;
 use std::path::PathBuf;
 use std::process::Command;
@@ -116,9 +118,68 @@ pub fn get_system_status() -> SystemStatus {
 }
 
 #[tauri::command]
-pub fn get_installed_mods() -> Result<Vec<InstalledMod>, String> {
+pub async fn get_installed_mods() -> Result<Vec<WorkshopMod>, String> {
     let steam = discover_steam()?;
-    get_installed_mods_from(&steam.library_roots)
+    let local_mods = get_installed_mods_from(&steam.library_roots)?;
+    let workshop_ids = local_mods
+        .iter()
+        .map(|item| item.workshop_id.clone())
+        .collect::<Vec<_>>();
+
+    let metadata = fetch_published_file_details(&reqwest::Client::new(), &workshop_ids)
+        .await
+        .unwrap_or_default();
+    let steamworks = SteamWorkshopService::initialize().ok();
+
+    Ok(local_mods
+        .into_iter()
+        .map(|item| {
+            let details = metadata.get(&item.workshop_id);
+            let status = steamworks
+                .as_ref()
+                .and_then(|service| service.status(&item.workshop_id).ok())
+                .unwrap_or_default();
+
+            WorkshopMod {
+                workshop_id: item.workshop_id,
+                name: details
+                    .map(|value| value.title.clone())
+                    .unwrap_or(item.name),
+                path: item.path,
+                preview_url: details.and_then(|value| value.preview_url.clone()),
+                needs_update: status.needs_update,
+                is_downloading: status.is_downloading,
+                is_subscribed: status.is_subscribed,
+            }
+        })
+        .collect())
+}
+
+#[tauri::command]
+pub fn update_workshop_mod(workshop_id: String) -> Result<(), String> {
+    SteamWorkshopService::initialize()?.request_update(&workshop_id)
+}
+
+#[tauri::command]
+pub fn unsubscribe_workshop_mod(workshop_id: String) -> Result<(), String> {
+    SteamWorkshopService::initialize()?.unsubscribe(&workshop_id)
+}
+
+#[tauri::command]
+pub fn open_mod_folder(workshop_id: String) -> Result<(), String> {
+    parse_workshop_id(&workshop_id)?;
+    let steam = discover_steam()?;
+    let installed = discover_from_roots(&steam.library_roots)?;
+    let item = installed
+        .iter()
+        .find(|item| item.workshop_id == workshop_id)
+        .ok_or_else(|| format!("Workshop mod {workshop_id} is not installed"))?;
+
+    Command::new("explorer")
+        .arg(&item.path)
+        .spawn()
+        .map_err(|error| format!("failed to open Workshop mod folder: {error}"))?;
+    Ok(())
 }
 
 #[tauri::command]

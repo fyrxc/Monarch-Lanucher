@@ -1,24 +1,39 @@
 .card {
-  display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
-  min-height: 150px;
+  min-width: 0;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  background: #111315;
-  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.18);
+  border-radius: 10px;
+  background: #11161c;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.16);
+}
+
+.previewButton,
+.nameButton {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.previewButton {
+  display: block;
+  width: 100%;
 }
 
 .previewWrap {
-  min-height: 150px;
-  background: #0b0c0d;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 8.5;
+  overflow: hidden;
+  background: #0a0e13;
 }
 
 .preview,
 .previewFallback {
   width: 100%;
   height: 100%;
-  min-height: 150px;
 }
 
 .preview {
@@ -29,139 +44,99 @@
 .previewFallback {
   display: grid;
   place-items: center;
-  font-size: 42px;
-  font-weight: 900;
-  letter-spacing: -0.08em;
-  color: rgba(255, 255, 255, 0.25);
   background:
-    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.08), transparent 38%),
-    #0b0c0d;
+    radial-gradient(circle at 50% 38%, rgba(255, 255, 255, 0.08), transparent 34%),
+    #0a0e13;
+  color: rgba(255, 255, 255, 0.82);
 }
 
-.content {
+.previewFallback span {
+  font-size: 38px;
+  font-weight: 900;
+  letter-spacing: -0.12em;
+  transform: translateX(-2px);
+}
+
+.progressTrack {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.progressFill {
+  height: 100%;
+  background: #e8edf2;
+  transition: width 180ms ease;
+}
+
+.footer {
   display: flex;
+  min-height: 50px;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px 9px 12px;
+}
+
+.nameButton {
   min-width: 0;
-  flex-direction: column;
-  gap: 16px;
-  padding: 18px 20px;
+  flex: 1;
 }
 
-.header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.titleBlock {
-  min-width: 0;
-}
-
-.titleBlock strong {
+.nameButton strong,
+.nameButton span {
   display: block;
   overflow: hidden;
-  color: #f5f6f7;
-  font-size: 17px;
-  font-weight: 760;
-  line-height: 1.3;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.titleBlock span {
-  display: block;
-  margin-top: 5px;
-  color: #7d8289;
+.nameButton strong {
+  color: #f0f3f6;
   font-size: 12px;
+  font-weight: 720;
 }
 
-.state {
-  flex: 0 0 auto;
-  padding: 6px 9px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  color: #aeb2b7;
-  background: rgba(255, 255, 255, 0.04);
-  font-size: 11px;
-  font-weight: 700;
+.nameButton span {
+  margin-top: 3px;
+  color: #8b96a2;
+  font-size: 9px;
   text-transform: uppercase;
-}
-
-.stateUpdate {
-  color: #f3f3f3;
-  border-color: rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.09);
-}
-
-.location {
-  min-width: 0;
-}
-
-.location span {
-  display: block;
-  margin-bottom: 6px;
-  color: #747980;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.location code {
-  display: block;
-  overflow: hidden;
-  color: #b9bdc2;
-  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: auto;
+  flex: 0 0 auto;
+  gap: 5px;
 }
 
 .actions button {
-  min-height: 34px;
-  padding: 0 12px;
-  border-radius: 9px;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
+  display: grid;
+  width: 29px;
+  height: 29px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 7px;
+  background: #181f27;
+  color: #aeb8c2;
   cursor: pointer;
-  transition:
-    border-color 120ms ease,
-    background 120ms ease,
-    opacity 120ms ease;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.actions button:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: #1a212b;
+  color: #fff;
 }
 
 .actions button:disabled {
   cursor: default;
-  opacity: 0.46;
+  opacity: 0.42;
 }
 
-.secondaryButton {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #d0d3d6;
-  background: #1a1d20;
-}
-
-.primaryButton {
-  border: 1px solid #e7e7e7;
-  color: #101112;
-  background: #f1f1f1;
-}
-
-.dangerButton {
-  border: 1px solid rgba(255, 105, 105, 0.2);
-  color: #ff8f8f;
-  background: rgba(126, 26, 26, 0.12);
-}
-
-@media (max-width: 900px) {
-  .card {
-    grid-template-columns: 150px minmax(0, 1fr);
-  }
+.actions svg {
+  width: 13px;
+  height: 13px;
 }

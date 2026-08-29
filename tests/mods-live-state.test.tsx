@@ -68,7 +68,8 @@ it("polls real Steam progress for a mod that was already downloading when Mods o
   await waitFor(() =>
     expect(client.getWorkshopDownloadProgress).toHaveBeenCalledWith(["111"]),
   );
-  expect(await screen.findByText("Updating 50%")).toBeInTheDocument();
+  expect(await screen.findByText("Downloading 50%")).toBeInTheDocument();
+  expect(screen.getByRole("status", { name: "Mod download status" })).toBeInTheDocument();
 });
 
 it("refreshes the installed-mod list from Steam while the Mods page remains open", async () => {

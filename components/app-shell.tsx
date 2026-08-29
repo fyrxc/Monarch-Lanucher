@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import type { LauncherApi } from "../lib/api";
 import { tauriApi } from "../lib/api";
 import { filterServers, type ServerFilters } from "../lib/filters";
@@ -10,12 +10,15 @@ import type {
   LauncherSettings,
   SystemStatus,
 } from "../lib/models";
+import { paginate } from "../lib/pagination";
 import { serverIdentity } from "../lib/server-id";
 import { Navigation, type LauncherView } from "./navigation";
 import { ServerFiltersPanel } from "./server-filters";
 import { ServerTable } from "./server-table";
 import { StatusBanner } from "./status-banner";
 import { UpdatePanel } from "./update-panel";
+
+const SERVER_PAGE_SIZE = 100;
 
 const emptyFilters: ServerFilters = {
   search: "",
@@ -49,6 +52,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   const [recent, setRecent] = useState<DayzServer[]>([]);
   const [installedMods, setInstalledMods] = useState<InstalledMod[]>([]);
   const [filters, setFilters] = useState<ServerFilters>(emptyFilters);
+  const [serverPage, setServerPage] = useState(1);
   const [settings, setSettings] = useState<LauncherSettings>(emptySettings);
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [loadingServers, setLoadingServers] = useState(true);
@@ -59,6 +63,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [savingSettings, setSavingSettings] = useState(false);
+  const deferredSearch = useDeferredValue(filters.search);
 
   const loadServers = useCallback(async () => {
     setLoadingServers(true);
@@ -139,36 +144,62 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     [servers],
   );
 
-  const visibleServers = useMemo(
-    () => filterServers(servers, filters, favoriteIds),
-    [favoriteIds, filters, servers],
+  const deferredFilters = useMemo(
+    () => ({ ...filters, search: deferredSearch }),
+    [deferredSearch, filters],
   );
 
-  async function toggleFavorite(server: DayzServer) {
-    setActionError(null);
-    try {
-      await api.toggleFavorite(server);
-      await loadFavorites();
-    } catch (error) {
-      setActionError(errorMessage(error));
-    }
-  }
+  const visibleServers = useMemo(
+    () => filterServers(servers, deferredFilters, favoriteIds),
+    [deferredFilters, favoriteIds, servers],
+  );
 
-  async function joinServer(server: DayzServer) {
-    const identity = serverIdentity(server);
-    setJoiningId(identity);
-    setActionMessage(null);
-    setActionError(null);
-    try {
-      await api.launchServer(server);
-      setActionMessage(`Launching ${server.name}`);
-      await loadRecent();
-    } catch (error) {
-      setActionError(errorMessage(error));
-    } finally {
-      setJoiningId(null);
-    }
-  }
+  const serverPageResult = useMemo(
+    () => paginate(visibleServers, serverPage, SERVER_PAGE_SIZE),
+    [serverPage, visibleServers],
+  );
+
+  const updateFilters = useCallback((next: ServerFilters) => {
+    setFilters(next);
+    setServerPage(1);
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    setFilters(emptyFilters);
+    setServerPage(1);
+  }, []);
+
+  const toggleFavorite = useCallback(
+    async (server: DayzServer) => {
+      setActionError(null);
+      try {
+        await api.toggleFavorite(server);
+        await loadFavorites();
+      } catch (error) {
+        setActionError(errorMessage(error));
+      }
+    },
+    [api, loadFavorites],
+  );
+
+  const joinServer = useCallback(
+    async (server: DayzServer) => {
+      const identity = serverIdentity(server);
+      setJoiningId(identity);
+      setActionMessage(null);
+      setActionError(null);
+      try {
+        await api.launchServer(server);
+        setActionMessage(`Launching ${server.name}`);
+        await loadRecent();
+      } catch (error) {
+        setActionError(errorMessage(error));
+      } finally {
+        setJoiningId(null);
+      }
+    },
+    [api, loadRecent],
+  );
 
   async function clearRecent() {
     setActionError(null);
@@ -228,17 +259,40 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
             <ServerFiltersPanel
               filters={filters}
               maps={maps}
-              onChange={setFilters}
-              onClear={() => setFilters(emptyFilters)}
+              onChange={updateFilters}
+              onClear={clearFilters}
               resultCount={visibleServers.length}
             />
             <ServerTable
               favoriteIds={favoriteIds}
               joiningId={joiningId}
-              onFavorite={(server) => void toggleFavorite(server)}
-              onJoin={(server) => void joinServer(server)}
-              servers={visibleServers}
+              onFavorite={toggleFavorite}
+              onJoin={joinServer}
+              servers={serverPageResult.items}
             />
+            {visibleServers.length > 0 ? (
+              <div className="server-pagination" aria-label="Server pages">
+                <button
+                  className="ghost-button"
+                  disabled={serverPageResult.page <= 1}
+                  onClick={() => setServerPage(serverPageResult.page - 1)}
+                  type="button"
+                >
+                  Previous
+                </button>
+                <span>
+                  Page {serverPageResult.page} of {serverPageResult.pageCount} · {serverPageResult.total.toLocaleString()} servers
+                </span>
+                <button
+                  className="ghost-button"
+                  disabled={serverPageResult.page >= serverPageResult.pageCount}
+                  onClick={() => setServerPage(serverPageResult.page + 1)}
+                  type="button"
+                >
+                  Next
+                </button>
+              </div>
+            ) : null}
           </>
         )}
       </>
@@ -262,8 +316,8 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
         <ServerTable
           favoriteIds={favoriteIds}
           joiningId={joiningId}
-          onFavorite={(server) => void toggleFavorite(server)}
-          onJoin={(server) => void joinServer(server)}
+          onFavorite={toggleFavorite}
+          onJoin={joinServer}
           servers={collection}
         />
       </>

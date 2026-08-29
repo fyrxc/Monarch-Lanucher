@@ -36,6 +36,7 @@ export interface InstalledMod {
 export interface SystemStatus {
   steamFound: boolean;
   steamPath: string | null;
+  steamPersonaName: string | null;
   dayzFound: boolean;
   dayzPath: string | null;
 }

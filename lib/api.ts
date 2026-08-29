@@ -28,6 +28,7 @@ export interface LauncherApi {
   prepareServerLaunch(server: DayzServer): Promise<ServerLaunchPreflight>;
   setupServerMods(workshopIds: string[]): Promise<void>;
   getWorkshopDownloadProgress(workshopIds: string[]): Promise<WorkshopDownloadProgress[]>;
+  closeDayz(): Promise<void>;
   launchServer(server: DayzServer, password?: string | null): Promise<void>;
 }
 
@@ -53,6 +54,7 @@ export const tauriApi: LauncherApi = {
   setupServerMods: (workshopIds) => invoke<void>("setup_server_mods", { workshopIds }),
   getWorkshopDownloadProgress: (workshopIds) =>
     invoke<WorkshopDownloadProgress[]>("get_workshop_download_progress", { workshopIds }),
+  closeDayz: () => invoke<void>("close_dayz"),
   launchServer: (server, password = null) =>
     invoke<void>("launch_server", { server, password }),
 };

@@ -73,7 +73,7 @@ function createApi(): LauncherApi {
   };
 }
 
-it("searches installed mods, opens rich Mod Info, updates without reloading, and confirms uninstall", async () => {
+it("searches installed mods, opens rich Mod Info, updates in place, and confirms uninstall", async () => {
   const api = createApi();
   render(<AppShell api={api} />);
 
@@ -98,7 +98,8 @@ it("searches installed mods, opens rich Mod Info, updates without reloading, and
 
   fireEvent.click(within(info).getByRole("button", { name: "Update mod" }));
   await waitFor(() => expect(api.updateWorkshopMod).toHaveBeenCalledWith("111"));
-  expect(api.getInstalledMods).toHaveBeenCalledTimes(1);
+  expect(screen.getByText("CUT Server Pack")).toBeInTheDocument();
+  await waitFor(() => expect(within(info).getByText(/Updating/)).toBeInTheDocument());
 
   fireEvent.click(within(info).getByRole("button", { name: "Uninstall mod" }));
   const confirm = await screen.findByRole("dialog", { name: "Uninstall mod" });

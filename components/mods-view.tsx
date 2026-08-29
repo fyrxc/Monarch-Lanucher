@@ -9,11 +9,16 @@ import { ModInfoPanel } from "./mod-info-panel";
 import styles from "./mods-view.module.css";
 
 const PROGRESS_POLL_MS = 1500;
+const MOD_LIST_REFRESH_MS = 5000;
 type ModAction = "update" | "uninstall" | "folder";
 
 type ModsApi = Pick<
   LauncherApi,
-  "updateWorkshopMod" | "unsubscribeWorkshopMod" | "openModFolder" | "getWorkshopDownloadProgress"
+  | "getInstalledMods"
+  | "updateWorkshopMod"
+  | "unsubscribeWorkshopMod"
+  | "openModFolder"
+  | "getWorkshopDownloadProgress"
 >;
 
 function errorMessage(error: unknown): string {
@@ -41,7 +46,9 @@ export function ModsView({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pendingUninstallId, setPendingUninstallId] = useState<string | null>(null);
   const [busy, setBusy] = useState<{ id: string; action: ModAction } | null>(null);
-  const [updatingIds, setUpdatingIds] = useState<Set<string>>(() => new Set());
+  const [updatingIds, setUpdatingIds] = useState<Set<string>>(() =>
+    new Set(mods.filter((mod) => mod.isDownloading).map((mod) => mod.workshopId)),
+  );
   const [progress, setProgress] = useState<Record<string, number | null>>({});
 
   const selectedMod = useMemo(
@@ -61,6 +68,48 @@ export function ModsView({
         mod.workshopId.toLocaleLowerCase().includes(query),
     );
   }, [mods, search]);
+
+  useEffect(() => {
+    const downloading = mods.filter((mod) => mod.isDownloading).map((mod) => mod.workshopId);
+    if (downloading.length === 0) return;
+    setUpdatingIds((current) => {
+      const next = new Set(current);
+      downloading.forEach((id) => next.add(id));
+      return next;
+    });
+  }, [mods]);
+
+  useEffect(() => {
+    if (loading) return;
+    let cancelled = false;
+
+    const refreshInstalled = async () => {
+      try {
+        const nextMods = await api.getInstalledMods();
+        if (cancelled) return;
+        onChange(nextMods);
+        const downloading = nextMods
+          .filter((mod) => mod.isDownloading)
+          .map((mod) => mod.workshopId);
+        if (downloading.length > 0) {
+          setUpdatingIds((current) => {
+            const next = new Set(current);
+            downloading.forEach((id) => next.add(id));
+            return next;
+          });
+        }
+      } catch (error) {
+        if (!cancelled) onError(errorMessage(error));
+      }
+    };
+
+    void refreshInstalled();
+    const timer = window.setInterval(() => void refreshInstalled(), MOD_LIST_REFRESH_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [api, loading, onChange, onError]);
 
   useEffect(() => {
     if (updatingIds.size === 0) return;
@@ -185,7 +234,7 @@ export function ModsView({
         </div>
       </div>
 
-      {loading ? (
+      {loading && mods.length === 0 ? (
         <div className="loading-state">Loading Steam Workshop mods...</div>
       ) : mods.length === 0 ? (
         <div className="empty-state">No installed DayZ Workshop mods were detected.</div>

@@ -1,5 +1,5 @@
 use crate::collections::CollectionsStore;
-use crate::launcher::build_launch_args_with_mods;
+use crate::launcher::build_dayz_launch_command;
 use crate::models::{
     DayzServer, InstalledMod, LauncherSettings, ServerDirectoryResult, SystemStatus,
 };
@@ -118,20 +118,28 @@ pub fn get_installed_mods() -> Result<Vec<InstalledMod>, String> {
 #[tauri::command]
 pub fn launch_server(state: State<'_, LauncherState>, server: DayzServer) -> Result<(), String> {
     let steam = discover_steam()?;
+    let dayz_root = steam
+        .dayz_root
+        .as_deref()
+        .ok_or_else(|| "DayZ_x64.exe was not found in the detected DayZ installation.".to_string())?;
     if steam.dayz_exe.is_none() {
-        return Err("DayZ is not installed".to_string());
+        return Err("DayZ_x64.exe was not found in the detected DayZ installation.".to_string());
+    }
+    if steam.dayz_be_exe.is_none() {
+        return Err("DayZ_BE.exe was not found in the detected DayZ installation.".to_string());
     }
 
     let installed_mods = discover_from_roots(&steam.library_roots)?;
     verify_required_mods(&server.required_workshop_ids, &installed_mods)?;
 
     let settings = state.settings().load()?;
-    let args = build_launch_args_with_mods(&server, &settings, &installed_mods)?;
+    let launch = build_dayz_launch_command(&server, &settings, &installed_mods, dayz_root)?;
 
-    Command::new(&steam.steam_exe)
-        .args(&args)
+    Command::new(&launch.executable)
+        .current_dir(&launch.working_directory)
+        .args(&launch.args)
         .spawn()
-        .map_err(|error| format!("failed to launch DayZ through Steam: {error}"))?;
+        .map_err(|error| format!("failed to launch DayZ BattlEye bootstrap: {error}"))?;
 
     state.collections().record_recent(&server)
 }

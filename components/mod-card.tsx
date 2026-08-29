@@ -1,88 +1,93 @@
+import { FaTrashCan } from "react-icons/fa6";
+import { RxUpdate } from "react-icons/rx";
+import { VscFiles } from "react-icons/vsc";
 import type { InstalledMod } from "../lib/models";
 import styles from "./mod-card.module.css";
 
 interface ModCardProps {
   mod: InstalledMod;
   busyAction: "update" | "uninstall" | "folder" | null;
+  progressPercent?: number | null;
+  onDetails(mod: InstalledMod): void;
   onOpenFolder(mod: InstalledMod): void;
   onUpdate(mod: InstalledMod): void;
   onUninstall(mod: InstalledMod): void;
 }
 
-function stateLabel(mod: InstalledMod): string {
-  if (mod.isDownloading) return "Downloading";
+function stateLabel(mod: InstalledMod, busyAction: ModCardProps["busyAction"]): string | null {
+  if (busyAction === "update" || mod.isDownloading) return "Updating";
   if (mod.needsUpdate) return "Update available";
-  if (!mod.isSubscribed) return "Installed locally";
-  return "Installed";
+  return null;
 }
 
 export function ModCard({
   mod,
   busyAction,
+  progressPercent = null,
+  onDetails,
   onOpenFolder,
   onUpdate,
   onUninstall,
 }: ModCardProps) {
   const busy = busyAction !== null;
+  const status = stateLabel(mod, busyAction);
 
   return (
     <article className={styles.card}>
-      <div className={styles.previewWrap}>
-        {mod.previewUrl ? (
-          <img className={styles.preview} src={mod.previewUrl} alt="" loading="lazy" />
-        ) : (
-          <div className={styles.previewFallback} aria-hidden="true">
-            M
-          </div>
-        )}
-      </div>
-
-      <div className={styles.content}>
-        <div className={styles.header}>
-          <div className={styles.titleBlock}>
-            <strong>{mod.name}</strong>
-            <span>Workshop ID {mod.workshopId}</span>
-          </div>
-          <span
-            className={`${styles.state} ${mod.needsUpdate ? styles.stateUpdate : ""}`}
-          >
-            {stateLabel(mod)}
-          </span>
+      <button
+        aria-label={`Open ${mod.name} details`}
+        className={styles.previewButton}
+        onClick={() => onDetails(mod)}
+        type="button"
+      >
+        <div className={styles.previewWrap}>
+          {mod.previewUrl ? (
+            <img className={styles.preview} src={mod.previewUrl} alt="" loading="lazy" />
+          ) : (
+            <div className={styles.previewFallback} aria-label="Monarch logo fallback" role="img">
+              <span>M</span>
+            </div>
+          )}
+          {progressPercent !== null ? (
+            <div className={styles.progressTrack} aria-hidden="true">
+              <div className={styles.progressFill} style={{ width: `${progressPercent}%` }} />
+            </div>
+          ) : null}
         </div>
+      </button>
 
-        <div className={styles.location}>
-          <span>Folder location</span>
-          <code title={mod.path}>{mod.path}</code>
-        </div>
-
+      <div className={styles.footer}>
+        <button className={styles.nameButton} onClick={() => onDetails(mod)} type="button">
+          <strong title={mod.name}>{mod.name}</strong>
+          {status ? <span>{progressPercent !== null ? `${status} ${progressPercent}%` : status}</span> : null}
+        </button>
         <div className={styles.actions}>
           <button
-            className={styles.secondaryButton}
+            aria-label={`Open ${mod.name} folder`}
             disabled={busy}
             onClick={() => onOpenFolder(mod)}
+            title="Open folder"
             type="button"
           >
-            {busyAction === "folder" ? "OPENING..." : "OPEN FOLDER"}
+            <VscFiles aria-hidden="true" />
           </button>
           <button
-            className={styles.primaryButton}
+            aria-label={`Update ${mod.name}`}
             disabled={busy || mod.isDownloading}
             onClick={() => onUpdate(mod)}
+            title="Check / update"
             type="button"
           >
-            {busyAction === "update"
-              ? "UPDATING..."
-              : mod.needsUpdate
-                ? "UPDATE"
-                : "CHECK / UPDATE"}
+            <RxUpdate aria-hidden="true" />
           </button>
           <button
-            className={styles.dangerButton}
+            aria-label={`Uninstall ${mod.name}`}
             disabled={busy}
             onClick={() => onUninstall(mod)}
+            title="Uninstall"
             type="button"
           >
-            {busyAction === "uninstall" ? "UNINSTALLING..." : "UNINSTALL"}
+            <FaTrashCan aria-hidden="true" />
           </button>
         </div>
       </div>

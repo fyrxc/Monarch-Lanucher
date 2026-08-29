@@ -54,7 +54,8 @@ impl SteamWorkshopService {
 
         self.client.ugc().unsubscribe_item(id, move |result| {
             let _ = sender.send(
-                result.map_err(|error| format!("Steam failed to unsubscribe Workshop mod: {error}")),
+                result
+                    .map_err(|error| format!("Steam failed to unsubscribe Workshop mod: {error}")),
             );
         });
 

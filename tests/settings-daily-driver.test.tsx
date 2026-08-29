@@ -49,14 +49,14 @@ function createApi(): LauncherApi {
   };
 }
 
-it("shows all approved settings and persists DayZ path, name, BattlEye and Discord Presence", async () => {
+it("shows all approved settings and migrates a saved DayZ executable path to the install folder", async () => {
   const api = createApi();
   render(<AppShell api={api} />);
   fireEvent.click(screen.getByRole("button", { name: "Settings" }));
 
   const panel = await screen.findByRole("dialog", { name: "Settings" });
   expect(within(panel).getByLabelText("DayZ Path")).toHaveValue(
-    "D:\\SteamLibrary\\steamapps\\common\\DayZ\\DayZ_x64.exe",
+    "D:\\SteamLibrary\\steamapps\\common\\DayZ",
   );
   expect(within(panel).getByLabelText("Ingame Name")).toHaveValue("MonarchPlayer");
   expect(within(panel).getByLabelText("Skip BattlEye")).not.toBeChecked();
@@ -74,6 +74,7 @@ it("shows all approved settings and persists DayZ path, name, BattlEye and Disco
     expect(api.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({
         dayzName: "Crashout",
+        dayzPath: "D:\\SteamLibrary\\steamapps\\common\\DayZ",
         skipBattleye: true,
         discordPresence: false,
       }),

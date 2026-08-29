@@ -15,6 +15,12 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function detectedDayzDirectory(path: string | null | undefined): string {
+  const value = path?.trim() ?? "";
+  if (!value) return "";
+  return value.replace(/[\\/]DayZ_x64\.exe$/i, "");
+}
+
 export function SettingsContent({
   api,
   settings,
@@ -38,6 +44,9 @@ export function SettingsContent({
 }) {
   const [busyAction, setBusyAction] = useState<"verify" | "uninstall" | null>(null);
   const [uninstallMods, setUninstallMods] = useState<InstalledMod[] | null>(null);
+  const dayzPathValue = settings.dayzPath?.trim()
+    ? settings.dayzPath
+    : detectedDayzDirectory(systemStatus?.dayzPath);
 
   async function verifyMods() {
     setBusyAction("verify");
@@ -106,7 +115,7 @@ export function SettingsContent({
           className="field"
           onChange={(event) => onChange({ ...settings, dayzPath: event.target.value })}
           placeholder="Auto-detected DayZ path"
-          value={settings.dayzPath ?? ""}
+          value={dayzPathValue}
         />
       </label>
 

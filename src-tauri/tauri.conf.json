@@ -36,6 +36,7 @@
     "active": true,
     "targets": ["nsis"],
     "icon": ["icons/icon.ico"],
+    "resources": ["steam_api64.dll"],
     "windows": {
       "nsis": {
         "installMode": "currentUser",

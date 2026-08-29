@@ -8,6 +8,7 @@ import type {
   DayzServer,
   InstalledMod,
   LauncherSettings,
+  RequiredMod,
   SystemStatus,
 } from "../lib/models";
 import { paginate } from "../lib/pagination";
@@ -15,6 +16,7 @@ import { serverIdentity } from "../lib/server-id";
 import { ModCard } from "./mod-card";
 import { Navigation, type LauncherView } from "./navigation";
 import { ServerFiltersPanel } from "./server-filters";
+import { ServerJoinDialog } from "./server-join-dialog";
 import { ServerTable } from "./server-table";
 import { StatusBanner } from "./status-banner";
 import { UpdatePanel } from "./update-panel";
@@ -67,6 +69,13 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [savingSettings, setSavingSettings] = useState(false);
+  const [joinTarget, setJoinTarget] = useState<DayzServer | null>(null);
+  const [joinRequiredMods, setJoinRequiredMods] = useState<RequiredMod[]>([]);
+  const [joinPassword, setJoinPassword] = useState("");
+  const [joinLoading, setJoinLoading] = useState(false);
+  const [joinSyncing, setJoinSyncing] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [pollRequiredMods, setPollRequiredMods] = useState(false);
   const deferredSearch = useDeferredValue(filters.search);
 
   const loadServers = useCallback(async () => {
@@ -111,6 +120,26 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     }
   }, [api]);
 
+  const loadJoinRequiredMods = useCallback(
+    async (server: DayzServer, showLoading = true) => {
+      if (showLoading) setJoinLoading(true);
+      setJoinError(null);
+      try {
+        const nextMods = await api.getRequiredMods(server);
+        setJoinRequiredMods(nextMods);
+        if (nextMods.every((mod) => mod.state === "installed")) {
+          setPollRequiredMods(false);
+        }
+      } catch (error) {
+        setJoinError(errorMessage(error));
+        setPollRequiredMods(false);
+      } finally {
+        if (showLoading) setJoinLoading(false);
+      }
+    },
+    [api],
+  );
+
   useEffect(() => {
     void loadServers();
     void loadFavorites();
@@ -139,6 +168,16 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
         .catch((error) => setActionError(errorMessage(error)));
     }
   }, [activeView, api, loadInstalledMods, loadRecent]);
+
+  useEffect(() => {
+    if (!joinTarget || !pollRequiredMods) return;
+
+    const timer = window.setInterval(() => {
+      void loadJoinRequiredMods(joinTarget, false);
+    }, 2000);
+
+    return () => window.clearInterval(timer);
+  }, [joinTarget, loadJoinRequiredMods, pollRequiredMods]);
 
   const favoriteIds = useMemo(
     () => new Set(favorites.map((server) => serverIdentity(server))),
@@ -191,24 +230,89 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     [api, loadFavorites],
   );
 
-  const joinServer = useCallback(
-    async (server: DayzServer) => {
+  const launchServer = useCallback(
+    async (server: DayzServer, password?: string) => {
       const identity = serverIdentity(server);
       setJoiningId(identity);
       setActionMessage(null);
       setActionError(null);
+      setJoinError(null);
       try {
-        await api.launchServer(server);
+        if (password === undefined) {
+          await api.launchServer(server);
+        } else {
+          await api.launchServer(server, password);
+        }
         setActionMessage(`Launching ${server.name}`);
+        setJoinTarget(null);
+        setPollRequiredMods(false);
         await loadRecent();
       } catch (error) {
-        setActionError(errorMessage(error));
+        if (joinTarget) {
+          setJoinError(errorMessage(error));
+        } else {
+          setActionError(errorMessage(error));
+        }
       } finally {
         setJoiningId(null);
       }
     },
-    [api, loadRecent],
+    [api, joinTarget, loadRecent],
   );
+
+  const beginJoin = useCallback(
+    async (server: DayzServer) => {
+      setActionMessage(null);
+      setActionError(null);
+      setJoinError(null);
+
+      if (!server.isPassworded && server.requiredWorkshopIds.length === 0) {
+        await launchServer(server);
+        return;
+      }
+
+      setJoinTarget(server);
+      setJoinPassword("");
+      setJoinRequiredMods([]);
+      setPollRequiredMods(false);
+
+      if (server.requiredWorkshopIds.length > 0) {
+        await loadJoinRequiredMods(server);
+      } else {
+        setJoinLoading(false);
+      }
+    },
+    [launchServer, loadJoinRequiredMods],
+  );
+
+  const syncJoinRequiredMods = useCallback(async () => {
+    if (!joinTarget) return;
+
+    setJoinSyncing(true);
+    setJoinError(null);
+    try {
+      await api.syncRequiredMods(joinTarget);
+      setJoinRequiredMods((current) =>
+        current.map((mod) =>
+          mod.state === "missing" ? { ...mod, state: "updating" as const } : mod,
+        ),
+      );
+      setPollRequiredMods(true);
+    } catch (error) {
+      setJoinError(errorMessage(error));
+    } finally {
+      setJoinSyncing(false);
+    }
+  }, [api, joinTarget]);
+
+  const closeJoinDialog = useCallback(() => {
+    if (joiningId) return;
+    setJoinTarget(null);
+    setJoinRequiredMods([]);
+    setJoinPassword("");
+    setJoinError(null);
+    setPollRequiredMods(false);
+  }, [joiningId]);
 
   const openModFolder = useCallback(
     async (mod: InstalledMod) => {
@@ -330,7 +434,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
               favoriteIds={favoriteIds}
               joiningId={joiningId}
               onFavorite={toggleFavorite}
-              onJoin={joinServer}
+              onJoin={(server) => void beginJoin(server)}
               servers={serverPageResult.items}
             />
             {visibleServers.length > 0 ? (
@@ -380,7 +484,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
           favoriteIds={favoriteIds}
           joiningId={joiningId}
           onFavorite={toggleFavorite}
-          onJoin={joinServer}
+          onJoin={(server) => void beginJoin(server)}
           servers={collection}
         />
       </>
@@ -529,6 +633,28 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
         {activeView === "Mods" ? renderMods() : null}
         {activeView === "Settings" ? renderSettings() : null}
       </main>
+
+      {joinTarget ? (
+        <ServerJoinDialog
+          error={joinError}
+          joining={joiningId === serverIdentity(joinTarget)}
+          loading={joinLoading}
+          onClose={closeJoinDialog}
+          onJoin={() =>
+            void launchServer(
+              joinTarget,
+              joinTarget.isPassworded ? joinPassword : undefined,
+            )
+          }
+          onPasswordChange={setJoinPassword}
+          onRefresh={() => void loadJoinRequiredMods(joinTarget)}
+          onSync={() => void syncJoinRequiredMods()}
+          password={joinPassword}
+          requiredMods={joinRequiredMods}
+          server={joinTarget}
+          syncing={joinSyncing}
+        />
+      ) : null}
     </div>
   );
 }

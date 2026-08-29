@@ -1,9 +1,9 @@
 import { FaTrashCan } from "react-icons/fa6";
 import { RxUpdate } from "react-icons/rx";
 import { VscFiles } from "react-icons/vsc";
-import { MONARCH_LOGO_DATA_URL } from "../lib/branding";
 import type { InstalledMod } from "../lib/models";
 import { SlidePanel } from "./slide-panel";
+import { ModPreview } from "./mod-preview";
 import styles from "./mod-info-panel.module.css";
 
 function formatBytes(bytes: number | null | undefined): string {
@@ -47,13 +47,11 @@ export function ModInfoPanel({
       {mod ? (
         <div className={styles.content}>
           <div className={styles.previewWrap}>
-            {mod.previewUrl ? (
-              <img className={styles.preview} src={mod.previewUrl} alt="" />
-            ) : (
-              <div className={styles.previewFallback} aria-label="Monarch logo fallback" role="img">
-                <img src={MONARCH_LOGO_DATA_URL} alt="" />
-              </div>
-            )}
+            <ModPreview
+              fallbackClassName={styles.previewFallback}
+              imageClassName={styles.preview}
+              previewUrl={mod.previewUrl}
+            />
           </div>
 
           <div>

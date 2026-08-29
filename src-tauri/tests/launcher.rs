@@ -1,5 +1,6 @@
 use monarch_launcher::launcher::{
-    build_dayz_launch_command, build_launch_args, build_launch_args_with_mods,
+    build_dayz_launch_command, build_dayz_launch_command_with_password, build_launch_args,
+    build_launch_args_with_mods,
 };
 use monarch_launcher::models::{DayzServer, InstalledMod, LauncherSettings};
 use std::path::PathBuf;
@@ -61,6 +62,42 @@ fn builds_battleye_bootstrap_command() {
     assert_eq!(&command.args[0..5], ["0", "1", "1", "-exe", "DayZ_x64.exe"]);
     assert!(command.args.iter().any(|arg| arg == "-connect=1.2.3.4"));
     assert!(command.args.iter().any(|arg| arg == "-port=2302"));
+}
+
+#[test]
+fn adds_server_password_as_a_separate_dayz_argument() {
+    let root = PathBuf::from(r"C:\Steam\steamapps\common\DayZ");
+    let mut target = server();
+    target.is_passworded = true;
+
+    let command = build_dayz_launch_command_with_password(
+        &target,
+        &LauncherSettings::default(),
+        &[],
+        &root,
+        Some("hunter2"),
+    )
+    .expect("build passworded command");
+
+    assert!(command.args.iter().any(|arg| arg == "-password=hunter2"));
+}
+
+#[test]
+fn rejects_control_characters_in_server_password() {
+    let root = PathBuf::from(r"C:\Steam\steamapps\common\DayZ");
+    let mut target = server();
+    target.is_passworded = true;
+
+    let error = build_dayz_launch_command_with_password(
+        &target,
+        &LauncherSettings::default(),
+        &[],
+        &root,
+        Some("hunter\n2"),
+    )
+    .expect_err("reject newline in password");
+
+    assert!(error.contains("invalid server password"));
 }
 
 #[test]

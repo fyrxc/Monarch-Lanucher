@@ -1,0 +1,71 @@
+.layer {
+  position: fixed;
+  inset: 0;
+  z-index: 98;
+  display: grid;
+  place-items: center;
+}
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 8, 11, 0.78);
+  backdrop-filter: blur(3px);
+}
+
+.dialog {
+  position: relative;
+  width: min(430px, calc(100vw - 48px));
+  padding: 20px;
+  border: 1px solid #303b47;
+  border-radius: 12px;
+  background: #151b22;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.46);
+}
+
+.heading {
+  color: #f2f5f8;
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.copy {
+  margin: 9px 0 18px;
+  color: #9da8b3;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 0.8fr 1.2fr;
+  gap: 8px;
+}
+
+.primary,
+.secondary {
+  min-height: 36px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.primary {
+  border: 1px solid #4c5967;
+  background: #e4e9ee;
+  color: #151a20;
+}
+
+.secondary {
+  border: 1px solid #34414e;
+  background: #10161d;
+  color: #c9d1d9;
+}
+
+.primary:disabled,
+.secondary:disabled {
+  cursor: default;
+  opacity: 0.55;
+}

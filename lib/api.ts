@@ -7,6 +7,7 @@ import type {
   ServerLaunchPreflight,
   SystemStatus,
   UpdateInfo,
+  WorkshopDownloadProgress,
 } from "./models";
 
 export interface LauncherApi {
@@ -26,6 +27,7 @@ export interface LauncherApi {
   installUpdate(): Promise<void>;
   prepareServerLaunch(server: DayzServer): Promise<ServerLaunchPreflight>;
   setupServerMods(workshopIds: string[]): Promise<void>;
+  getWorkshopDownloadProgress(workshopIds: string[]): Promise<WorkshopDownloadProgress[]>;
   launchServer(server: DayzServer, password?: string | null): Promise<void>;
 }
 
@@ -49,6 +51,8 @@ export const tauriApi: LauncherApi = {
   prepareServerLaunch: (server) =>
     invoke<ServerLaunchPreflight>("prepare_server_launch", { server }),
   setupServerMods: (workshopIds) => invoke<void>("setup_server_mods", { workshopIds }),
+  getWorkshopDownloadProgress: (workshopIds) =>
+    invoke<WorkshopDownloadProgress[]>("get_workshop_download_progress", { workshopIds }),
   launchServer: (server, password = null) =>
     invoke<void>("launch_server", { server, password }),
 };

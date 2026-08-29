@@ -1,9 +1,9 @@
 import { FaTrashCan } from "react-icons/fa6";
 import { RxUpdate } from "react-icons/rx";
 import { VscFiles } from "react-icons/vsc";
-import { MONARCH_LOGO_DATA_URL } from "../lib/branding";
 import type { InstalledMod } from "../lib/models";
 import styles from "./mod-card.module.css";
+import { ModPreview } from "./mod-preview";
 
 interface ModCardProps {
   mod: InstalledMod;
@@ -42,13 +42,11 @@ export function ModCard({
         type="button"
       >
         <div className={styles.previewWrap}>
-          {mod.previewUrl ? (
-            <img className={styles.preview} src={mod.previewUrl} alt="" loading="lazy" />
-          ) : (
-            <div className={styles.previewFallback} aria-label="Monarch logo fallback" role="img">
-              <img src={MONARCH_LOGO_DATA_URL} alt="" />
-            </div>
-          )}
+          <ModPreview
+            fallbackClassName={styles.previewFallback}
+            imageClassName={styles.preview}
+            previewUrl={mod.previewUrl}
+          />
           {progressPercent !== null ? (
             <div className={styles.progressTrack} aria-hidden="true">
               <div className={styles.progressFill} style={{ width: `${progressPercent}%` }} />

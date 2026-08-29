@@ -1,11 +1,11 @@
 use crate::collections::CollectionsStore;
-use crate::launcher::build_dayz_launcher_command;
+use crate::launcher::build_dayz_launch_command;
 use crate::models::{
     DayzServer, InstalledMod, LauncherSettings, ServerDirectoryResult, SystemStatus, WorkshopMod,
 };
 use crate::servers::ServerDirectory;
 use crate::settings::SettingsStore;
-use crate::steam::{discover_steam, find_dayz_launcher};
+use crate::steam::discover_steam;
 use crate::steam_profile::{detect_persona_name, resolve_player_name};
 use crate::workshop::discovery::discover_from_roots;
 use crate::workshop::metadata::fetch_published_file_details;
@@ -191,10 +191,8 @@ pub fn launch_server(state: State<'_, LauncherState>, server: DayzServer) -> Res
     if steam.dayz_exe.is_none() {
         return Err("DayZ_x64.exe was not found in the detected DayZ installation.".to_string());
     }
-    if find_dayz_launcher(&steam.library_roots).is_none() {
-        return Err(
-            "DayZLauncher.exe was not found in the detected DayZ installation.".to_string(),
-        );
+    if !dayz_root.join("DayZ_BE.exe").is_file() {
+        return Err("DayZ_BE.exe was not found in the detected DayZ installation.".to_string());
     }
 
     let installed_mods = discover_from_roots(&steam.library_roots)?;
@@ -203,13 +201,13 @@ pub fn launch_server(state: State<'_, LauncherState>, server: DayzServer) -> Res
     let mut settings = state.settings().load()?;
     let steam_persona_name = steam.steam_exe.parent().and_then(detect_persona_name);
     settings.dayz_name = resolve_player_name(&settings.dayz_name, steam_persona_name.as_deref());
-    let launch = build_dayz_launcher_command(&server, &settings, &installed_mods, dayz_root)?;
+    let launch = build_dayz_launch_command(&server, &settings, &installed_mods, dayz_root)?;
 
     Command::new(&launch.executable)
         .current_dir(&launch.working_directory)
         .args(&launch.args)
         .spawn()
-        .map_err(|error| format!("failed to launch DayZ launcher relay: {error}"))?;
+        .map_err(|error| format!("failed to launch DayZ with BattlEye: {error}"))?;
 
     state.collections().record_recent(&server)
 }

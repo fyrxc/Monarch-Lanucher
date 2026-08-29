@@ -36,4 +36,15 @@ describe("release scripts", () => {
       url: "https://github.com/fyrxc/Monarch-Lanucher/releases/download/v0.4.77/MonarchLauncher-Setup.exe",
     });
   });
+
+  it("injects the updater public key into Tauri config before signed release builds", () => {
+    const workflow = readFileSync(
+      join(process.cwd(), ".github", "workflows", "release.yml"),
+      "utf8",
+    );
+
+    expect(workflow).toContain(
+      "$config.plugins.updater.pubkey = $env:MONARCH_UPDATER_PUBLIC_KEY",
+    );
+  });
 });

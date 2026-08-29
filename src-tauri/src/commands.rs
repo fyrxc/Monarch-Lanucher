@@ -99,10 +99,7 @@ pub fn clear_recent(state: State<'_, LauncherState>) -> Result<(), String> {
 pub fn get_system_status() -> SystemStatus {
     match discover_steam() {
         Ok(paths) => {
-            let steam_persona_name = paths
-                .steam_exe
-                .parent()
-                .and_then(detect_persona_name);
+            let steam_persona_name = paths.steam_exe.parent().and_then(detect_persona_name);
 
             SystemStatus {
                 steam_found: true,

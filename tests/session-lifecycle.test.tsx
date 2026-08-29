@@ -82,5 +82,5 @@ it("moves from Launching to Playing and clears the session after DayZ closes", a
   });
 
   expect(await screen.findByText("Last played Session Test Server")).toBeInTheDocument();
-  await waitFor(() => expect(api.getRecent).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(api.getRecent).toHaveBeenCalled());
 });

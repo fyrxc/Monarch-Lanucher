@@ -1,4 +1,5 @@
 use discord_rich_presence::{activity, DiscordIpc, DiscordIpcClient};
+#[cfg(test)]
 use serde_json::json;
 
 fn configured_app_id() -> Option<&'static str> {
@@ -23,6 +24,7 @@ fn display_state(state: Option<&str>, context: Option<&str>) -> Option<String> {
     )
 }
 
+#[cfg(test)]
 fn activity_payload(state: Option<&str>, context: Option<&str>) -> serde_json::Value {
     let Some(display_state) = display_state(state, context) else {
         return serde_json::Value::Null;

@@ -13,6 +13,7 @@ use crate::workshop::discovery::discover_from_roots;
 use crate::workshop::metadata::fetch_published_file_details;
 use crate::workshop::steamworks_ugc::{parse_workshop_id, SteamWorkshopService};
 use crate::workshop::sync::{build_launch_preflight, verify_required_mods};
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
@@ -55,6 +56,16 @@ pub async fn get_servers_from(
 
 pub fn get_installed_mods_from(roots: &[PathBuf]) -> Result<Vec<InstalledMod>, String> {
     discover_from_roots(roots)
+}
+
+pub fn merge_workshop_ids(local: &[InstalledMod], subscribed: &[String]) -> Vec<String> {
+    let mut seen = HashSet::new();
+    local
+        .iter()
+        .map(|item| item.workshop_id.clone())
+        .chain(subscribed.iter().cloned())
+        .filter(|id| seen.insert(id.clone()))
+        .collect()
 }
 
 fn configured_dayz_root(
@@ -156,39 +167,50 @@ pub fn get_system_status() -> SystemStatus {
 pub async fn get_installed_mods() -> Result<Vec<WorkshopMod>, String> {
     let steam = discover_steam()?;
     let local_mods = get_installed_mods_from(&steam.library_roots)?;
-    let workshop_ids = local_mods
-        .iter()
-        .map(|item| item.workshop_id.clone())
-        .collect::<Vec<_>>();
+    let steamworks = SteamWorkshopService::initialize().ok();
+    let subscribed = steamworks
+        .as_ref()
+        .map(SteamWorkshopService::subscribed_items)
+        .unwrap_or_default();
+    let workshop_ids = merge_workshop_ids(&local_mods, &subscribed);
+    let local_by_id = local_mods
+        .into_iter()
+        .map(|item| (item.workshop_id.clone(), item))
+        .collect::<HashMap<_, _>>();
 
     let metadata = fetch_published_file_details(&reqwest::Client::new(), &workshop_ids)
         .await
         .unwrap_or_default();
-    let steamworks = SteamWorkshopService::initialize().ok();
 
-    Ok(local_mods
+    Ok(workshop_ids
         .into_iter()
-        .map(|item| {
-            let details = metadata.get(&item.workshop_id);
+        .filter_map(|workshop_id| {
+            let local = local_by_id.get(&workshop_id);
+            let details = metadata.get(&workshop_id);
             let status = steamworks
                 .as_ref()
-                .and_then(|service| service.status(&item.workshop_id).ok())
+                .and_then(|service| service.status(&workshop_id).ok())
                 .unwrap_or_default();
 
-            WorkshopMod {
-                workshop_id: item.workshop_id,
+            if local.is_none() && !status.is_subscribed {
+                return None;
+            }
+
+            Some(WorkshopMod {
+                workshop_id: workshop_id.clone(),
                 name: details
                     .map(|value| value.title.clone())
-                    .unwrap_or(item.name),
-                path: item.path,
+                    .or_else(|| local.map(|value| value.name.clone()))
+                    .unwrap_or_else(|| format!("Workshop {workshop_id}")),
+                path: local.map(|value| value.path.clone()).unwrap_or_default(),
                 preview_url: details.and_then(|value| value.preview_url.clone()),
                 description: details.and_then(|value| value.description.clone()),
                 file_size: details.and_then(|value| value.file_size),
                 time_updated: details.and_then(|value| value.time_updated),
                 needs_update: status.needs_update,
                 is_downloading: status.is_downloading,
-                is_subscribed: status.is_subscribed,
-            }
+                is_subscribed: status.is_subscribed || local.is_some(),
+            })
         })
         .collect())
 }

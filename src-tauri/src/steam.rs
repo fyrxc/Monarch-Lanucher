@@ -117,7 +117,10 @@ pub fn is_steam_running() -> bool {
             .output()
             .ok()
             .map(|output| String::from_utf8_lossy(&output.stdout).to_ascii_lowercase())
-            .is_some_and(|body| body.lines().any(|line| line.trim_start().starts_with("steam.exe")));
+            .is_some_and(|body| {
+                body.lines()
+                    .any(|line| line.trim_start().starts_with("steam.exe"))
+            });
     }
 
     #[cfg(not(windows))]

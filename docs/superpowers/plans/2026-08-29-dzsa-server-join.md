@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Keep server pagination at exactly 100 rows.
+- Do not paginate the server list; all filtered servers remain in one scrolling list.
 - Do not show country in the server row.
 - IP + game port must have a React copy icon.
 - Passworded servers must show a React key icon and collect the password before launch.

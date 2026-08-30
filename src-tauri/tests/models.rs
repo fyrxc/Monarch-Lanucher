@@ -35,3 +35,15 @@ fn launcher_settings_default_to_safe_values() {
     assert!(!settings.skip_battleye);
     assert!(settings.ui_sounds);
 }
+
+#[test]
+fn launcher_settings_use_frontend_battleye_casing() {
+    let settings = LauncherSettings {
+        skip_battleye: true,
+        ..LauncherSettings::default()
+    };
+    let value = serde_json::to_value(settings).expect("serialize settings");
+
+    assert_eq!(value["skipBattlEye"], true);
+    assert!(value.get("skipBattleye").is_none());
+}

@@ -141,7 +141,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
 
   const enrichInstalledMods = useCallback(
     async (mods: InstalledMod[]) => {
-      if (mods.length === 0) return;
+      if (mods.length === 0 || !api.getWorkshopModMetadata) return;
       try {
         const metadata = await api.getWorkshopModMetadata(mods.map((mod) => mod.workshopId));
         setInstalledMods((current) => mergeWorkshopMetadata(current, metadata));

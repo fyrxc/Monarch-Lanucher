@@ -27,11 +27,17 @@ describe("release scripts", () => {
     );
   });
 
-  it("wires the decoded updater key into bundling and the compiled updater", () => {
+  it("validates the updater key but keeps Tauri's pubkey value base64 encoded", () => {
     const workflow = readFileSync(join(process.cwd(), ".github", "workflows", "release.yml"), "utf8");
 
-    expect(workflow).toContain("$config.plugins.updater.pubkey = $decodedPublicKey.Trim()");
-    expect(workflow).toContain("$env:MONARCH_UPDATER_PUBLIC_KEY = $decodedPublicKey.Trim()");
+    expect(workflow).toContain(
+      "$config.plugins.updater.pubkey = $env:MONARCH_UPDATER_PUBLIC_KEY_BASE64.Trim()",
+    );
+    expect(workflow).toContain(
+      "$env:MONARCH_UPDATER_PUBLIC_KEY = $env:MONARCH_UPDATER_PUBLIC_KEY_BASE64.Trim()",
+    );
+    expect(workflow).not.toContain("$config.plugins.updater.pubkey = $decodedPublicKey.Trim()");
+    expect(workflow).not.toContain("$env:MONARCH_UPDATER_PUBLIC_KEY = $decodedPublicKey.Trim()");
   });
 
   it("writes exact Windows updater URL and signature into latest.json", () => {

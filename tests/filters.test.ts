@@ -71,4 +71,10 @@ describe("filterServers", () => {
   it("limits results to favorite ids when requested", () => {
     expect(filterServers([monarch, emptyVanilla], { ...defaults, favoritesOnly: true }, new Set(["monarch-1"]))).toEqual([monarch]);
   });
+
+  it("moves favorites to the top while preserving order inside each group", () => {
+    expect(
+      filterServers([emptyVanilla, monarch], defaults, new Set(["monarch-1"])),
+    ).toEqual([monarch, emptyVanilla]);
+  });
 });

@@ -33,6 +33,7 @@ pub struct ServerDirectoryResult {
 pub struct LauncherSettings {
     pub dayz_name: String,
     pub extra_launch_parameters: String,
+    #[serde(rename = "skipBattlEye")]
     pub skip_battleye: bool,
     pub ui_sounds: bool,
 }

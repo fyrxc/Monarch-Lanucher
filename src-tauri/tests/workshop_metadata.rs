@@ -12,7 +12,8 @@ fn normalizes_successful_workshop_details_and_skips_failed_items() {
             "publishedfileid": "1559212036",
             "result": 1,
             "title": "Community Framework",
-            "preview_url": "https://cdn.example/cf.jpg"
+            "preview_url": "https://cdn.example/cf.jpg",
+            "creator": "76561198000000000"
           },
           {
             "publishedfileid": "2545327648",
@@ -38,12 +39,16 @@ fn normalizes_successful_workshop_details_and_skips_failed_items() {
         result["1559212036"].preview_url.as_deref(),
         Some("https://cdn.example/cf.jpg")
     );
+    assert_eq!(
+        result["1559212036"].creator_id.as_deref(),
+        Some("76561198000000000")
+    );
     assert_eq!(result["2545327648"].title, "Dabs Framework");
     assert!(!result.contains_key("999"));
 }
 
 #[test]
-fn accepts_a_successful_item_without_a_preview_image() {
+fn accepts_a_successful_item_without_a_preview_image_or_creator() {
     let body = r#"
     {
       "response": {
@@ -61,4 +66,5 @@ fn accepts_a_successful_item_without_a_preview_image() {
 
     let result = parse_published_file_details(body).expect("parse Workshop response");
     assert_eq!(result["42"].preview_url, None);
+    assert_eq!(result["42"].creator_id, None);
 }

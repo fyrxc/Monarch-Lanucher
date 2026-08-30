@@ -68,11 +68,34 @@
   white-space: nowrap;
 }
 
-.titleBlock span {
+.titleBlock > span {
   display: block;
   margin-top: 5px;
   color: #7d8289;
   font-size: 12px;
+}
+
+.metadataLinks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-top: 8px;
+  color: #878d95;
+  font-size: 11px;
+}
+
+.metadataLinks a,
+.metadataLinks span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.metadataLinks a:hover {
+  color: #f3f5f7;
 }
 
 .state {

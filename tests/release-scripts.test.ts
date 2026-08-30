@@ -2,6 +2,7 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { decodeUpdaterPublicKey } from "../scripts/decode-updater-public-key.mjs";
 import { resolveVersion } from "../scripts/resolve-version.mjs";
 import { writeLatestJson } from "../scripts/make-latest-json.mjs";
 
@@ -10,6 +11,20 @@ describe("release scripts", () => {
     expect(resolveVersion("77")).toBe("0.4.77");
     expect(() => resolveVersion("abc")).toThrow(/numeric GitHub run number required/i);
     expect(() => resolveVersion("")).toThrow(/numeric GitHub run number required/i);
+  });
+
+  it("decodes and validates the repository updater public key", () => {
+    const encoded =
+      "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDZFRTMwMjI0Qjc3MTRGREQKUldUZFQzRzNKQUxqYmkwNDhWaG5Lb2UwaWczWnYyRGM0WE92WXp3LzJrc0JJcmRjQ21MaEpPZ20K";
+
+    expect(decodeUpdaterPublicKey(encoded)).toBe(
+      "untrusted comment: minisign public key: 6EE30224B7714FDD\n" +
+        "RWXdT3G3JALjbi048VhnKoe0ig3Zv2Dc4XOvYzw/2ksBIrdcCmLhJOgm",
+    );
+    expect(() => decodeUpdaterPublicKey("not-base64")).toThrow(/valid base64/i);
+    expect(() => decodeUpdaterPublicKey(Buffer.from("wrong format").toString("base64"))).toThrow(
+      /minisign public key/i,
+    );
   });
 
   it("writes exact Windows updater URL and signature into latest.json", () => {

@@ -83,6 +83,17 @@ pub struct WorkshopMod {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkshopModMetadata {
+    pub workshop_id: String,
+    pub name: String,
+    pub preview_url: Option<String>,
+    pub creator_id: Option<String>,
+    pub workshop_url: String,
+    pub creator_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum RequiredModState {
     Installed,

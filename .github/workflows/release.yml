@@ -70,15 +70,6 @@ jobs:
           "MONARCH_TAG=v$version" | Out-File -FilePath $env:GITHUB_ENV -Append
           Write-Host "Publishing Monarch Launcher $version"
 
-      - name: Configure release version and updater artifacts
-        shell: pwsh
-        run: |
-          $path = '.\src-tauri\tauri.conf.json'
-          $config = Get-Content $path -Raw | ConvertFrom-Json
-          $config.version = $env:MONARCH_VERSION
-          $config.bundle | Add-Member -NotePropertyName createUpdaterArtifacts -NotePropertyValue $true -Force
-          $config | ConvertTo-Json -Depth 20 | Set-Content $path -Encoding UTF8
-
       - name: Validate updater signing configuration
         shell: pwsh
         env:
@@ -89,6 +80,10 @@ jobs:
           if ([string]::IsNullOrWhiteSpace($env:MONARCH_UPDATER_PUBLIC_KEY)) {
             throw 'Repository variable MONARCH_UPDATER_PUBLIC_KEY is required.'
           }
+          node .\scripts\decode-updater-public-key.mjs $env:MONARCH_UPDATER_PUBLIC_KEY | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Repository variable MONARCH_UPDATER_PUBLIC_KEY is not a valid encoded Minisign public key.'
+          }
           if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY)) {
             throw 'Repository secret TAURI_SIGNING_PRIVATE_KEY is required.'
           }
@@ -96,10 +91,23 @@ jobs:
             throw 'Repository secret TAURI_SIGNING_PRIVATE_KEY_PASSWORD is required.'
           }
 
-      - name: Build signed NSIS installer and updater artifact
+      - name: Configure release version and updater artifacts
         shell: pwsh
         env:
           MONARCH_UPDATER_PUBLIC_KEY: ${{ vars.MONARCH_UPDATER_PUBLIC_KEY }}
+        run: |
+          $path = '.\src-tauri\tauri.conf.json'
+          $config = Get-Content $path -Raw | ConvertFrom-Json
+          $decodedPublicKey = (node .\scripts\decode-updater-public-key.mjs $env:MONARCH_UPDATER_PUBLIC_KEY) -join "`n"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $config.version = $env:MONARCH_VERSION
+          $config.plugins.updater.pubkey = $decodedPublicKey.Trim()
+          $config.bundle | Add-Member -NotePropertyName createUpdaterArtifacts -NotePropertyValue $true -Force
+          $config | ConvertTo-Json -Depth 20 | Set-Content $path -Encoding UTF8
+
+      - name: Build signed NSIS installer and updater artifact
+        shell: pwsh
+        env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npm run tauri build -- --bundles nsis

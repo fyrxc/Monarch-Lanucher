@@ -38,6 +38,7 @@ fn builds_separate_safe_steam_launch_arguments() {
     let settings = LauncherSettings {
         dayz_name: "Crash Out".to_string(),
         extra_launch_parameters: "-nosplash -skipIntro".to_string(),
+        ..LauncherSettings::default()
     };
 
     let args = build_launch_args(&server(), &settings).expect("build launch args");
@@ -52,7 +53,7 @@ fn builds_separate_safe_steam_launch_arguments() {
 }
 
 #[test]
-fn builds_battleye_bootstrap_command() {
+fn builds_battleye_bootstrap_command_by_default() {
     let root = PathBuf::from(r"C:\Steam\steamapps\common\DayZ");
     let command = build_dayz_launch_command(&server(), &LauncherSettings::default(), &[], &root)
         .expect("build BattlEye command");
@@ -62,6 +63,21 @@ fn builds_battleye_bootstrap_command() {
     assert_eq!(&command.args[0..5], ["0", "1", "1", "-exe", "DayZ_x64.exe"]);
     assert!(command.args.iter().any(|arg| arg == "-connect=1.2.3.4"));
     assert!(command.args.iter().any(|arg| arg == "-port=2302"));
+}
+
+#[test]
+fn launches_dayz_directly_when_skip_battleye_is_enabled() {
+    let root = PathBuf::from(r"C:\Steam\steamapps\common\DayZ");
+    let mut settings = LauncherSettings::default();
+    settings.skip_battleye = true;
+
+    let command = build_dayz_launch_command(&server(), &settings, &[], &root)
+        .expect("build direct DayZ command");
+
+    assert_eq!(command.executable, root.join("DayZ_x64.exe"));
+    assert_eq!(command.working_directory, root);
+    assert!(!command.args.iter().any(|arg| arg == "-exe"));
+    assert!(command.args.iter().any(|arg| arg == "-connect=1.2.3.4"));
 }
 
 #[test]
@@ -132,6 +148,7 @@ fn rejects_control_characters_in_extra_launch_parameters() {
     let settings = LauncherSettings {
         dayz_name: "Crash Out".to_string(),
         extra_launch_parameters: "-nosplash\n-deleteStuff".to_string(),
+        ..LauncherSettings::default()
     };
 
     let error = build_launch_args(&server(), &settings).expect_err("reject newline");

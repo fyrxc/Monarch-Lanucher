@@ -1,5 +1,6 @@
 pub mod collections;
 pub mod commands;
+pub mod discord;
 pub mod launcher;
 pub mod models;
 pub mod servers;
@@ -10,6 +11,7 @@ pub mod updates;
 pub mod workshop;
 
 use commands::{default_data_root, LauncherState};
+use discord::DiscordPresence;
 use servers::DzsaServerDirectory;
 use std::sync::Arc;
 
@@ -24,6 +26,7 @@ pub fn run() {
             Arc::new(server_directory),
             default_data_root(),
         ))
+        .manage(DiscordPresence::default())
         .invoke_handler(tauri::generate_handler![
             commands::get_servers,
             commands::get_settings,
@@ -33,13 +36,16 @@ pub fn run() {
             commands::get_recent,
             commands::clear_recent,
             commands::get_system_status,
+            commands::open_steam,
             commands::get_installed_mods,
+            commands::get_workshop_mod_metadata,
             commands::get_required_mods,
             commands::sync_required_mods,
             commands::update_workshop_mod,
             commands::unsubscribe_workshop_mod,
             commands::open_mod_folder,
             commands::launch_server,
+            discord::set_discord_presence,
             updates::check_for_update,
             updates::install_update,
         ])

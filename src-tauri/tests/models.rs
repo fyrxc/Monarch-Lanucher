@@ -28,8 +28,10 @@ fn dayz_server_serializes_frontend_contract_in_camel_case() {
 }
 
 #[test]
-fn launcher_settings_default_to_empty_safe_values() {
+fn launcher_settings_default_to_safe_values() {
     let settings = LauncherSettings::default();
     assert_eq!(settings.dayz_name, "");
     assert_eq!(settings.extra_launch_parameters, "");
+    assert!(!settings.skip_battleye);
+    assert!(settings.ui_sounds);
 }

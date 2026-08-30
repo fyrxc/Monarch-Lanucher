@@ -10,9 +10,10 @@ import type {
   LauncherSettings,
   RequiredMod,
   SystemStatus,
+  WorkshopModMetadata,
 } from "../lib/models";
-import { paginate } from "../lib/pagination";
 import { serverIdentity } from "../lib/server-id";
+import { playNotificationBeep, playUiClick } from "../lib/sounds";
 import { ModCard } from "./mod-card";
 import { Navigation, type LauncherView } from "./navigation";
 import { ServerFiltersPanel } from "./server-filters";
@@ -20,8 +21,6 @@ import { ServerJoinDialog } from "./server-join-dialog";
 import { ServerTable } from "./server-table";
 import { StatusBanner } from "./status-banner";
 import { UpdatePanel } from "./update-panel";
-
-const SERVER_PAGE_SIZE = 100;
 
 type ModAction = "update" | "uninstall" | "folder";
 
@@ -43,11 +42,32 @@ const emptyFilters: ServerFilters = {
 const emptySettings: LauncherSettings = {
   dayzName: "",
   extraLaunchParameters: "",
+  skipBattlEye: false,
+  uiSounds: true,
 };
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return String(error);
+}
+
+function mergeWorkshopMetadata(
+  mods: InstalledMod[],
+  metadata: WorkshopModMetadata[],
+): InstalledMod[] {
+  const byId = new Map(metadata.map((item) => [item.workshopId, item]));
+  return mods.map((mod) => {
+    const details = byId.get(mod.workshopId);
+    if (!details) return mod;
+    return {
+      ...mod,
+      name: details.name,
+      previewUrl: details.previewUrl,
+      creatorId: details.creatorId,
+      workshopUrl: details.workshopUrl,
+      creatorUrl: details.creatorUrl,
+    };
+  });
 }
 
 export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
@@ -57,10 +77,10 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   const [recent, setRecent] = useState<DayzServer[]>([]);
   const [installedMods, setInstalledMods] = useState<InstalledMod[]>([]);
   const [filters, setFilters] = useState<ServerFilters>(emptyFilters);
-  const [serverPage, setServerPage] = useState(1);
   const [settings, setSettings] = useState<LauncherSettings>(emptySettings);
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
-  const [loadingServers, setLoadingServers] = useState(true);
+  const [runtimeStarted, setRuntimeStarted] = useState(false);
+  const [loadingServers, setLoadingServers] = useState(false);
   const [loadingMods, setLoadingMods] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
@@ -68,7 +88,8 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   const [modBusy, setModBusy] = useState<{ id: string; action: ModAction } | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [savingSettings, setSavingSettings] = useState(false);
+  const [steamError, setSteamError] = useState<string | null>(null);
+  const [openingSteam, setOpeningSteam] = useState(false);
   const [joinTarget, setJoinTarget] = useState<DayzServer | null>(null);
   const [joinRequiredMods, setJoinRequiredMods] = useState<RequiredMod[]>([]);
   const [joinPassword, setJoinPassword] = useState("");
@@ -77,6 +98,16 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   const [joinError, setJoinError] = useState<string | null>(null);
   const [pollRequiredMods, setPollRequiredMods] = useState(false);
   const deferredSearch = useDeferredValue(filters.search);
+
+  const refreshSystemStatus = useCallback(async () => {
+    try {
+      const status = await api.getSystemStatus();
+      setSystemStatus(status);
+      if (status.steamRunning) setSteamError(null);
+    } catch (error) {
+      setSteamError(errorMessage(error));
+    }
+  }, [api]);
 
   const loadServers = useCallback(async () => {
     setLoadingServers(true);
@@ -108,17 +139,34 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     }
   }, [api]);
 
+  const enrichInstalledMods = useCallback(
+    async (mods: InstalledMod[]) => {
+      if (mods.length === 0) return;
+      try {
+        const metadata = await api.getWorkshopModMetadata(mods.map((mod) => mod.workshopId));
+        setInstalledMods((current) => mergeWorkshopMetadata(current, metadata));
+      } catch {
+        // Local mod state is still useful if Steam's metadata endpoint is unavailable.
+      }
+    },
+    [api],
+  );
+
   const loadInstalledMods = useCallback(async () => {
     setLoadingMods(true);
     setActionError(null);
     try {
-      setInstalledMods(await api.getInstalledMods());
+      const mods = await api.getInstalledMods();
+      setInstalledMods(mods);
+      setLoadingMods(false);
+      void enrichInstalledMods(mods);
+      return;
     } catch (error) {
       setActionError(errorMessage(error));
     } finally {
       setLoadingMods(false);
     }
-  }, [api]);
+  }, [api, enrichInstalledMods]);
 
   const loadJoinRequiredMods = useCallback(
     async (server: DayzServer, showLoading = true) => {
@@ -141,41 +189,78 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
   );
 
   useEffect(() => {
-    void loadServers();
-    void loadFavorites();
-  }, [loadFavorites, loadServers]);
+    let active = true;
+    void Promise.all([api.getSystemStatus(), api.getSettings()])
+      .then(([status, savedSettings]) => {
+        if (!active) return;
+        const steamDefault = status.steamPersonaName?.trim() ?? "";
+        setSystemStatus(status);
+        setSettings(
+          savedSettings.dayzName.trim() || !steamDefault
+            ? savedSettings
+            : { ...savedSettings, dayzName: steamDefault },
+        );
+      })
+      .catch((error) => {
+        if (active) setSteamError(errorMessage(error));
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [api]);
 
   useEffect(() => {
-    if (activeView === "Recent") {
-      void loadRecent();
-    }
+    const timer = window.setInterval(() => {
+      void refreshSystemStatus();
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [refreshSystemStatus]);
 
-    if (activeView === "Mods") {
-      void loadInstalledMods();
+  useEffect(() => {
+    if (!systemStatus) return;
+    if (!systemStatus.steamRunning) {
+      setRuntimeStarted(false);
+      return;
     }
+    if (runtimeStarted) return;
+    setRuntimeStarted(true);
+    void loadServers();
+    void loadFavorites();
+  }, [loadFavorites, loadServers, runtimeStarted, systemStatus]);
 
-    if (activeView === "Settings") {
-      void Promise.all([api.getSettings(), api.getSystemStatus()])
-        .then(([nextSettings, status]) => {
-          const steamDefault = status.steamPersonaName?.trim() ?? "";
-          setSettings(
-            nextSettings.dayzName.trim() || !steamDefault
-              ? nextSettings
-              : { ...nextSettings, dayzName: steamDefault },
-          );
-          setSystemStatus(status);
-        })
-        .catch((error) => setActionError(errorMessage(error)));
-    }
-  }, [activeView, api, loadInstalledMods, loadRecent]);
+  useEffect(() => {
+    if (!systemStatus?.steamRunning) return;
+    if (activeView === "Recent") void loadRecent();
+    if (activeView === "Mods") void loadInstalledMods();
+  }, [activeView, loadInstalledMods, loadRecent, systemStatus?.steamRunning]);
+
+  useEffect(() => {
+    if (!systemStatus?.steamRunning) return;
+    void api.setDiscordPresence(activeView).catch(() => undefined);
+  }, [activeView, api, systemStatus?.steamRunning]);
+
+  useEffect(() => {
+    if (!settings.uiSounds) return;
+    const onClick = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (target.closest("button, a, input, select, label")) playUiClick();
+    };
+    document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
+  }, [settings.uiSounds]);
+
+  useEffect(() => {
+    if (!settings.uiSounds || (!actionMessage && !actionError)) return;
+    playNotificationBeep();
+  }, [actionError, actionMessage, settings.uiSounds]);
 
   useEffect(() => {
     if (!joinTarget || !pollRequiredMods) return;
-
     const timer = window.setInterval(() => {
       void loadJoinRequiredMods(joinTarget, false);
     }, 2000);
-
     return () => window.clearInterval(timer);
   }, [joinTarget, loadJoinRequiredMods, pollRequiredMods]);
 
@@ -202,21 +287,6 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     [deferredFilters, favoriteIds, servers],
   );
 
-  const serverPageResult = useMemo(
-    () => paginate(visibleServers, serverPage, SERVER_PAGE_SIZE),
-    [serverPage, visibleServers],
-  );
-
-  const updateFilters = useCallback((next: ServerFilters) => {
-    setFilters(next);
-    setServerPage(1);
-  }, []);
-
-  const clearFilters = useCallback(() => {
-    setFilters(emptyFilters);
-    setServerPage(1);
-  }, []);
-
   const toggleFavorite = useCallback(
     async (server: DayzServer) => {
       setActionError(null);
@@ -238,21 +308,15 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
       setActionError(null);
       setJoinError(null);
       try {
-        if (password === undefined) {
-          await api.launchServer(server);
-        } else {
-          await api.launchServer(server, password);
-        }
+        if (password === undefined) await api.launchServer(server);
+        else await api.launchServer(server, password);
         setActionMessage(`Launching ${server.name}`);
         setJoinTarget(null);
         setPollRequiredMods(false);
         await loadRecent();
       } catch (error) {
-        if (joinTarget) {
-          setJoinError(errorMessage(error));
-        } else {
-          setActionError(errorMessage(error));
-        }
+        if (joinTarget) setJoinError(errorMessage(error));
+        else setActionError(errorMessage(error));
       } finally {
         setJoiningId(null);
       }
@@ -276,18 +340,14 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
       setJoinRequiredMods([]);
       setPollRequiredMods(false);
 
-      if (server.requiredWorkshopIds.length > 0) {
-        await loadJoinRequiredMods(server);
-      } else {
-        setJoinLoading(false);
-      }
+      if (server.requiredWorkshopIds.length > 0) await loadJoinRequiredMods(server);
+      else setJoinLoading(false);
     },
     [launchServer, loadJoinRequiredMods],
   );
 
   const syncJoinRequiredMods = useCallback(async () => {
     if (!joinTarget) return;
-
     setJoinSyncing(true);
     setJoinError(null);
     try {
@@ -355,15 +415,22 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
       setActionError(null);
       try {
         await api.unsubscribeWorkshopMod(mod.workshopId);
-        setInstalledMods((current) =>
-          current.filter((item) => item.workshopId !== mod.workshopId),
-        );
+        setInstalledMods((current) => current.filter((item) => item.workshopId !== mod.workshopId));
         setActionMessage(`Unsubscribed ${mod.name} through Steam.`);
       } catch (error) {
         setActionError(errorMessage(error));
       } finally {
         setModBusy(null);
       }
+    },
+    [api],
+  );
+
+  const persistSettings = useCallback(
+    (next: LauncherSettings) => {
+      setSettings(next);
+      setActionError(null);
+      void api.saveSettings(next).catch((error) => setActionError(errorMessage(error)));
     },
     [api],
   );
@@ -378,17 +445,16 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     }
   }
 
-  async function saveSettings() {
-    setSavingSettings(true);
-    setActionError(null);
-    setActionMessage(null);
+  async function openSteam() {
+    setOpeningSteam(true);
+    setSteamError(null);
     try {
-      await api.saveSettings(settings);
-      setActionMessage("Settings saved.");
+      await api.openSteam();
+      await refreshSystemStatus();
     } catch (error) {
-      setActionError(errorMessage(error));
+      setSteamError(errorMessage(error));
     } finally {
-      setSavingSettings(false);
+      setOpeningSteam(false);
     }
   }
 
@@ -398,27 +464,16 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
         <div className="view-toolbar">
           <div>
             <h1>Servers</h1>
-            <p>Public DayZ servers load automatically.</p>
+            <p>Public DayZ servers load automatically. Favorites stay at the top.</p>
           </div>
-          <button className="ghost-button" onClick={() => void loadServers()} type="button">
-            Refresh
-          </button>
+          <button className="ghost-button" onClick={() => void loadServers()} type="button">Refresh</button>
         </div>
-
         {warning ? <StatusBanner tone="warning">{warning}</StatusBanner> : null}
         {serverError ? (
-          <StatusBanner
-            action={
-              <button className="banner-button" onClick={() => void loadServers()} type="button">
-                Retry
-              </button>
-            }
-            tone="error"
-          >
+          <StatusBanner action={<button className="banner-button" onClick={() => void loadServers()} type="button">Retry</button>} tone="error">
             {serverError}
           </StatusBanner>
         ) : null}
-
         {loadingServers ? (
           <div className="loading-state">Loading public DayZ servers...</div>
         ) : serverError ? null : (
@@ -426,8 +481,8 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
             <ServerFiltersPanel
               filters={filters}
               maps={maps}
-              onChange={updateFilters}
-              onClear={clearFilters}
+              onChange={setFilters}
+              onClear={() => setFilters(emptyFilters)}
               resultCount={visibleServers.length}
             />
             <ServerTable
@@ -435,31 +490,8 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
               joiningId={joiningId}
               onFavorite={toggleFavorite}
               onJoin={(server) => void beginJoin(server)}
-              servers={serverPageResult.items}
+              servers={visibleServers}
             />
-            {visibleServers.length > 0 ? (
-              <div className="server-pagination" aria-label="Server pages">
-                <button
-                  className="ghost-button"
-                  disabled={serverPageResult.page <= 1}
-                  onClick={() => setServerPage(serverPageResult.page - 1)}
-                  type="button"
-                >
-                  Previous
-                </button>
-                <span>
-                  Page {serverPageResult.page} of {serverPageResult.pageCount} · {serverPageResult.total.toLocaleString()} servers
-                </span>
-                <button
-                  className="ghost-button"
-                  disabled={serverPageResult.page >= serverPageResult.pageCount}
-                  onClick={() => setServerPage(serverPageResult.page + 1)}
-                  type="button"
-                >
-                  Next
-                </button>
-              </div>
-            ) : null}
           </>
         )}
       </>
@@ -475,9 +507,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
             <p>{title === "Favorites" ? "Servers you saved." : "Your latest successful joins."}</p>
           </div>
           {title === "Recent" && collection.length > 0 ? (
-            <button className="ghost-button" onClick={() => void clearRecent()} type="button">
-              Clear Recent
-            </button>
+            <button className="ghost-button" onClick={() => void clearRecent()} type="button">Clear Recent</button>
           ) : null}
         </div>
         <ServerTable
@@ -497,20 +527,14 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
         <div className="view-toolbar">
           <div>
             <h1>Mods</h1>
-            <p>Steam Workshop mods installed for DayZ.</p>
+            <p>Local Workshop state appears first; Steam artwork and creator details fill in after.</p>
           </div>
-          <button
-            className="ghost-button"
-            disabled={loadingMods}
-            onClick={() => void loadInstalledMods()}
-            type="button"
-          >
+          <button className="ghost-button" disabled={loadingMods} onClick={() => void loadInstalledMods()} type="button">
             {loadingMods ? "Scanning..." : "Refresh"}
           </button>
         </div>
-
-        {loadingMods ? (
-          <div className="loading-state">Loading Steam Workshop mods...</div>
+        {loadingMods && installedMods.length === 0 ? (
+          <div className="loading-state">Scanning installed DayZ Workshop mods...</div>
         ) : installedMods.length === 0 ? (
           <div className="empty-state">No installed DayZ Workshop mods were detected.</div>
         ) : (
@@ -537,7 +561,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
         <div className="view-toolbar">
           <div>
             <h1>Settings</h1>
-            <p>DayZ identity, launch options, install detection, and launcher updates.</p>
+            <p>Changes save immediately.</p>
           </div>
         </div>
         <div className="settings-grid">
@@ -547,7 +571,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
               <span>Player Name</span>
               <input
                 className="field"
-                onChange={(event) => setSettings({ ...settings, dayzName: event.target.value })}
+                onChange={(event) => persistSettings({ ...settings, dayzName: event.target.value })}
                 placeholder="Steam public name"
                 value={settings.dayzName}
               />
@@ -556,56 +580,77 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
               <span>Extra Launch Parameters</span>
               <input
                 className="field"
-                onChange={(event) =>
-                  setSettings({ ...settings, extraLaunchParameters: event.target.value })
-                }
+                onChange={(event) => persistSettings({ ...settings, extraLaunchParameters: event.target.value })}
                 placeholder="-nosplash"
                 value={settings.extraLaunchParameters}
               />
             </label>
-            <button
-              className="join-button save-button"
-              disabled={savingSettings}
-              onClick={() => void saveSettings()}
-              type="button"
-            >
-              {savingSettings ? "SAVING..." : "SAVE SETTINGS"}
-            </button>
+            <label className="settings-toggle">
+              <input
+                aria-label="Skip BattlEye"
+                checked={settings.skipBattlEye}
+                onChange={(event) => persistSettings({ ...settings, skipBattlEye: event.target.checked })}
+                type="checkbox"
+              />
+              <span><strong>Skip BattlEye</strong><small>Launch DayZ_x64.exe directly, matching DZSA behavior.</small></span>
+            </label>
+            <label className="settings-toggle">
+              <input
+                aria-label="UI Sounds"
+                checked={settings.uiSounds}
+                onChange={(event) => persistSettings({ ...settings, uiSounds: event.target.checked })}
+                type="checkbox"
+              />
+              <span><strong>UI Sounds</strong><small>Click feedback and louder launcher notifications.</small></span>
+            </label>
           </section>
 
           <section className="settings-card">
             <h2>System</h2>
             {systemStatus ? (
               <dl className="system-list">
-                <div>
-                  <dt>Steam</dt>
-                  <dd>{systemStatus.steamFound ? "Detected" : "Not detected"}</dd>
-                </div>
-                <div>
-                  <dt>Steam Name</dt>
-                  <dd>{systemStatus.steamPersonaName ?? "--"}</dd>
-                </div>
-                <div>
-                  <dt>DayZ</dt>
-                  <dd>{systemStatus.dayzFound ? "Installed" : "Not installed"}</dd>
-                </div>
-                <div>
-                  <dt>Steam Path</dt>
-                  <dd>{systemStatus.steamPath ?? "--"}</dd>
-                </div>
-                <div>
-                  <dt>DayZ Path</dt>
-                  <dd>{systemStatus.dayzPath ?? "--"}</dd>
-                </div>
+                <div><dt>Steam</dt><dd>{systemStatus.steamRunning ? "Running" : systemStatus.steamFound ? "Closed" : "Not detected"}</dd></div>
+                <div><dt>Steam Name</dt><dd>{systemStatus.steamPersonaName ?? "--"}</dd></div>
+                <div><dt>DayZ</dt><dd>{systemStatus.dayzFound ? "Installed" : "Not installed"}</dd></div>
+                <div><dt>Steam Path</dt><dd>{systemStatus.steamPath ?? "--"}</dd></div>
+                <div><dt>DayZ Path</dt><dd>{systemStatus.dayzPath ?? "--"}</dd></div>
               </dl>
             ) : (
               <div className="loading-state compact">Detecting Steam and DayZ...</div>
             )}
           </section>
-
           <UpdatePanel api={api} />
         </div>
       </>
+    );
+  }
+
+  if (!systemStatus) {
+    return <div className="steam-gate-shell"><div className="steam-gate-card">Checking Steam...</div></div>;
+  }
+
+  if (!systemStatus.steamRunning) {
+    return (
+      <div className="steam-gate-shell">
+        <div className="steam-gate-card">
+          <div className="steam-gate-brand">
+            <img alt="Monarch logo" src="/LogoWhite.svg" />
+            <img alt="Monarch" src="/onarch.svg" />
+          </div>
+          <h1>Steam Required</h1>
+          <p>Monarch Launcher requires Steam to be running before servers, mods, or DayZ launch features can be used.</p>
+          {steamError ? <div className="steam-gate-error">{steamError}</div> : null}
+          <button
+            className="join-button steam-open-button"
+            disabled={!systemStatus.steamFound || openingSteam}
+            onClick={() => void openSteam()}
+            type="button"
+          >
+            {openingSteam ? "OPENING..." : "OPEN STEAM"}
+          </button>
+          {!systemStatus.steamFound ? <small>Steam was not detected on this PC.</small> : <small>Monarch will unlock automatically when Steam is running.</small>}
+        </div>
+      </div>
     );
   }
 
@@ -613,9 +658,9 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
     <div className="launcher-shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-mark">M</div>
-          <div>
-            <strong>MONARCH</strong>
+          <img className="brand-logo" alt="Monarch logo" src="/LogoWhite.svg" />
+          <div className="brand-wordmark-wrap">
+            <img className="brand-wordmark" alt="Monarch" src="/onarch.svg" />
             <span>DAYZ LAUNCHER</span>
           </div>
         </div>
@@ -626,7 +671,6 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
       <main className="main-panel">
         {actionError ? <StatusBanner tone="error">{actionError}</StatusBanner> : null}
         {actionMessage ? <StatusBanner tone="success">{actionMessage}</StatusBanner> : null}
-
         {activeView === "Servers" ? renderServers() : null}
         {activeView === "Favorites" ? renderCollection("Favorites", favorites) : null}
         {activeView === "Recent" ? renderCollection("Recent", recent) : null}
@@ -640,12 +684,7 @@ export function AppShell({ api = tauriApi }: { api?: LauncherApi }) {
           joining={joiningId === serverIdentity(joinTarget)}
           loading={joinLoading}
           onClose={closeJoinDialog}
-          onJoin={() =>
-            void launchServer(
-              joinTarget,
-              joinTarget.isPassworded ? joinPassword : undefined,
-            )
-          }
+          onJoin={() => void launchServer(joinTarget, joinTarget.isPassworded ? joinPassword : undefined)}
           onPasswordChange={setJoinPassword}
           onRefresh={() => void loadJoinRequiredMods(joinTarget)}
           onSync={() => void syncJoinRequiredMods()}

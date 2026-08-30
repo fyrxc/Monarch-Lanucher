@@ -68,8 +68,10 @@ fn builds_battleye_bootstrap_command_by_default() {
 #[test]
 fn launches_dayz_directly_when_skip_battleye_is_enabled() {
     let root = PathBuf::from(r"C:\Steam\steamapps\common\DayZ");
-    let mut settings = LauncherSettings::default();
-    settings.skip_battleye = true;
+    let settings = LauncherSettings {
+        skip_battleye: true,
+        ..LauncherSettings::default()
+    };
 
     let command = build_dayz_launch_command(&server(), &settings, &[], &root)
         .expect("build direct DayZ command");

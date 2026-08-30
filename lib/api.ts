@@ -7,6 +7,7 @@ import type {
   ServerDirectoryResult,
   SystemStatus,
   UpdateInfo,
+  WorkshopModMetadata,
 } from "./models";
 
 export interface LauncherApi {
@@ -18,7 +19,9 @@ export interface LauncherApi {
   getSettings(): Promise<LauncherSettings>;
   saveSettings(settings: LauncherSettings): Promise<void>;
   getSystemStatus(): Promise<SystemStatus>;
+  openSteam(): Promise<void>;
   getInstalledMods(): Promise<InstalledMod[]>;
+  getWorkshopModMetadata(workshopIds: string[]): Promise<WorkshopModMetadata[]>;
   getRequiredMods(server: DayzServer): Promise<RequiredMod[]>;
   syncRequiredMods(server: DayzServer): Promise<void>;
   updateWorkshopMod(workshopId: string): Promise<void>;
@@ -27,6 +30,7 @@ export interface LauncherApi {
   checkForUpdate(): Promise<UpdateInfo>;
   installUpdate(): Promise<void>;
   launchServer(server: DayzServer, password?: string): Promise<void>;
+  setDiscordPresence(view: string): Promise<void>;
 }
 
 export const tauriApi: LauncherApi = {
@@ -38,7 +42,10 @@ export const tauriApi: LauncherApi = {
   getSettings: () => invoke<LauncherSettings>("get_settings"),
   saveSettings: (settings) => invoke<void>("save_settings", { settings }),
   getSystemStatus: () => invoke<SystemStatus>("get_system_status"),
+  openSteam: () => invoke<void>("open_steam"),
   getInstalledMods: () => invoke<InstalledMod[]>("get_installed_mods"),
+  getWorkshopModMetadata: (workshopIds) =>
+    invoke<WorkshopModMetadata[]>("get_workshop_mod_metadata", { workshopIds }),
   getRequiredMods: (server) => invoke<RequiredMod[]>("get_required_mods", { server }),
   syncRequiredMods: (server) => invoke<void>("sync_required_mods", { server }),
   updateWorkshopMod: (workshopId) =>
@@ -50,4 +57,5 @@ export const tauriApi: LauncherApi = {
   installUpdate: () => invoke<void>("install_update"),
   launchServer: (server, password) =>
     invoke<void>("launch_server", { server, password: password ?? null }),
+  setDiscordPresence: (view) => invoke<void>("set_discord_presence", { view }),
 };

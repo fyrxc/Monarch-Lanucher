@@ -35,21 +35,28 @@ function createApi() {
     getSettings: vi.fn().mockResolvedValue({
       dayzName: "",
       extraLaunchParameters: "",
+      skipBattlEye: false,
+      uiSounds: true,
     }),
     saveSettings: vi.fn().mockResolvedValue(undefined),
     getSystemStatus: vi.fn().mockResolvedValue({
       steamFound: true,
+      steamRunning: true,
       steamPath: "C:\\Program Files (x86)\\Steam\\steam.exe",
       steamPersonaName: "PublicSteamName",
       dayzFound: true,
       dayzPath: "D:\\SteamLibrary\\steamapps\\common\\DayZ\\DayZ_x64.exe",
     }),
+    openSteam: vi.fn().mockResolvedValue(undefined),
     getInstalledMods: vi.fn().mockResolvedValue([
       {
         workshopId: "1559212036",
         name: "Community Framework",
         path: "D:\\SteamLibrary\\steamapps\\workshop\\content\\221100\\1559212036",
         previewUrl: "https://cdn.example/cf.jpg",
+        creatorId: "76561198000000000",
+        workshopUrl: "https://steamcommunity.com/sharedfiles/filedetails/?id=1559212036",
+        creatorUrl: "https://steamcommunity.com/profiles/76561198000000000",
         needsUpdate: true,
         isDownloading: false,
         isSubscribed: true,
@@ -75,6 +82,7 @@ function createApi() {
     }),
     installUpdate: vi.fn().mockResolvedValue(undefined),
     launchServer: vi.fn().mockResolvedValue(undefined),
+    setDiscordPresence: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -97,7 +105,7 @@ it("starts on Servers with server-first navigation and real directory data", asy
   const api = createApi();
   render(<AppShell api={api} />);
 
-  expect(screen.getByRole("heading", { name: "Servers" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Servers" })).toBeInTheDocument();
   for (const item of ["Servers", "Favorites", "Recent", "Mods", "Settings"]) {
     expect(screen.getByRole("button", { name: item })).toBeInTheDocument();
   }
@@ -105,6 +113,36 @@ it("starts on Servers with server-first navigation and real directory data", asy
 
   expect(await screen.findByText("Monarch Test Server")).toBeInTheDocument();
   expect(screen.getByText("42 / 100")).toBeInTheDocument();
+  await waitFor(() => expect(api.setDiscordPresence).toHaveBeenCalledWith("Servers"));
+});
+
+it("uses the supplied Monarch logo assets in the sidebar", async () => {
+  const api = createApi();
+  render(<AppShell api={api} />);
+
+  expect(await screen.findByAltText("Monarch logo")).toHaveAttribute("src", "/LogoWhite.svg");
+  expect(screen.getByAltText("Monarch")).toHaveAttribute("src", "/onarch.svg");
+});
+
+it("refuses to operate until Steam is running and can open Steam", async () => {
+  const api = createApi();
+  api.getSystemStatus.mockResolvedValue({
+    steamFound: true,
+    steamRunning: false,
+    steamPath: "C:\\Program Files (x86)\\Steam\\steam.exe",
+    steamPersonaName: null,
+    dayzFound: true,
+    dayzPath: "D:\\SteamLibrary\\steamapps\\common\\DayZ\\DayZ_x64.exe",
+  });
+
+  render(<AppShell api={api} />);
+
+  expect(await screen.findByRole("heading", { name: "Steam Required" })).toBeInTheDocument();
+  expect(screen.getByText(/Monarch Launcher requires Steam to be running/i)).toBeInTheDocument();
+  expect(api.getServers).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getByRole("button", { name: "OPEN STEAM" }));
+  await waitFor(() => expect(api.openSteam).toHaveBeenCalledTimes(1));
 });
 
 it("shows a clean copyable IP and port without country text", async () => {
@@ -116,7 +154,7 @@ it("shows a clean copyable IP and port without country text", async () => {
   expect(screen.queryByText(/^US$/)).not.toBeInTheDocument();
 });
 
-it("renders only 100 public servers at a time", async () => {
+it("renders every filtered server without pagination", async () => {
   const api = createApi();
   api.getServers.mockResolvedValue({
     servers: Array.from({ length: 205 }, (_, index) => generatedServer(index + 1)),
@@ -127,14 +165,34 @@ it("renders only 100 public servers at a time", async () => {
   render(<AppShell api={api} />);
 
   expect(await screen.findByText("Server 1")).toBeInTheDocument();
-  await waitFor(() => expect(screen.getAllByRole("button", { name: "JOIN" })).toHaveLength(100));
-  expect(screen.getByText("Page 1 of 3 · 205 servers")).toBeInTheDocument();
-  expect(screen.queryByText("Server 101")).not.toBeInTheDocument();
+  await waitFor(() => expect(screen.getAllByRole("button", { name: "JOIN" })).toHaveLength(205));
+  expect(screen.getByText("Server 205")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Next" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Previous" })).not.toBeInTheDocument();
+  expect(screen.queryByText(/Page 1 of/i)).not.toBeInTheDocument();
+});
 
-  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+it("colors ping by quality and keeps unavailable ping neutral", async () => {
+  const api = createApi();
+  api.getServers.mockResolvedValue({
+    servers: [
+      server,
+      { ...generatedServer(2), ping: 115 },
+      { ...generatedServer(3), ping: 175 },
+      { ...generatedServer(4), ping: 240 },
+      { ...generatedServer(5), ping: null },
+    ],
+    isPartial: false,
+    warning: null,
+  });
 
-  expect(await screen.findByText("Server 101")).toBeInTheDocument();
-  expect(screen.getByText("Page 2 of 3 · 205 servers")).toBeInTheDocument();
+  render(<AppShell api={api} />);
+
+  expect((await screen.findByText("38 ms")).closest("span")).toHaveAttribute("data-tone", "good");
+  expect(screen.getByText("115 ms").closest("span")).toHaveAttribute("data-tone", "fair");
+  expect(screen.getByText("175 ms").closest("span")).toHaveAttribute("data-tone", "high");
+  expect(screen.getByText("240 ms").closest("span")).toHaveAttribute("data-tone", "bad");
+  expect(screen.getByText("--").closest("span")).toHaveAttribute("data-tone", "unknown");
 });
 
 it("shows a real server-directory error and retries", async () => {
@@ -192,7 +250,7 @@ it("shows installed required mods before joining a modded server", async () => {
   expect(screen.getByRole("button", { name: "JOIN SERVER" })).toBeEnabled();
 });
 
-it("shows missing required mods and hands setup to Steam", async () => {
+it("shows missing required mods and hands setup to Steam without auto-joining", async () => {
   const api = createApi();
   api.getRequiredMods.mockResolvedValue([
     {
@@ -235,15 +293,20 @@ it("shows required mods that Steam is updating", async () => {
   expect(screen.getByRole("button", { name: "CHECK AGAIN" })).toBeInTheDocument();
 });
 
-it("renders Workshop metadata and mod-management actions", async () => {
+it("renders Workshop creator and Steam link with mod-management actions", async () => {
   const api = createApi();
   const { container } = render(<AppShell api={api} />);
 
-  fireEvent.click(screen.getByRole("button", { name: "Mods" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Mods" }));
 
   expect(await screen.findByText("Community Framework")).toBeInTheDocument();
   expect(screen.getByText("Workshop ID 1559212036")).toBeInTheDocument();
   expect(screen.getByText("Update available")).toBeInTheDocument();
+  expect(screen.getByText("Creator 76561198000000000")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "STEAM WORKSHOP" })).toHaveAttribute(
+    "href",
+    "https://steamcommunity.com/sharedfiles/filedetails/?id=1559212036",
+  );
   expect(container.querySelector('img[src="https://cdn.example/cf.jpg"]')).toBeInTheDocument();
   expect(screen.getByText(/steamapps\\workshop\\content\\221100\\1559212036/i)).toBeInTheDocument();
 
@@ -262,7 +325,7 @@ it("defaults a blank DayZ name to the active Steam public name", async () => {
   const api = createApi();
   render(<AppShell api={api} />);
 
-  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
 
   const playerName = await screen.findByDisplayValue("PublicSteamName");
   expect(playerName).toBeInTheDocument();
@@ -274,11 +337,53 @@ it("keeps a saved DayZ name instead of replacing it with Steam", async () => {
   api.getSettings.mockResolvedValue({
     dayzName: "CustomDayZName",
     extraLaunchParameters: "",
+    skipBattlEye: false,
+    uiSounds: true,
   });
   render(<AppShell api={api} />);
 
-  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
 
   expect(await screen.findByDisplayValue("CustomDayZName")).toBeInTheDocument();
   expect(screen.queryByDisplayValue("PublicSteamName")).not.toBeInTheDocument();
+});
+
+it("auto-saves DayZ settings and has no manual save button", async () => {
+  const api = createApi();
+  render(<AppShell api={api} />);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
+  const playerName = await screen.findByDisplayValue("PublicSteamName");
+  fireEvent.change(playerName, { target: { value: "CrashoutPlayer" } });
+
+  await waitFor(() =>
+    expect(api.saveSettings).toHaveBeenCalledWith({
+      dayzName: "CrashoutPlayer",
+      extraLaunchParameters: "",
+      skipBattlEye: false,
+      uiSounds: true,
+    }),
+  );
+  expect(screen.queryByRole("button", { name: /SAVE SETTINGS/i })).not.toBeInTheDocument();
+});
+
+it("auto-saves Skip BattlEye and UI sound toggles", async () => {
+  const api = createApi();
+  render(<AppShell api={api} />);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
+  const skipBattleEye = await screen.findByRole("checkbox", { name: "Skip BattlEye" });
+  fireEvent.click(skipBattleEye);
+
+  await waitFor(() =>
+    expect(api.saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ skipBattlEye: true }),
+    ),
+  );
+
+  const uiSounds = screen.getByRole("checkbox", { name: "UI Sounds" });
+  fireEvent.click(uiSounds);
+  await waitFor(() =>
+    expect(api.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ uiSounds: false })),
+  );
 });

@@ -25,6 +25,8 @@ export interface ServerDirectoryResult {
 export interface LauncherSettings {
   dayzName: string;
   extraLaunchParameters: string;
+  skipBattlEye: boolean;
+  uiSounds: boolean;
 }
 
 export interface InstalledMod {
@@ -32,9 +34,21 @@ export interface InstalledMod {
   name: string;
   path: string;
   previewUrl: string | null;
+  creatorId: string | null;
+  workshopUrl: string;
+  creatorUrl: string | null;
   needsUpdate: boolean;
   isDownloading: boolean;
   isSubscribed: boolean;
+}
+
+export interface WorkshopModMetadata {
+  workshopId: string;
+  name: string;
+  previewUrl: string | null;
+  creatorId: string | null;
+  workshopUrl: string;
+  creatorUrl: string | null;
 }
 
 export type RequiredModState = "installed" | "missing" | "updating";
@@ -48,6 +62,7 @@ export interface RequiredMod {
 
 export interface SystemStatus {
   steamFound: boolean;
+  steamRunning: boolean;
   steamPath: string | null;
   steamPersonaName: string | null;
   dayzFound: boolean;

@@ -42,6 +42,25 @@ pub fn build_dayz_launch_command_with_password(
     dayz_root: &Path,
     password: Option<&str>,
 ) -> Result<DayzLaunchCommand, String> {
+    let mut dayz_args = build_dayz_args_with_mods(server, settings, installed_mods)?;
+
+    if let Some(password) = password {
+        if contains_control_characters(password) {
+            return Err("invalid server password: control characters are not allowed".to_string());
+        }
+        if !password.is_empty() {
+            dayz_args.push(format!("-password={password}"));
+        }
+    }
+
+    if settings.skip_battleye {
+        return Ok(DayzLaunchCommand {
+            executable: dayz_root.join("DayZ_x64.exe"),
+            working_directory: dayz_root.to_path_buf(),
+            args: dayz_args,
+        });
+    }
+
     let mut args = vec![
         "0".to_string(),
         "1".to_string(),
@@ -49,16 +68,7 @@ pub fn build_dayz_launch_command_with_password(
         "-exe".to_string(),
         "DayZ_x64.exe".to_string(),
     ];
-    args.extend(build_dayz_args_with_mods(server, settings, installed_mods)?);
-
-    if let Some(password) = password {
-        if contains_control_characters(password) {
-            return Err("invalid server password: control characters are not allowed".to_string());
-        }
-        if !password.is_empty() {
-            args.push(format!("-password={password}"));
-        }
-    }
+    args.extend(dayz_args);
 
     Ok(DayzLaunchCommand {
         executable: dayz_root.join("DayZ_BE.exe"),

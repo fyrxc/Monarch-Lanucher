@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use std::collections::HashMap;
+use std::time::Duration;
 
 const PUBLISHED_FILE_DETAILS_URL: &str =
     "https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/";
@@ -8,6 +9,7 @@ const PUBLISHED_FILE_DETAILS_URL: &str =
 pub struct WorkshopMetadata {
     pub title: String,
     pub preview_url: Option<String>,
+    pub creator_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -29,6 +31,8 @@ struct PublishedFileDetail {
     title: String,
     #[serde(default)]
     preview_url: Option<String>,
+    #[serde(default)]
+    creator: Option<String>,
 }
 
 pub fn parse_published_file_details(
@@ -54,6 +58,10 @@ pub fn parse_published_file_details(
                 title: title.to_string(),
                 preview_url: detail
                     .preview_url
+                    .map(|value| value.trim().to_string())
+                    .filter(|value| !value.is_empty()),
+                creator_id: detail
+                    .creator
                     .map(|value| value.trim().to_string())
                     .filter(|value| !value.is_empty()),
             },
@@ -82,6 +90,7 @@ pub async fn fetch_published_file_details(
 
     let response = client
         .post(PUBLISHED_FILE_DETAILS_URL)
+        .timeout(Duration::from_secs(4))
         .header(
             reqwest::header::CONTENT_TYPE,
             "application/x-www-form-urlencoded",

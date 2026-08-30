@@ -19,7 +19,7 @@ describe("release scripts", () => {
 
     expect(decodeUpdaterPublicKey(encoded)).toBe(
       "untrusted comment: minisign public key: 6EE30224B7714FDD\n" +
-        "RWXdT3G3JALjbi048VhnKoe0ig3Zv2Dc4XOvYzw/2ksBIrdcCmLhJOgm",
+        "RWTdT3G3JALjbi048VhnKoe0ig3Zv2Dc4XOvYzw/2ksBIrdcCmLhJOgm",
     );
     expect(() => decodeUpdaterPublicKey("not-base64")).toThrow(/valid base64/i);
     expect(() => decodeUpdaterPublicKey(Buffer.from("wrong format").toString("base64"))).toThrow(

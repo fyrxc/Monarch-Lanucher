@@ -21,7 +21,7 @@ export interface LauncherApi {
   getSystemStatus(): Promise<SystemStatus>;
   openSteam(): Promise<void>;
   getInstalledMods(): Promise<InstalledMod[]>;
-  getWorkshopModMetadata(workshopIds: string[]): Promise<WorkshopModMetadata[]>;
+  getWorkshopModMetadata?(workshopIds: string[]): Promise<WorkshopModMetadata[]>;
   getRequiredMods(server: DayzServer): Promise<RequiredMod[]>;
   syncRequiredMods(server: DayzServer): Promise<void>;
   updateWorkshopMod(workshopId: string): Promise<void>;

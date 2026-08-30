@@ -113,14 +113,14 @@ pub fn is_steam_running() -> bool {
         let mut command = Command::new("tasklist");
         command.args(["/FI", "IMAGENAME eq steam.exe", "/NH"]);
         configure_hidden_command(&mut command);
-        return command
+        command
             .output()
             .ok()
             .map(|output| String::from_utf8_lossy(&output.stdout).to_ascii_lowercase())
             .is_some_and(|body| {
                 body.lines()
                     .any(|line| line.trim_start().starts_with("steam.exe"))
-            });
+            })
     }
 
     #[cfg(not(windows))]

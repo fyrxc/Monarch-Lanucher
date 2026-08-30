@@ -18,18 +18,39 @@ fn temp_dir(label: &str) -> PathBuf {
 }
 
 #[test]
-fn settings_round_trip_dayz_name_and_launch_parameters() {
+fn settings_round_trip_all_launcher_options() {
     let root = temp_dir("settings-round-trip");
     let store = SettingsStore::new(root.clone());
     let expected = LauncherSettings {
         dayz_name: "Crash Out".to_string(),
         extra_launch_parameters: "-nosplash".to_string(),
+        skip_battleye: true,
+        ui_sounds: false,
     };
 
     store.save(&expected).expect("save settings");
     let actual = store.load().expect("load settings");
 
     assert_eq!(actual, expected);
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn old_settings_files_receive_new_defaults() {
+    let root = temp_dir("settings-migration");
+    fs::write(
+        root.join("settings.json"),
+        r#"{"dayzName":"LegacyName","extraLaunchParameters":"-nosplash"}"#,
+    )
+    .expect("write legacy settings");
+    let store = SettingsStore::new(root.clone());
+
+    let actual = store.load().expect("load legacy settings");
+
+    assert_eq!(actual.dayz_name, "LegacyName");
+    assert_eq!(actual.extra_launch_parameters, "-nosplash");
+    assert!(!actual.skip_battleye);
+    assert!(actual.ui_sounds);
     let _ = fs::remove_dir_all(root);
 }
 

@@ -1,0 +1,157 @@
+.brand-logo {
+  width: 38px;
+  height: 34px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
+.brand-wordmark-wrap {
+  min-width: 0;
+}
+
+.brand-wordmark {
+  display: block;
+  width: 92px;
+  height: auto;
+}
+
+.brand-wordmark-wrap span {
+  display: block;
+  margin-top: 3px;
+  color: #737f8b;
+  font-size: 8px;
+  letter-spacing: 0.18em;
+}
+
+.ping-value {
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.ping-value[data-tone="good"] {
+  color: #67d895;
+}
+
+.ping-value[data-tone="fair"] {
+  color: #e0ce72;
+}
+
+.ping-value[data-tone="high"] {
+  color: #e59c5c;
+}
+
+.ping-value[data-tone="bad"] {
+  color: #ed7079;
+}
+
+.ping-value[data-tone="unknown"] {
+  color: #707b86;
+}
+
+.settings-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 11px 12px;
+  border: 1px solid #2e3944;
+  border-radius: 9px;
+  background: #151b22;
+  cursor: pointer;
+}
+
+.settings-toggle input {
+  width: 15px;
+  height: 15px;
+  margin: 2px 0 0;
+}
+
+.settings-toggle span,
+.settings-toggle strong,
+.settings-toggle small {
+  display: block;
+}
+
+.settings-toggle strong {
+  color: #d8dee5;
+  font-size: 11px;
+}
+
+.settings-toggle small {
+  margin-top: 3px;
+  color: #707c88;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.steam-gate-shell {
+  display: grid;
+  width: 100vw;
+  height: 100vh;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(132, 82, 229, 0.14), transparent 34%),
+    #0e1116;
+}
+
+.steam-gate-card {
+  width: min(520px, 100%);
+  padding: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 20px;
+  background: rgba(20, 23, 29, 0.96);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.36);
+  text-align: center;
+  color: #c3cbd3;
+}
+
+.steam-gate-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.steam-gate-brand img:first-child {
+  width: 48px;
+  height: 38px;
+  object-fit: contain;
+}
+
+.steam-gate-brand img:last-child {
+  width: 150px;
+  height: auto;
+}
+
+.steam-gate-card h1 {
+  margin: 0;
+  color: #f3f5f7;
+  font-size: 25px;
+}
+
+.steam-gate-card p {
+  margin: 11px auto 20px;
+  max-width: 410px;
+  color: #87929d;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.steam-gate-card small {
+  display: block;
+  margin-top: 12px;
+  color: #626d78;
+  font-size: 10px;
+}
+
+.steam-gate-error {
+  margin: 0 0 14px;
+  color: #ef8f97;
+  font-size: 11px;
+}
+
+.steam-open-button {
+  min-width: 132px;
+}

@@ -3,6 +3,12 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SteamPaths {
     pub steam_exe: PathBuf,
@@ -101,6 +107,35 @@ pub fn discover_steam() -> Result<SteamPaths, String> {
     })
 }
 
+pub fn is_steam_running() -> bool {
+    #[cfg(windows)]
+    {
+        let mut command = Command::new("tasklist");
+        command.args(["/FI", "IMAGENAME eq steam.exe", "/NH"]);
+        configure_hidden_command(&mut command);
+        return command
+            .output()
+            .ok()
+            .map(|output| String::from_utf8_lossy(&output.stdout).to_ascii_lowercase())
+            .is_some_and(|body| body.lines().any(|line| line.trim_start().starts_with("steam.exe")));
+    }
+
+    #[cfg(not(windows))]
+    false
+}
+
+pub fn configure_hidden_command(command: &mut Command) {
+    #[cfg(windows)]
+    {
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+
+    #[cfg(not(windows))]
+    {
+        let _ = command;
+    }
+}
+
 fn dedupe_paths(paths: &mut Vec<PathBuf>) {
     let mut seen = HashSet::new();
     paths.retain(|path| seen.insert(path.to_string_lossy().to_ascii_lowercase()));
@@ -108,10 +143,10 @@ fn dedupe_paths(paths: &mut Vec<PathBuf>) {
 
 #[cfg(windows)]
 fn registry_value(name: &str) -> Option<String> {
-    let output = Command::new("reg")
-        .args(["query", r"HKCU\Software\Valve\Steam", "/v", name])
-        .output()
-        .ok()?;
+    let mut command = Command::new("reg");
+    command.args(["query", r"HKCU\Software\Valve\Steam", "/v", name]);
+    configure_hidden_command(&mut command);
+    let output = command.output().ok()?;
     if !output.status.success() {
         return None;
     }

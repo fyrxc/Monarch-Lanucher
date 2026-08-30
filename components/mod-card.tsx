@@ -1,3 +1,4 @@
+import { FiExternalLink } from "react-icons/fi";
 import type { InstalledMod } from "../lib/models";
 import styles from "./mod-card.module.css";
 
@@ -42,6 +43,22 @@ export function ModCard({
           <div className={styles.titleBlock}>
             <strong>{mod.name}</strong>
             <span>Workshop ID {mod.workshopId}</span>
+            <div className={styles.metadataLinks}>
+              {mod.creatorId ? (
+                mod.creatorUrl ? (
+                  <a href={mod.creatorUrl} rel="noreferrer" target="_blank">
+                    Creator {mod.creatorId}
+                  </a>
+                ) : (
+                  <span>Creator {mod.creatorId}</span>
+                )
+              ) : (
+                <span>Creator loading...</span>
+              )}
+              <a href={mod.workshopUrl} rel="noreferrer" target="_blank">
+                STEAM WORKSHOP <FiExternalLink aria-hidden />
+              </a>
+            </div>
           </div>
           <span
             className={`${styles.state} ${mod.needsUpdate ? styles.stateUpdate : ""}`}

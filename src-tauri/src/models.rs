@@ -28,17 +28,31 @@ pub struct ServerDirectoryResult {
     pub warning: Option<String>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default, rename_all = "camelCase")]
 pub struct LauncherSettings {
     pub dayz_name: String,
     pub extra_launch_parameters: String,
+    pub skip_battleye: bool,
+    pub ui_sounds: bool,
+}
+
+impl Default for LauncherSettings {
+    fn default() -> Self {
+        Self {
+            dayz_name: String::new(),
+            extra_launch_parameters: String::new(),
+            skip_battleye: false,
+            ui_sounds: true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct SystemStatus {
     pub steam_found: bool,
+    pub steam_running: bool,
     pub steam_path: Option<String>,
     pub steam_persona_name: Option<String>,
     pub dayz_found: bool,
@@ -60,6 +74,9 @@ pub struct WorkshopMod {
     pub name: String,
     pub path: String,
     pub preview_url: Option<String>,
+    pub creator_id: Option<String>,
+    pub workshop_url: String,
+    pub creator_url: Option<String>,
     pub needs_update: bool,
     pub is_downloading: bool,
     pub is_subscribed: bool,

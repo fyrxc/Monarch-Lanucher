@@ -1,0 +1,30 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MonarchLauncher.App", "src\MonarchLauncher.App\MonarchLauncher.App.csproj", "{B4B8B7CA-7E7A-4B6E-889C-3C6DC0E74B51}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MonarchLauncher.Updater", "src\MonarchLauncher.Updater\MonarchLauncher.Updater.csproj", "{95D4FDDC-2A4E-49B5-83BA-28C286365403}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MonarchLauncher.App.Tests", "tests\MonarchLauncher.App.Tests\MonarchLauncher.App.Tests.csproj", "{0BBCC7FC-F70C-43BF-BBF6-C4E9101EF88A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B4B8B7CA-7E7A-4B6E-889C-3C6DC0E74B51}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B4B8B7CA-7E7A-4B6E-889C-3C6DC0E74B51}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B4B8B7CA-7E7A-4B6E-889C-3C6DC0E74B51}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B4B8B7CA-7E7A-4B6E-889C-3C6DC0E74B51}.Release|Any CPU.Build.0 = Release|Any CPU
+		{95D4FDDC-2A4E-49B5-83BA-28C286365403}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{95D4FDDC-2A4E-49B5-83BA-28C286365403}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{95D4FDDC-2A4E-49B5-83BA-28C286365403}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{95D4FDDC-2A4E-49B5-83BA-28C286365403}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0BBCC7FC-F70C-43BF-BBF6-C4E9101EF88A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0BBCC7FC-F70C-43BF-BBF6-C4E9101EF88A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0BBCC7FC-F70C-43BF-BBF6-C4E9101EF88A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0BBCC7FC-F70C-43BF-BBF6-C4E9101EF88A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

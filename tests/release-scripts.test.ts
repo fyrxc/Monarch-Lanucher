@@ -27,6 +27,13 @@ describe("release scripts", () => {
     );
   });
 
+  it("wires the decoded updater key into bundling and the compiled updater", () => {
+    const workflow = readFileSync(join(process.cwd(), ".github", "workflows", "release.yml"), "utf8");
+
+    expect(workflow).toContain("$config.plugins.updater.pubkey = $decodedPublicKey.Trim()");
+    expect(workflow).toContain("$env:MONARCH_UPDATER_PUBLIC_KEY = $decodedPublicKey.Trim()");
+  });
+
   it("writes exact Windows updater URL and signature into latest.json", () => {
     const root = mkdtempSync(join(tmpdir(), "monarch-release-"));
     const output = join(root, "latest.json");

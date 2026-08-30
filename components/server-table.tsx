@@ -10,6 +10,14 @@ function copyAddress(address: string) {
   }
 }
 
+function pingTone(ping: number | null): "good" | "fair" | "high" | "bad" | "unknown" {
+  if (ping === null) return "unknown";
+  if (ping <= 80) return "good";
+  if (ping <= 140) return "fair";
+  if (ping <= 200) return "high";
+  return "bad";
+}
+
 export const ServerTable = memo(function ServerTable({
   servers,
   favoriteIds,
@@ -84,7 +92,11 @@ export const ServerTable = memo(function ServerTable({
                 </td>
                 <td>{server.map}</td>
                 <td>{server.players} / {server.capacity}</td>
-                <td>{server.ping === null ? "--" : `${server.ping} ms`}</td>
+                <td>
+                  <span className="ping-value" data-tone={pingTone(server.ping)}>
+                    {server.ping === null ? "--" : `${server.ping} ms`}
+                  </span>
+                </td>
                 <td>{server.requiredWorkshopIds.length || "Vanilla"}</td>
                 <td>{server.firstPersonOnly ? "1PP" : "3PP"}</td>
                 <td className="join-cell">

@@ -1,4 +1,5 @@
 import type { DayzServer } from "./models";
+import { serverIdentity } from "./server-id";
 
 export interface ServerFilters {
   search: string;
@@ -27,9 +28,10 @@ export function filterServers(
   const search = filters.search.trim().toLocaleLowerCase();
   const map = filters.map.trim().toLocaleLowerCase();
 
-  return servers.filter((server) => {
+  const filtered = servers.filter((server) => {
     const address = `${server.ip}:${server.gamePort}`;
     const isModded = server.requiredWorkshopIds.length > 0;
+    const favorite = favoriteIds.has(serverIdentity(server));
 
     if (search) {
       const searchable = `${server.name}\n${server.map}\n${address}`.toLocaleLowerCase();
@@ -46,8 +48,13 @@ export function filterServers(
     if (!matchesTriState(server.isPassworded, filters.passworded)) return false;
     if (!matchesTriState(server.isOfficial, filters.official)) return false;
     if (!matchesTriState(server.firstPersonOnly, filters.firstPersonOnly)) return false;
-    if (filters.favoritesOnly && !favoriteIds.has(server.id)) return false;
+    if (filters.favoritesOnly && !favorite) return false;
 
     return true;
   });
+
+  return filtered
+    .map((server, index) => ({ server, index, favorite: favoriteIds.has(serverIdentity(server)) }))
+    .sort((a, b) => Number(b.favorite) - Number(a.favorite) || a.index - b.index)
+    .map(({ server }) => server);
 }
